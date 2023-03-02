@@ -62,67 +62,67 @@ class ExSeq():
        
     ### =============== Retrieve =====================
     def retrieve_img(self,fov,code,c,ROI_min,ROI_max):
-        from exm.exseq.retrieve import retrieve_img
+        from exm.puncta.retrieve import retrieve_img
         return retrieve_img(self,fov,code,c,ROI_min,ROI_max)
     
     def retrieve_vol(self,fov,code,c,ROI_min,ROI_max):
-        from exm.exseq.retrieve import retrieve_vol
+        from exm.puncta.retrieve import retrieve_vol
         return retrieve_vol(self,fov,code,c,ROI_min,ROI_max)
 
     def retrieve_result(self,fov):
-        from exm.exseq.retrieve import retrieve_result
+        from exm.puncta.retrieve import retrieve_result
         return retrieve_result(self,fov)
     
     def retrieve_puncta(self,fov,puncta_index):
-        from exm.exseq.retrieve import retrieve_puncta
+        from exm.puncta.retrieve import retrieve_puncta
         return retrieve_puncta(self,fov,puncta_index)
     
     def retrieve_complete(self,fov):
-        from exm.exseq.retrieve import retrieve_complete
+        from exm.puncta.retrieve import retrieve_complete
         return retrieve_complete(self,fov)
         
     def retrieve_coordinate(self):
-        from exm.exseq.retrieve import retrieve_coordinate
+        from exm.puncta.retrieve import retrieve_coordinate
         return retrieve_coordinate(self)
         
     def retrieve_coordinate2(self):
-        from exm.exseq.retrieve import retrieve_coordinate2
+        from exm.puncta.retrieve import retrieve_coordinate2
         return retrieve_coordinate2(self)
        
     
     ### =============== Align =====================
     def transform_405_truncated(self,fov_code_pairs):
-        from exm.exseq.align3 import transform_405_truncated
+        from exm.align.align import transform_405_truncated
         transform_405_truncated(self,fov_code_pairs)
         
     def transform_405_full(self,fov_code_pairs):
-        from exm.exseq.align3 import transform_405_full
+        from exm.align.align import transform_405_full
         transform_405_full(self,fov_code_pairs)
 
     def transform_others_full(self,fov_code_pairs,num_cpu):
-        from exm.exseq.align3 import transform_others_full
+        from exm.align.align import transform_others_full
         transform_others_full(self,fov_code_pairs,num_cpu)
 
     def inspect_alignment(self,fov_code_pairs,temp_dir):
-        from exm.exseq.align3 import inspect_alignment
+        from exm.align.align import inspect_alignment
         inspect_alignment(self,fov_code_pairs,temp_dir)
 
 
     ### =============== Consolidate =====================
     def extract(self,fov_code_pairs,use_gpu=False,num_gpu = 3,num_cpu = 3,chunk_size=100):
-        from exm.exseq.extract import extract
+        from exm.puncta.extract import extract
         return extract(self,fov_code_pairs,use_gpu,num_gpu,num_cpu,chunk_size)
        
     def consolidate_channels_function(self,fov,code):
-        from exm.exseq.consolidate import consolidate_channels_function
+        from exm.puncta.consolidate import consolidate_channels_function
         consolidate_channels_function(self,fov,code)
 
     def consolidate_channels(self,fov_code_pairs):
-        from exm.exseq.consolidate import consolidate_channels
+        from exm.puncta.consolidate import consolidate_channels
         consolidate_channels(self,fov_code_pairs)
 
     def consolidate_codes(self,fovs,codes=range(7)):
-        from exm.exseq.consolidate import consolidate_codes
+        from exm.puncta.consolidate import consolidate_codes
         consolidate_codes(self,fovs,codes=range(7))
     
 
@@ -438,26 +438,26 @@ class ExSeq():
     
     ### ============== Help set the threshold================
     def inspect_raw_plotly(self,fov,code,c,ROI_min,ROI_max,zmax=600):
-        from exm.exseq.inspect import inspect_raw_plotly
+        from exm.puncta.inspect import inspect_raw_plotly
         inspect_raw_plotly(self,fov,code,c,ROI_min,ROI_max,zmax)
         
 
     ### ============== Help set the threshold================
     def inspect_raw_matplotlib(self,fov,code,c,ROI_min,ROI_max,vmax = 600):
-        from exm.exseq.inspect import inspect_raw_matplotlib
+        from exm.puncta.inspect import inspect_raw_matplotlib
         inspect_raw_matplotlib(self,fov,code,c,ROI_min,ROI_max,vmax = 600)
         
         
     ###============== Help set the threshold================
     def inspect_raw_channels_matplotlib(self,fov,code,ROI_min,ROI_max,vmax = 600):
-        from exm.exseq.inspect import inspect_raw_channels_matplotlib
+        from exm.puncta.inspect import inspect_raw_channels_matplotlib
         inspect_raw_channels_matplotlib(self,fov,code,ROI_min,ROI_max,vmax)
        
 
     ### ============= Inspection Per Channel =======================
     def inspect_localmaximum_plotly(self, fov, code, c, ROI_min, ROI_max):
 
-        from exm.exseq.inspect import inspect_localmaximum_plotly
+        from exm.puncta.inspect import inspect_localmaximum_plotly
         inspect_localmaximum_plotly(self, fov, code, c, ROI_min, ROI_max)
 
     
