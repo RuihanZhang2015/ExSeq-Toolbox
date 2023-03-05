@@ -10,15 +10,6 @@ from PIL import Image
 import skimage.measure
 from IPython.display import Image as Img2
 
-def mkdir(fn,opt=0):
-    if opt == 1 :# until the last /
-        fn = fn[:fn.rfind('/')]
-    if not os.path.exists(fn):
-        if opt==2:
-            os.makedirs(fn)
-        else:
-            os.mkdir(fn)
-# h5 files
 def readH5(filename, datasetname=None):
     fid = h5py.File(filename,'r')
     if datasetname is None:
@@ -131,6 +122,19 @@ def nd2ToVol(filename: str, fov: int, channel_name: str = '405 SD',ratio = 1):
     for z in range(len(vol)//ratio):
         out[z] = vol.get_frame_2D(c=channel_id, t=0, z=int(z*ratio), x=0, y=0, v=fov)[::ratio,::ratio]
     return out
+
+def nd2ToSlice(filename: str, fov: int, z: int, channel_name: str = '405 SD'):
+    # volume in zyx order
+    
+    vol = ND2Reader(filename)
+    channel_names = vol.metadata['channels']
+    channel_id = [x for x in range(len(channel_names)) if channel_name in channel_names[x]]
+    assert len(channel_id) == 1
+    channel_id = channel_id[0]
+
+    out = vol.get_frame_2D(c=channel_id, t=0, z=int(z), x=0, y=0, v=fov)
+    return out
+
 
 def createFolderStruc(out_dir: str, code: str):
     
