@@ -1,5 +1,5 @@
 """
-Code for volume alignment. For "thick" volumes (volumes that have more than 400 slices), use the alignment functions that end in "truncated".
+Code for volumetric alignment. For "thick" volumes (volumes that have more than 400 slices), use the alignment functions that end in "truncated".
 """
 
 
@@ -70,6 +70,54 @@ def identify_matching_z(args, code_fov_pairs = None, path = None):
         plt.title('fov{} code{}'.format(fov, code))
         plt.savefig(f'{save_path}/code{code}/fov{fov}.jpg')
         plt.close()
+        
+def correlation_lags(args, code_fov_pairs, path):
+    r"""Calculates the z-offset between the fixed and moving volume and writes it to a .json. A returned offset of -x means that the fixed volume
+    starts x slices before the move. A returned offset of x means that the fixed volume starts x slices after 
+    the move.
+    Args:
+        args (dict): configuration options.
+        code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
+        path (string): path to save the dictionary
+    """
+    
+    import json
+    import numpy as np 
+    from scipy import signal
+    
+    if not code_fov_pairs:
+        code_fov_pairs = [[code,fov] for code in args.codes if code!= args.ref_code for fov in args.fovs]
+    
+    lag_dict = {}
+    for code, fov in code_fov_pairs: 
+        
+        fixed_vol = nd2ToVol(args.nd2_path.format(args.ref_code, '405', 4), fov, '405 SD')
+        mov_vol = nd2ToVol(args.nd2_path.format(code, '405', 4), fov, '405 SD')
+    
+        intensities_fixed = np.array([np.mean(im.flatten()) for im in fixed_vol])
+        intensities_mov = np.array([np.mean(im.flatten()) for im in mov_vol])
+    
+        correlation = signal.correlate(intensities_fixed, intensities_mov, mode="full")
+        lags = signal.correlation_lags(intensities_fixed.size, intensities_mov.size, mode="full")
+        lag = lags[np.argmax(correlation)]
+        
+        if lag > 0:
+            lag_dict[(code, fov)] = [0, lag]
+        
+        else:
+            lag_dict[(code, fov)] = [lag, 0]
+            
+        # create json object from dictionary
+        json = json.dumps(dict)
+
+        # open file for writing, "w" 
+        f = open(f"{path}/starting.json","w")
+
+        # write json object to file
+        f.write(json)
+
+        # close file
+        f.close()
 
 
 def align_truncated(args, code_fov_pairs = None):
