@@ -17,17 +17,15 @@ class Args():
                 thresholds = None,
                 ):
         
-        
         if os.path.isfile(project_path + 'args.pkl'):
             with open(project_path + 'args.pkl','rb') as f:
-                self = pickle.load(f)
+                self.__dict__.update(pickle.load(f))
         else:
             self.project_path = project_path
-        
+
         # Input ND2 path
         if not hasattr(self,'nd2_path'):
             self.nd2_path = self.project_path + 'code{}/Channel{} SD_Seq000{}.nd2'
-
 
         # Output h5 path
         if not hasattr(self,'h5_path'):
@@ -38,7 +36,6 @@ class Args():
         if not hasattr(self,'h5_path_cropped'):
             self.h5_path_cropped = self.project_path + 'processed/code{}/{}_cropped.h5'
         
-
         # Codes and fovs
         if not ref_code and not hasattr(self,'ref_code'):
             self.ref_code = 0
@@ -59,19 +56,35 @@ class Args():
         # Thresholds
         if not thresholds and not hasattr(self,'thresholds'):
             self.thresholds = [200,300,300,200]
+
+        from exm.align.starting import starting
+        self.starting = starting
+        with open(self.project_path + 'args.pkl','wb') as f:
+            pickle.dump(self.__dict__,f)
+
     
-        def send_slack(self,message):
-            import os
-            os.system("curl -X POST -H \'Content-type: application/json\' --data \'{\"text\":\"{}\"}\' https://hooks.slack.com/services/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".format(message))
+    def send_slack(self,message):
+        import os
+        os.system("curl -X POST -H \'Content-type: application/json\' --data \'{\"text\":\" + 'amama'+   '\"}\' https://hooks.slack.com/services/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")
 
-        with open(project_path + 'args.pkl','wb') as f:
-            pickle.dump(self,f)
+        
+    def print(self):
+        for attr in dir(self):
+            # print(attr)
+            if not attr.startswith('__'):
+                print(attr,getattr(self,attr))
 
-        def print(self):
-            for attr in dir(self):
-                if not attr.startswith('__'):
-                    print(getattr(self,attr))
-
+    def tree(self):
+        import os
+        startpath = self.project_path + '/processed/'
+        for root, dirs, files in os.walk(startpath):
+            level = root.replace(startpath, '').count(os.sep)
+            indent = ' ' * 4 * (level)
+            print('{}{}/'.format(indent, os.path.basename(root)))
+            subindent = ' ' * 4 * (level + 1)
+            for f in files:
+                print('{}{}'.format(subindent, f))
+      
 
         # ### Visualization
         # doc = Document(sheet_path)

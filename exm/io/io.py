@@ -5,7 +5,7 @@ import pandas as pd
 from nd2reader import ND2Reader
 import statistics
 from tifffile import imread
-from .image import imAdjust
+# from .image import imAdjust
 from PIL import Image
 import skimage.measure
 from IPython.display import Image as Img2
@@ -113,7 +113,7 @@ def nd2ToVol(filename: str, fov: int, channel_name: str = '405 SD',ratio = 1):
     
     vol = ND2Reader(filename)
     channel_names = vol.metadata['channels']
-    print('Available channels:', channel_names)
+    # print('Available channels:', channel_names)
     channel_id = [x for x in range(len(channel_names)) if channel_name in channel_names[x]]
     assert len(channel_id) == 1
     channel_id = channel_id[0]
@@ -121,6 +121,21 @@ def nd2ToVol(filename: str, fov: int, channel_name: str = '405 SD',ratio = 1):
     out = np.zeros([len(vol)//ratio, vol[0].shape[0]//ratio , vol[0].shape[1] //ratio], np.uint16)
     for z in range(len(vol)//ratio):
         out[z] = vol.get_frame_2D(c=channel_id, t=0, z=int(z*ratio), x=0, y=0, v=fov)[::ratio,::ratio]
+    return out
+
+def nd2ToChunk(filename: str, fov: int, z_min: int, z_max :int, channel_name: str = '405 SD'):
+    # volume in zyx order
+    
+    vol = ND2Reader(filename)
+    channel_names = vol.metadata['channels']
+    # print('Available channels:', channel_names)
+    channel_id = [x for x in range(len(channel_names)) if channel_name in channel_names[x]]
+    assert len(channel_id) == 1
+    channel_id = channel_id[0]
+
+    out = np.zeros([z_max-z_min, vol[0].shape[0], vol[0].shape[1]], np.uint16)
+    for z in range(z_max-z_min):
+        out[z] = vol.get_frame_2D(c=channel_id, t=0, z=z+z_min, x=0, y=0, v=fov)
     return out
 
 def nd2ToSlice(filename: str, fov: int, z: int, channel_name: str = '405 SD'):
