@@ -80,8 +80,7 @@ def correlation_lags(args, code_fov_pairs = None, path = None):
         code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
         path (string): path to save the dictionary. Default: ``None``
     """
-    
-    import json
+    import pickle
     import numpy as np 
     from scipy import signal
     
@@ -102,23 +101,14 @@ def correlation_lags(args, code_fov_pairs = None, path = None):
         lag = lags[np.argmax(correlation)]
         
         if lag > 0:
-            lag_dict[(code, fov)] = [0, lag]
+            lag_dict[f'({code}, {fov})'] = [0, lag]
         
         else:
-            lag_dict[(code, fov)] = [lag, 0]
-            
-        # create json object from dictionary
-        json = json.dumps(dict)
-
-        # open file for writing, "w" 
-        f = open(f"{path}/starting.json","w")
-
-        # write json object to file
-        f.write(json)
-
-        # close file
-        f.close()
-
+            lag_dict[f'({code}, {fov})'] = [abs(lag), 0]
+           
+    with open(f'{path}/z_offset.pkl', 'wb') as f: 
+        pickle.dump(lag_dict, f, protocol=pickle.HIGHEST_PROTOCOL)
+    
 
 def align_truncated(args, code_fov_pairs = None):
     r"""For each volume in code_fov_pairs, find corresponding reference volume, crop both according to starting.py, then perform alignment. 
