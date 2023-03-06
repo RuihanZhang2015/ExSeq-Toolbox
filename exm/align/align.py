@@ -71,14 +71,14 @@ def identify_matching_z(args, code_fov_pairs = None, path = None):
         plt.savefig(f'{save_path}/code{code}/fov{fov}.jpg')
         plt.close()
         
-def correlation_lags(args, code_fov_pairs, path):
+def correlation_lags(args, code_fov_pairs = None, path = None):
     r"""Calculates the z-offset between the fixed and moving volume and writes it to a .json. A returned offset of -x means that the fixed volume
     starts x slices before the move. A returned offset of x means that the fixed volume starts x slices after 
     the move.
     Args:
         args (dict): configuration options.
         code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
-        path (string): path to save the dictionary
+        path (string): path to save the dictionary. Default: ``None``
     """
     
     import json
@@ -271,13 +271,13 @@ def inspect_align_truncated(args, fov_code_pairs = None, path = None):
         plt.close()
 
 
-def transform_other_function(args, tasks_queue, q_lock, mode):
+def transform_other_function(args, tasks_queue = None, q_lock = None, mode = 'all'):
     r"""Description 
     Args:
-        args (dict): configuration options.
-        tasks_queue (list): 
-        q_lock (): 
-        mode (): 
+        args (dict): configuration options. 
+        tasks_queue (list):  Default: ``None``
+        q_lock (): Default: ``None``
+        mode (): Default: ``all``
     """
 
     import multiprocessing
@@ -348,14 +348,14 @@ def transform_other_function(args, tasks_queue, q_lock, mode):
                         f.create_dataset(channel_name, out.shape, dtype=out.dtype, data = out)                 
 
 
-def transform_other_code(args, code_fov_pairs = None, num_cpu = 8, mode='all'):
+def transform_other_code(args, code_fov_pairs = None, num_cpu = 8, mode = 'all'):
                     
     r"""Description 
     Args:
         args (dict): configuration options.
         code_fov_pairs (list): 
         num_cpu (int): the number of cpus to use for parallel processing. Default: ``8``
-        mode (string): 
+        mode (string): Default: ``all``
     """
         
     import os
