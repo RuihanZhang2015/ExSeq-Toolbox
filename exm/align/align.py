@@ -18,6 +18,7 @@ def transform_ref_code(args, code_fov_pairs = None, mode = 'all'):
                 fix_vol = nd2ToVol(args.nd2_path.format(code,channel_name,channel_name_ind), fov, channel_name)
                 f.create_dataset(channel_name, fix_vol.shape, dtype=fix_vol.dtype, data = fix_vol)
 
+        args.chmod()
 
 def identify_matching_z(args,code_fov_pairs = None):
 
@@ -54,6 +55,7 @@ def identify_matching_z(args,code_fov_pairs = None):
         plt.savefig('/mp/nas2/ruihan/ExSeqProcessing2/output/step1_matching_z/code{}/fov{}.jpg'.format(code,fov))
         plt.close()
 
+        args.chmod()
 
 def align_truncated(args, code_fov_pairs):
 
@@ -120,7 +122,7 @@ def align_truncated(args, code_fov_pairs):
         # Save the results
         with h5py.File(args.h5_path_cropped.format(code,fov), 'w') as f:
             f.create_dataset('405', out.shape, dtype=out.dtype, data = out)
-
+        args.chmod()
 
 def inspect_align_truncated(args,fov_code_pairs):
 

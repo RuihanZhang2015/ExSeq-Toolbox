@@ -22,6 +22,7 @@ class Args():
                 self.__dict__.update(pickle.load(f))
         else:
             self.project_path = project_path
+        # self.project_path = project_path
 
         # Input ND2 path
         if not hasattr(self,'nd2_path'):
@@ -61,7 +62,7 @@ class Args():
         self.starting = starting
         with open(self.project_path + 'args.pkl','wb') as f:
             pickle.dump(self.__dict__,f)
-
+        self.chmod()
     
     def send_slack(self,message):
         import os
@@ -85,6 +86,9 @@ class Args():
             for f in files:
                 print('{}{}'.format(subindent, f))
       
+    def chmod(self):
+        import os
+        os.system('chmod 777 -R {}'.format(self.project_path))
 
         # ### Visualization
         # doc = Document(sheet_path)
