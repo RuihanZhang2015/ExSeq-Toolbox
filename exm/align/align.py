@@ -1,10 +1,10 @@
 """
-Insert description of .py file.
+Code for volume alignment. For "thick" volumes (volumes that have more than 400 slices), use the alignment functions that end in "truncated".
 """
 
 
 def transform_ref_code(args, code_fov_pairs = None, mode = 'all'):
-    r"""Description of the function here. 
+    r"""For each volume specified in code_fov_pairs, convert from an nd2 file to an array, then save into an .h5 file.
     Args:
         args (dict): configuration options.
         code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
@@ -29,9 +29,14 @@ def transform_ref_code(args, code_fov_pairs = None, mode = 'all'):
                 fix_vol = nd2ToVol(args.nd2_path.format(code,channel_name,channel_name_ind), fov, channel_name)
                 f.create_dataset(channel_name, fix_vol.shape, dtype=fix_vol.dtype, data = fix_vol)
 
-        args.chmod()
 
-def identify_matching_z(args,code_fov_pairs = None):
+def identify_matching_z(args, code_fov_pairs = None, path = None):
+    r"""For each volume specified in code_fov_pairs, save a series of images that allow the user to match corresponding z-slices. 
+    Args:
+        args (dict): configuration options.
+        code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
+        path (string): Path to save the images. Default: ``None``
+    """
 
     from exm.io.io import nd2ToSlice
     import numpy as np
@@ -43,8 +48,8 @@ def identify_matching_z(args,code_fov_pairs = None):
     
     for code, fov in code_fov_pairs: 
 
-        if not os.path.exists('/mp/nas2/ruihan/ExSeqProcessing2/output/step1_matching_z/code{}/'.format(code)):
-            os.makedirs('/mp/nas2/ruihan/ExSeqProcessing2/output/step1_matching_z/code{}/'.format(code))
+        if not os.path.exists(f'{save_path}/code{code}'):
+            os.makedirs(f'{save_path}/code{code}')
             
         fig,axs = plt.subplots(2,5,figsize = (25,10))
             
@@ -62,13 +67,18 @@ def identify_matching_z(args,code_fov_pairs = None):
             axs[1,i].imshow(im,vmax = 600)
             axs[1,i].set_xlabel(z)
 
-        plt.title('fov{} code{}'.format(fov,code))
-        plt.savefig('/mp/nas2/ruihan/ExSeqProcessing2/output/step1_matching_z/code{}/fov{}.jpg'.format(code,fov))
+        plt.title('fov{} code{}'.format(fov, code))
+        plt.savefig(f'{save_path}/code{code}/fov{fov}.jpg')
         plt.close()
 
-        args.chmod()
 
-def align_truncated(args, code_fov_pairs):
+def align_truncated(args, code_fov_pairs = None):
+    r"""For each volume in code_fov_pairs, find corresponding reference volume, crop both according to starting.py, then perform alignment. 
+    
+    Args:
+        args (dict): configuration options.
+        code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
+    """
 
     import SimpleITK as sitk
     import h5py
@@ -85,15 +95,16 @@ def align_truncated(args, code_fov_pairs):
         # Get the indexes in the matching slices in two dataset
         fix_start,mov_start,last = args.starting[tuple([code,fov])]
 
-        # fix volume
+        # Fixed volume
         fix_vol = nd2ToChunk(args.nd2_path.format(args.ref_code,'405',4), fov, fix_start, fix_start+last)
 
-        # mov volume
+        # Move volume
         mov_vol = nd2ToChunk(args.nd2_path.format(code,'405',4), fov, mov_start, mov_start+last)
 
         # Align
         elastixImageFilter = sitk.ElastixImageFilter()
 
+        ## WE SHOULD MOVE SETTING THE PARAMETERS OUTSIDE OF THIS FUNCTION 
         fix_vol_sitk = sitk.GetImageFromArray(fix_vol)
         fix_vol_sitk.SetSpacing([1.625,1.625,4.0])
         elastixImageFilter.SetFixedImage(fix_vol_sitk)
@@ -116,7 +127,6 @@ def align_truncated(args, code_fov_pairs):
         sitk.PrintParameterMap(transform_map)
         sitk.WriteParameterFile(transform_map[0], args.tform_path.format(code,fov))
 
-
         # Apply transform
         transform_map = sitk.ReadParameterFile(args.tform_path.format(code,fov))
         transformix = sitk.TransformixImageFilter()
@@ -133,9 +143,15 @@ def align_truncated(args, code_fov_pairs):
         # Save the results
         with h5py.File(args.h5_path_cropped.format(code,fov), 'w') as f:
             f.create_dataset('405', out.shape, dtype=out.dtype, data = out)
-        args.chmod()
 
-def inspect_align_truncated(args,fov_code_pairs):
+
+def inspect_align_truncated(args, fov_code_pairs = None, path = None):
+    r"""For each volume in code_fov_pairs, save a series of images that allow the user to check the quality of alignmentt. 
+    Args:
+        args (dict): configuration options.
+        code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
+        path (string): Path to save the images. Default: ``None``
+    """
 
     import matplotlib.pyplot as plt
     import numpy as np
@@ -167,7 +183,7 @@ def inspect_align_truncated(args,fov_code_pairs):
             axs[1,i].imshow(im,vmax = 600)
             axs[1,i].set_xlabel(z)
             axs[1,i].set_ylabel('transformed')
-        plt.savefig('/mp/nas2/ruihan/ExSeqProcessing2/output/step2_check_align/code{}/fov{}_large.jpg'.format(code,fov))
+        plt.savefig(f'{path}/code{}/fov{}_large.jpg'.format(code,fov))
         plt.close()
 
         # ------------ Top left corner-------------------
@@ -185,7 +201,7 @@ def inspect_align_truncated(args,fov_code_pairs):
             axs[1,i].imshow(im,vmax = 600)
             axs[1,i].set_xlabel(z)
             axs[1,i].set_ylabel('transformed')
-        plt.savefig('/mp/nas2/ruihan/ExSeqProcessing2/output/step2_check_align/code{}/fov{}_topleft.jpg'.format(code,fov))
+        plt.savefig(f'{path}/code{}/fov{}_topleft.jpg'.format(code,fov))
         plt.close()
 
         # ------------ Bottom right corner----------
@@ -203,11 +219,18 @@ def inspect_align_truncated(args,fov_code_pairs):
             axs[1,i].imshow(im,vmax = 600)
             axs[1,i].set_xlabel(z)
             axs[1,i].set_ylabel('transformed')
-        plt.savefig('/mp/nas2/ruihan/ExSeqProcessing2/output/step2_check_align/code{}/fov{}_bottomright.jpg'.format(code,fov))
+        plt.savefig('f'{path}/code{}/fov{}_bottomright.jpg'.format(code,fov))
         plt.close()
 
 
-def transform_other_function(args,tasks_queue,q_lock,mode):
+def transform_other_function(args, tasks_queue, q_lock, mode):
+    r"""Description 
+    Args:
+        args (dict): configuration options.
+        tasks_queue (list): 
+        q_lock (): 
+        mode (): 
+    """
 
     import multiprocessing
     import queue
@@ -232,7 +255,7 @@ def transform_other_function(args,tasks_queue,q_lock,mode):
             print(code,fov,'----------------------')
             
             # Load the start position
-            fix_start,mov_start,last = args.starting[tuple([code,fov])]
+            fix_start, mov_start, last = args.starting[tuple([code,fov])]
 
             with h5py.File(args.h5_name.format(code,fov), 'a') as f:
                 
@@ -277,7 +300,15 @@ def transform_other_function(args,tasks_queue,q_lock,mode):
                         f.create_dataset(channel_name, out.shape, dtype=out.dtype, data = out)                 
 
 
-def transform_other_code(args,code_fov_pairs,num_cpu=8, mode='all'):
+def transform_other_code(args, code_fov_pairs = None, num_cpu = 8, mode='all'):
+                    
+    r"""Description 
+    Args:
+        args (dict): configuration options.
+        code_fov_pairs (list): 
+        num_cpu (int): the number of cpus to use for parallel processing. Default: ``8``
+        mode (string): 
+    """
         
     import os
     import multiprocessing 
