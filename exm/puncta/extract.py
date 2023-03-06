@@ -71,7 +71,7 @@ def calculate_coords_gpu(args, tasks_queue,device,lock,queue_lock):
             print('------ Fov:{}, Code:{} Finished on {}\n'.format(fov,code, current_process().name))
 
 
-def puncta_extraction_gpu(self, tasks_queue, num_gpu):
+def puncta_extraction_gpu(args, tasks_queue, num_gpu):
             
     import time
     from multiprocessing import Lock, Process
@@ -96,7 +96,7 @@ def puncta_extraction_gpu(self, tasks_queue, num_gpu):
     process_per_gpu = 1
     for gpu_device in gpu_locks:
         for cpu_cores in range(process_per_gpu):
-            p = Process(target=calculate_coords_gpu, args=(self, tasks_queue,int(gpu_device[0]),gpu_device[1],q_lock))
+            p = Process(target=calculate_coords_gpu, args=(args, tasks_queue,int(gpu_device[0]),gpu_device[1],q_lock))
             child_processes.append(p)
             p.start()
 
@@ -108,7 +108,7 @@ def puncta_extraction_gpu(self, tasks_queue, num_gpu):
     print("total_processing_time",time.time()-start_time,"s")
 
 
-def calculate_coords_cpu(self,tasks_queue,queue_lock):
+def calculate_coords_cpu(args,tasks_queue,queue_lock):
 
     import numpy as np
     from scipy.ndimage import gaussian_filter
@@ -136,19 +136,19 @@ def calculate_coords_cpu(self,tasks_queue,queue_lock):
                         
             coords_total = collections.defaultdict(list)
 
-            with h5py.File(self.args.h5_path.format(code,fov), "r") as f:
-                num_z = len(f[self.args.channel_names[0]][:,0,0])
+            with h5py.File(args.h5_path.format(code,fov), "r") as f:
+                num_z = len(f[args.channel_names[0]][:,0,0])
 
             for c in range(4):
 
                 for chunk in range((num_z//chunk_size)+1):
 
-                    with h5py.File(self.args.h5_path.format(code,fov), "r") as f:
-                        img = f[self.args.channel_names[c]][max(chunk_size*chunk-7,0):min(chunk_size*(chunk+1)+7,num_z),:,:]
+                    with h5py.File(args.h5_path.format(code,fov), "r") as f:
+                        img = f[args.channel_names[c]][max(chunk_size*chunk-7,0):min(chunk_size*(chunk+1)+7,num_z),:,:]
                         f.close()
 
                     gaussian_filter(img, 1, output=img, mode='reflect', cval=0)
-                    coords = peak_local_max(img, min_distance = 7, threshold_abs=self.args.thresholds[c],exclude_border=False)
+                    coords = peak_local_max(img, min_distance = 7, threshold_abs= args.thresholds[c],exclude_border=False)
 
                     #offset the z-axis between chunks
                     coords[:,0] += max(chunk_size*chunk-7,0)
@@ -163,14 +163,14 @@ def calculate_coords_cpu(self,tasks_queue,queue_lock):
             for c in range(4):
                 coords_total['c{}'.format(c)] = np.unique(coords_total['c{}'.format(c)], axis=0)
 
-            with open(self.args.work_path + '/fov{}/coords_total_code{}.pkl'.format(fov,code), 'wb') as f:
+            with open(args.project_path + 'processed/fov{}/coords_total_code{}.pkl'.format(fov,code), 'wb') as f:
                 pickle.dump(coords_total,f)
                 f.close()
 
         print('Fov:{}, Code:{} Finished on'.format(fov,code),current_process().name)
 
 
-def puncta_extraction_cpu(self,tasks_queue,num_cpu):
+def puncta_extraction_cpu(args,tasks_queue,num_cpu):
 
     import time
     from multiprocessing import Lock, Process
@@ -188,7 +188,7 @@ def puncta_extraction_cpu(self,tasks_queue,num_cpu):
     # Execute the extraction tasks on the CPU only.
     # Create and start a parallel execution processes based on the number of 'cpu_execution_core'. 
     for w in range(int(num_cpu)):
-        p = Process(target=calculate_coords_cpu, args=(self,tasks_queue,q_lock))
+        p = Process(target=calculate_coords_cpu, args=(args,tasks_queue,q_lock))
         child_processes.append(p)
         p.start()
 
@@ -198,9 +198,9 @@ def puncta_extraction_cpu(self,tasks_queue,num_cpu):
 
     ## Show the total execution time.  
     print("total_processing_time",time.time()-start_time,"s")
-            
+
         
-def extract(self,fov_code_pairs,use_gpu=False,num_gpu = 3,num_cpu = 3):
+def extract(args,fov_code_pairs,use_gpu=False,num_gpu = 3,num_cpu = 3):
 
     from multiprocessing import Queue
     
@@ -213,8 +213,8 @@ def extract(self,fov_code_pairs,use_gpu=False,num_gpu = 3,num_cpu = 3):
         
     if use_gpu:
         processing_device = 'GPU'
-        puncta_extraction_gpu(self,tasks_queue,num_gpu)
+        puncta_extraction_gpu(args,tasks_queue,num_gpu)
     else:
         processing_device = 'CPU'
-        puncta_extraction_cpu(self,tasks_queue,num_cpu)
+        puncta_extraction_cpu(args,tasks_queue,num_cpu)
         

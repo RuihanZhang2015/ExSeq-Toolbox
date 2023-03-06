@@ -17,8 +17,8 @@ class Args():
                 thresholds = None,
                 ):
         
-        if os.path.isfile(project_path + 'args.pkl'):
-            with open(project_path + 'args.pkl','rb') as f:
+        if os.path.isfile(project_path + 'args2.pkl'):
+            with open(project_path + 'args2.pkl','rb') as f:
                 self.__dict__.update(pickle.load(f))
         else:
             self.project_path = project_path
@@ -60,7 +60,7 @@ class Args():
 
         from exm.align.starting import starting
         self.starting = starting
-        with open(self.project_path + 'args.pkl','wb') as f:
+        with open(self.project_path + 'args2.pkl','wb') as f:
             pickle.dump(self.__dict__,f)
         self.chmod()
     

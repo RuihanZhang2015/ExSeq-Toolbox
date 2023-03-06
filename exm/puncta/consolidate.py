@@ -73,7 +73,7 @@ def consolidate_channels_function(args,fov,code):
         pickle.dump(reference,f)
      
 
-def consolidate_channels(self,fov_code_pairs):
+def consolidate_channels(args,fov_code_pairs):
 
     '''
     exseq.consolidate_channels(
@@ -92,7 +92,7 @@ def consolidate_channels(self,fov_code_pairs):
                 print("No task left for "+ current_process().name)
                 break
             else:
-                self.consolidate_channels_function(fov,code)
+                consolidate_channels_function(fov,code)
                 print('finish fov{},code{}'.format(fov,code))        
                 
                 
@@ -128,7 +128,7 @@ def consolidate_channels(self,fov_code_pairs):
     for p in child_processes:
         p.join()
         
-### ================== Consolidate Codes ===================
+
 def consolidate_codes(args,fovs,codes=range(7)):
         
     '''
