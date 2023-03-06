@@ -1,4 +1,15 @@
+"""
+Insert description of .py file.
+"""
+
+
 def transform_ref_code(args, code_fov_pairs = None, mode = 'all'):
+    r"""Description of the function here. 
+    Args:
+        args (dict): configuration options.
+        code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
+        mode (str): running mode. Default: ``'all'``
+    """
 
     import h5py
     from exm.io.io import nd2ToVol
