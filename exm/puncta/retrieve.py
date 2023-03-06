@@ -3,18 +3,25 @@ import os
 import numpy as np
 import pickle
 
-################ Retrieve ###############################
-#########################################################
-def retrieve_img(self,fov,code,c,ROI_min,ROI_max):
-    with h5py.File(self.args.h5_path.format(code,fov), "r") as f:
-        im = f[self.args.channel_names[c]][ROI_min[0],max(0,ROI_min[1]):min(2048,ROI_max[1]),max(0,ROI_min[2]):min(2048,ROI_max[2])]
+
+def retrieve_img(args,fov,code,c,ROI_min,ROI_max):
+
+    if ROI_min != ROI_max:
+        print('use middle z slices')
+        zz = int((ROI_min[0]+ROI_max[0])//2)
+
+    with h5py.File(args.h5_path.format(code,fov), "r") as f:
+        im = f[args.channel_names[c]][zz, max(0,ROI_min[1]):min(2048,ROI_max[1]), max(0,ROI_min[2]):min(2048,ROI_max[2])]
         im = np.squeeze(im)
+
     return im
     
 def retrieve_vol(self,fov,code,c,ROI_min,ROI_max):
+    
     '''
     exseq.retrieve_vol(fov,code,c,ROI_min,ROI_max)
     '''
+    
     with h5py.File(self.args.h5_path.format(code,fov), "r") as f:
         vol = f[self.args.channel_names[c]][max(0,ROI_min[0]):ROI_max[0],max(0,ROI_min[1]):min(2048,ROI_max[1]),max(0,ROI_min[2]):min(2048,ROI_max[2])]    
     return vol

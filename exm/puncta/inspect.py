@@ -1,37 +1,49 @@
-import matplotlib.pyplot as plt
-import h5py
-import plotly.graph_objects as go
-import plotly.express as px
+# import matplotlib.pyplot as plt
+# import h5py
+# import plotly.graph_objects as go
+# import plotly.express as px
 
 
-
-### ============== Help set the threshold================
-def inspect_raw_plotly(self,fov,code,c,ROI_min,ROI_max,zmax):
+def in_region(self,coord,ROI_min,ROI_max):
         
-        from scipy.ndimage import gaussian_filter
-        from skimage.feature import peak_local_max
+    """in_region(self,coord,ROI_min,ROI_max)"""
 
-        '''
-        exseq.inspect_raw_plotly(
+    import numpy as np
+    coord = np.asarray(coord)
+    ROI_min = np.asarray(ROI_min)
+    ROI_max = np.asarray(ROI_max)
+
+    if np.all(coord>=ROI_min) and np.all(coord<ROI_max):
+        return True
+    else:
+        return False
+        
+# Raw
+def inspect_raw_plotly(args,fov,code,c,ROI_min,ROI_max,vmax):
+        
+    '''
+    exseq.inspect_raw_plotly(
                 fov=
                 ,code=
                 ,c=
                 ,ROI_min=
                 ,ROI_max=
                 ,zmax = 600)
-        '''
-        
-        with h5py.File(self.args.h5_path.format(code,fov), "r") as f:
-            img = f[self.args.channel_names[c]][ROI_min[0],ROI_min[1]:ROI_max[1],ROI_min[2]:ROI_max[2]]
-        gaussian_filter(img, 1, output=img, mode='reflect', cval=0)
-        fig = px.imshow(img,zmax = zmax)
-        fig.show()
+    '''
+    from scipy.ndimage import gaussian_filter
+    from skimage.feature import peak_local_max
+    import plotly.express as px
+    
+    img = args.retrieve_img(fov,code,c,ROI_min,ROI_max)
+    gaussian_filter(img, 1, output=img, mode='reflect', cval=0)
 
-### ============== Help set the threshold================
-def inspect_raw_matplotlib(self,fov,code,c,ROI_min,ROI_max,vmax):
+    fig = px.imshow(img, zmax = vmax)
+    fig.show()
 
 
-        '''
+def inspect_raw_matplotlib(args,fov,code,c,ROI_min,ROI_max,vmax=500):
+
+    '''
         exseq.inspect_raw_matplotlib(
                 fov=
                 ,code=
@@ -39,140 +51,130 @@ def inspect_raw_matplotlib(self,fov,code,c,ROI_min,ROI_max,vmax):
                 ,ROI_min=
                 ,ROI_max=
                 ,vmax = 600)
-        '''
+    '''
 
-        fig,ax = plt.subplots(1,1)
+    import matplotlib.pyplot as plt
+    import h5py
+
+    img = args.retrieve_img(fov,code,c,ROI_min,ROI_max)
+    
+    fig,ax = plt.subplots(1,1)
+    ax.imshow(img, vmax)
+    plt.show()
         
-        with h5py.File(self.args.h5_path.format(code,fov), "r") as f:
-            img = f[self.args.channel_names[c]][ROI_min[0],ROI_min[1]:ROI_max[1],ROI_min[2]:ROI_max[2]]
-        ax.imshow(img, vmax = vmax)
-        plt.show()
+
+# Local maximum
+def inspect_localmaximum_matplotlib(args,fov,code,ROI_min,ROI_max,vmax):
+
+    import matplotlib.pyplot as plt
+    import h5py
+
+    fig,ax = plt.subplots(1,5,figsize = (20,5))
+    for c in range(5):
+        img = args.retrieve_img(fov,code,c,ROI_min,ROI_max)
+        ax[c].imshow(img, vmax = vmax)
+    plt.show()
+
+
+def inspect_localmaximum_plotly(args, fov, code, c, ROI_min, ROI_max):
         
-###============== Help set the threshold================
-def inspect_raw_channels_matplotlib(self,fov,code,ROI_min,ROI_max,vmax):
-        
-        '''
-        exseq.inspect_rawFive_matplotlib(
-                fov=
-                ,code=
-                ,ROI_min=
-                ,ROI_max=
-                ,vmax = 600)
-        '''
+    import plotly.graph_objects as go
+    import numpy as np
+    import h5py
+    import pickle
 
-        fig,ax = plt.subplots(1,5,figsize = (20,5))
-        for c in range(5):
-            with h5py.File(self.args.h5_path.format(code,fov), "r") as f:
-                img = f[self.args.channel_names[c]][ROI_min[0],ROI_min[1]:ROI_max[1],ROI_min[2]:ROI_max[2]]
-                ax[c].imshow(img, vmax = vmax)
-        plt.show()
+    fig = go.Figure()
 
+    ## Surface -------------
+    for zz in np.linspace(ROI_min[0],ROI_max[0],6):
 
-### ============= Inspection Per Channel =======================
-def inspect_localmaximum_plotly(self, fov, code, c, ROI_min, ROI_max):
-        
-        '''
-        exseq.inspect_channels_plotly(
-                fov= 
-                ,code= 
-                ,c=
-                ,ROI_min=
-                ,ROI_max=
-                )
-        '''
+        img = args.retrieve_img(fov,code,c,[int(zz),ROI_min[1],ROI_min[2]],[int(zz),ROI_max[1],ROI_max[2]])
 
-        fig = go.Figure()
+        y = list(range(ROI_min[1], ROI_max[1]))
+        x = list(range(ROI_min[2], ROI_max[2]))
+        z = np.ones((ROI_max[1]-ROI_min[1],ROI_max[2]-ROI_min[2])) * (int(zz)+0.2*c)
 
-        ## Surface -------------
-        for zz in np.linspace(ROI_min[0],ROI_max[0],6):
-
-            with h5py.File(self.args.h5_path.format(code,fov), "r") as f:
-                im = f[self.args.channel_names[c]][int(zz),ROI_min[1]:ROI_max[1],ROI_min[2]:ROI_max[2]]
-                im = np.squeeze(im)
-            y = list(range(ROI_min[1], ROI_max[1]))
-            x = list(range(ROI_min[2], ROI_max[2]))
-            z = np.ones((ROI_max[1]-ROI_min[1],ROI_max[2]-ROI_min[2])) * (int(zz)+0.2*c)
-            fig.add_trace(go.Surface(x=x, y=y, z=z,
-                surfacecolor=im,
-                cmin=0, 
-                cmax=500,
-                colorscale=self.args.colorscales[c],
-                showscale=False,
-                opacity = 0.2,
+        fig.add_trace(go.Surface(x=x, y=y, z=z,
+            surfacecolor=img,
+            cmin=0, 
+            cmax=500,
+            colorscale=args.colorscales[c],
+            showscale=False,
+            opacity = 0.2,
         ))
 
-        ## Scatter --------------
-        with open(self.args.work_path +'/fov{}/coords_total_code{}.pkl'.format(fov,code), 'rb') as f:
-            coords_total = pickle.load(f)
-            temp = []
-            for coord in coords_total['c{}'.format(c)]:
-                if self.in_region(coord,ROI_min,ROI_max):
-                    temp.append(coord)     
-            temp = np.asarray(temp)
-            if len(temp) > 0:
-                fig.add_trace(go.Scatter3d(
-                    z=temp[:,0],
-                    y=temp[:,1],
-                    x=temp[:,2],
-                    mode = 'markers',
-                    marker = dict(
-                        color = self.args.colors[c],
-                        size = 4 ,
-                    )
-                ))
-
-        # ---------------------
-        fig.update_layout(
-            title="fov{}, code{}, channel {}".format(fov,code,self.args.channel_names[c]),
-            width=800,
-            height=800,
-
-            scene=dict(
-                aspectmode = 'data',
-                xaxis_visible = True,
-                yaxis_visible = True, 
-                zaxis_visible = True, 
-                xaxis_title = "X",
-                yaxis_title = "Y",
-                zaxis_title = "Z" ,
+    ## Scatter --------------
+    with open(args.project_path +'processed/fov{}/coords_total_code{}.pkl'.format(fov,code), 'rb') as f:
+        coords_total = pickle.load(f)
+        temp = []
+        for coord in coords_total['c{}'.format(c)]:
+            if in_region(coord,ROI_min,ROI_max):
+                temp.append(coord)     
+        temp = np.asarray(temp)
+        if len(temp) > 0:
+            fig.add_trace(go.Scatter3d(
+                z=temp[:,0],
+                y=temp[:,1],
+                x=temp[:,2],
+                mode = 'markers',
+                marker = dict(
+                    color = args.colors[c],
+                    size = 4 ,
+                )
             ))
 
-        fig.show()
+    # ---------------------
+    fig.update_layout(
+        title="fov{}, code{}, channel {}".format(fov,code,args.channel_names[c]),
+        width=800,
+        height=800,
+        scene=dict(
+            aspectmode = 'data',
+            xaxis_visible = True,
+            yaxis_visible = True, 
+            zaxis_visible = True, 
+            xaxis_title = "X",
+            yaxis_title = "Y",
+            zaxis_title = "Z" ,
+        ))
+
+    fig.show()
 
 
-### ===============Inspect ROI ===================
-def inspect_ROI_matplotlib(self, fov, code, position, centered=40):
+# puncta in ROIs
+def inspect_puncta_ROI_matplotlib(args, fov, code, position, centered=40):
 
-        '''
-        exseq.inspect_ROI_matplotlib(fov = 21, code = 5, position = [338, 1202, 1383], centered = 40)
-        '''
-        reference = self.retrieve_result(fov)
+    '''
+    exseq.inspect_ROI_matplotlib(fov = 21, code = 5, position = [338, 1202, 1383], centered = 40)
+    '''
+    
+    reference = args.retrieve_result(fov)
         
-        fig,axs = plt.subplots(4,10,figsize = (15,7))
+    fig,axs = plt.subplots(4,10,figsize = (15,7))
 
-        for c in range(4):
-            for z_ind,z in enumerate(np.linspace(position[0] - 10,position[0] + 10,10)):
-                ROI_min = [int(z),position[1] - centered, position[2] - centered]
-                ROI_max = [int(z),position[1] + centered, position[2] + centered]
-                img = self.retrieve_img(fov,code,c,ROI_min,ROI_max)
-                axs[c,z_ind].imshow(img,cmap=plt.get_cmap(self.args.colorscales[c]),vmax = 150)
+    for c in range(4):
+        for z_ind,z in enumerate(np.linspace(position[0] - 10,position[0] + 10,10)):
+            ROI_min = [int(z),position[1] - centered, position[2] - centered]
+            ROI_max = [int(z),position[1] + centered, position[2] + centered]
+            img = self.retrieve_img(fov,code,c,ROI_min,ROI_max)
+            axs[c,z_ind].imshow(img,cmap=plt.get_cmap(self.args.colorscales[c]),vmax = 150)
 
-        ROI_min = [position[0] - 10,position[1] - centered, position[2] - centered]
-        ROI_max = [position[0] + 10,position[1] + centered, position[2] + centered]    
-        temp = [x['code{}'.format(code)] for x in reference if 'code{}'.format(code) in x and self.in_region(x['code{}'.format(code)]['position'], ROI_min,ROI_max) ] 
+    ROI_min = [position[0] - 10,position[1] - centered, position[2] - centered]
+    ROI_max = [position[0] + 10,position[1] + centered, position[2] + centered]    
+    temp = [x['code{}'.format(code)] for x in reference if 'code{}'.format(code) in x and self.in_region(x['code{}'.format(code)]['position'], ROI_min,ROI_max) ] 
 
-        for c in range(4):
-            temp2 = [x['c{}'.format(c)]['position'] for x in temp if 'c{}'.format(c) in x]
-            for puncta in temp2:
-                axs[c,(puncta[0]-position[0]+10)//2].scatter(puncta[1]-position[1]+centered,puncta[2]-position[2]+centered,s = 20)
+    for c in range(4):
+        temp2 = [x['c{}'.format(c)]['position'] for x in temp if 'c{}'.format(c) in x]
+        for puncta in temp2:
+            axs[c,(puncta[0]-position[0]+10)//2].scatter(puncta[1]-position[1]+centered,puncta[2]-position[2]+centered,s = 20)
         
         
 
-        fig.suptitle('fov{} code{}'.format(fov,code))    
-        plt.show()
+    fig.suptitle('fov{} code{}'.format(fov,code))    
+    plt.show()
         
-#### ============== Inspect ROI ====================
-def inspect_ROI_plotly(self, fov, ROI_min, ROI_max, codes, c_list=[0,1,2,3],centered=40):
+
+def inspect_puncta_ROI_plotly(args, fov, ROI_min, ROI_max, codes, c_list=[0,1,2,3],centered=40):
 
         '''
         exseq.inspect_fov_all(
@@ -274,8 +276,8 @@ def inspect_ROI_plotly(self, fov, ROI_min, ROI_max, codes, c_list=[0,1,2,3],cent
         fig.show()
 
 
-### ==========Inspect puncta matplotlib===================
-def inspect_puncta_matplotlib(self,fov,puncta_index, centered=40):
+# Individual puncta
+def inspect_puncta_individual_matplotlib(args,fov,puncta_index, centered=40):
 
         '''
         exseq.inspect_puncta_matplotlib(fov,puncta_index = 100, centered = 40)
@@ -304,8 +306,7 @@ def inspect_puncta_matplotlib(self,fov,puncta_index, centered=40):
         plt.show() 
    
         
-### ========== Inspect puncta plotly==============
-def inspect_puncta_plotly(self, fov, puncta_index,spacer = 40 ):
+def inspect_puncta_individual_plotly(args, fov, puncta_index,spacer = 40 ):
 
         '''
         exseq.inspect_puncta(
@@ -415,11 +416,8 @@ def inspect_puncta_plotly(self, fov, puncta_index,spacer = 40 ):
         fig.show()
 
 
-        
-######################################################### 
-#########################################################
-### ============== inspect_fov_all_to_all ==================
-def inspect_fov_tworounds(self, fov, code1, code2, ROI_min, ROI_max):
+# Puncta across rounds
+def inspect_between_rounds(args, fov, code1, code2, ROI_min, ROI_max):
 
         '''
         exseq.inspect_fov_all_to_all(
@@ -605,8 +603,8 @@ def inspect_fov_tworounds(self, fov, code1, code2, ROI_min, ROI_max):
 
         fig.show()
 
-### ============== inspect_fov_all_to_all ==================
-def inspect_fov_allrounds(self, fov, ROI_min, ROI_max):
+
+def inspect_across_rounds(args, fov, ROI_min, ROI_max):
 
         '''
         exseq.inspect_fov_all(

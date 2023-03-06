@@ -268,6 +268,7 @@ def consolidate_channels_function(args,fov,code):
         pickle.dump(reference,f)
     args.chmod()
 
+
 def consolidate_channels(args,fov_code_pairs):
 
     '''
@@ -332,21 +333,22 @@ def consolidate_channels(args,fov_code_pairs):
 def extract(args,fov_code_pairs,use_gpu=False,num_gpu = 3,num_cpu = 3):
 
     from multiprocessing import Queue
-    
+    import os
     # Queue to hold all the puncta extraction tasks.
     tasks_queue = Queue() 
     
     # Add all the extraction tasks to the queue.
     for fov,code in fov_code_pairs:
         tasks_queue.put((fov,code))
-        
+        if not os.path.exists('/mp/nas3/ruihan/20221218_zebrafish/processed/fov{}/'.format(fov)):
+            os.makedirs('/mp/nas3/ruihan/20221218_zebrafish/processed/fov{}/'.format(fov))
+
     if use_gpu:
         processing_device = 'GPU'
         puncta_extraction_gpu(args,tasks_queue,num_gpu)
     else:
         processing_device = 'CPU'
         puncta_extraction_cpu(args,tasks_queue,num_cpu)
-
     consolidate_channels(args,fov_code_pairs)
 
 
