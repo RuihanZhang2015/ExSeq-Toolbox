@@ -48,8 +48,8 @@ def identify_matching_z(args, code_fov_pairs = None, path = None):
     
     for code, fov in code_fov_pairs: 
 
-        if not os.path.exists(f'{save_path}/code{code}'):
-            os.makedirs(f'{save_path}/code{code}')
+        if not os.path.exists(f'{path}/code{code}'):
+            os.makedirs(f'{path}/code{code}')
             
         fig,axs = plt.subplots(2,5,figsize = (25,10))
             
@@ -68,7 +68,7 @@ def identify_matching_z(args, code_fov_pairs = None, path = None):
             axs[1,i].set_xlabel(z)
 
         plt.title('fov{} code{}'.format(fov, code))
-        plt.savefig(f'{save_path}/code{code}/fov{fov}.jpg')
+        plt.savefig(f'{path}/code{code}/fov{fov}.jpg')
         plt.close()
         
 def correlation_lags(args, code_fov_pairs = None, path = None):
