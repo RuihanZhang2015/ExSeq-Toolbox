@@ -10,35 +10,6 @@ from PIL import Image
 import skimage.measure
 from IPython.display import Image as Img2
 
-def readH5(filename, datasetname=None):
-    fid = h5py.File(filename,'r')
-    if datasetname is None:
-        if sys.version[0]=='2': # py2
-            datasetname = fid.keys()
-        else: # py3
-            datasetname = list(fid)
-    if len(datasetname) == 1:
-        datasetname = datasetname[0]
-    if isinstance(datasetname, (list,)):
-        out=[None]*len(datasetname)
-        for di,d in enumerate(datasetname):
-            out[di] = np.array(fid[d])
-        return out
-    else:
-        return np.array(fid[datasetname])
-
-def writeH5(filename, dtarray, datasetname='main'):
-    import h5py
-    fid=h5py.File(filename,'w')
-    if isinstance(datasetname, (list,)):
-        for i,dd in enumerate(datasetname):
-            ds = fid.create_dataset(dd, dtarray[i].shape, compression="gzip", dtype=dtarray[i].dtype)
-            ds[:] = dtarray[i]
-    else:
-        ds = fid.create_dataset(datasetname, dtarray.shape, compression="gzip", dtype=dtarray.dtype)
-        ds[:] = dtarray
-    fid.close()
-
 def readXlsx(xlsx_file):
     df = pd.read_excel(
         open(xlsx_file, 'rb'),

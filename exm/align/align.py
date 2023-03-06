@@ -1,19 +1,3 @@
-# import SimpleITK as sitk
-# import matplotlib.pyplot as plt
-# import numpy as np
-
-# from exm.io.io import nd2ToVol, nd2ToSlice,nd2ToChunk
-# import os
-# from multiprocessing import current_process
-# import queue # imported for using queue.Empty exception
-# import time
-# import cupy as cp
-# import multiprocessing
-# from multiprocessing import Process,Queue
-# import pickle
-# import collections
-
-
 def transform_ref_code(args, code_fov_pairs = None, mode = 'all'):
 
     import h5py
