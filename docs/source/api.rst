@@ -8,7 +8,7 @@ Alignment
 
 Docs for the alignment module. 
 
-.. autofunction:: exm.align.transform_ref_code
+.. autofunction:: exm.align.align.transform_ref_code
 
 .. _puncta-extraction:
 
