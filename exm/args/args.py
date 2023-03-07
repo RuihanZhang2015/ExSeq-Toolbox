@@ -1,3 +1,7 @@
+"""
+Sets up the project parameters. 
+"""
+
 from nd2reader import ND2Reader
 import pandas as pd
 pd.set_option('display.expand_frame_repr', False)
@@ -25,6 +29,16 @@ class Args():
                 thresholds = None,
                 align_init=None,
                 ):
+        
+        r"""Sets parameters for running alignment code. 
+        Args:
+            project_path (str): path to project data.
+            codes (list): a list of integers, where each integer represents a code. 
+            fovs (list): a list of integers, where each integer represents a field of view.
+            ref_code (int): integer that specifies which code is the reference round. 
+            thresholds (list): list of integers, where each integer is a threshold for the code of the same index. Should be the same length as the codes parameter.
+            align_init (SimpleITK.tranform): a SimpleITK parameter map used as the initial alignment. 
+        """
         
         if os.path.isfile(os.path.join(project_path,'args.pkl')):
             with open(os.path.join(project_path,'args.pkl'),'rb') as f:
@@ -84,16 +98,26 @@ class Args():
 
     # load parameters from a pre-set .pkl file
     def load_params(self,param_path):
+        r"""Loads and sets attributes from a .pkl file. 
+        Args:
+            param_path (str): .pkl file path.
+        """
+        
         with open(os.path.abspath(param_path),'rb') as f:
             self.__dict__.update(pickle.load(f))
 
 
     # TODO decide connection to slack if is needed
-    def send_slack(self,message):
+    def send_slack(self):
+        r"""Connects to Slack. 
+        """
+        
         os.system("curl -X POST -H \'Content-type: application/json\' --data \'{\"text\":\" + 'amama'+   '\"}\' https://hooks.slack.com/services/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")
 
         
     def print(self):
+        r"""Prints attributes of experiment. 
+        """
         for attr in dir(self):
             # print(attr)
             if not attr.startswith('__'):
@@ -101,6 +125,8 @@ class Args():
 
 
     def tree(self):
+        r"""TO DO. 
+        """
         startpath = os.path.join(self.project_path,'processed/')
         for root, dirs, files in os.walk(startpath):
             level = root.replace(startpath, '').count(os.sep)
@@ -113,19 +139,37 @@ class Args():
     # TODO clear, move or use the visualization function in args
     
     def chmod(self):
+        r"""Makes files writeable by multiple users.
+        """
         import os
         os.system('chmod 777 -R {}'.format(self.project_path))
 
-    def retrieve_all_puncta(self,fov):
+    def retrieve_all_puncta(self, fov):
+        r"""Returns all identified puncta from specified fov. 
+        Args:
+            fov (int): the fov to retrieve puncta from. 
+        """
         with open(self.work_path + '/fov{}/result.pkl'.format(fov), 'rb') as f:
             return pickle.load(f)
     
-    def retrieve_one_puncta(self,fov,puncta_index):
+    def retrieve_one_puncta(self, fov, puncta_index):
+        r"""Returns a single puncta from specified fov. 
+        Args:
+            fov (int): the fov to retrieve puncta from. 
+            puncta_index (int): the index of the puncta to return. 
+        """
         return self.retrieve_all_puncta(fov)[puncta_index]
 
 
-    def retrieve_img(self,fov,code,c,ROI_min,ROI_max):
-
+    def retrieve_img(self, fov, code, c, ROI_min, ROI_max):
+        r"""Returns the middle image of a chunk. Cropped in x, y according to ROI_min and ROI_max.
+        Args:
+            fov (int): index of fov, 
+            code (int): index of code, 
+            c (int): index of channel name, 
+            ROI_min (list): list of three elements [(z, x, y)] where z is the index of the frontmost z-slice to include in the chunk, and x and y are the minimum pixel bounds to display in the final image.
+            ROI_max (list): list of three elements [(z, x, y)] where z is the index of the last z-slice to include in the chunk, and x and y are the maximum pixel bounds to display in the final image.
+        """
         import h5py
         import numpy as np
         if ROI_min[0] != ROI_max[0]:
@@ -139,7 +183,14 @@ class Args():
         return im
         
     def retrieve_vol(self,fov,code,c,ROI_min,ROI_max):
-        
+        r"""Returns a chunk of an image volume. Cropped in z, x, y according to ROI_min and ROI_max.
+        Args:
+            fov (int): index of fov, 
+            code (int): index of code, 
+            c (int): index of channel name, 
+            ROI_min (list): list of three elements [(z, x, y)] where z is the index of the frontmost z-slice to include in the chunk, and x and y are the minimum pixel bounds to display in the final image.
+            ROI_max (list): list of three elements [(z, x, y)] where z is the index of the last z-slice to include in the chunk, and x and y are the maximum pixel bounds to display in the final image.
+        """
         import h5py
         with h5py.File(self.h5_path.format(code,fov), "r") as f:
             vol = f[self.channel_names[c]][max(0,ROI_min[0]):ROI_max[0],max(0,ROI_min[1]):min(2048,ROI_max[1]),max(0,ROI_min[2]):min(2048,ROI_max[2])]    
@@ -177,6 +228,10 @@ class Args():
     # def retrieve_coordinate2(self):
     import xml.etree.ElementTree 
     def get_offsets(filename= "/mp/nas3/fixstars/yves/zebrafish_data/20221025/code2/stitched_raw_small.xml"):
+        r"""TO DO.
+        Args:
+            filename (str): TO DO.
+        """
         tree = xml.etree.ElementTree.parse(filename)
         root = tree.getroot()
         vtrans = list()

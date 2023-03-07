@@ -111,8 +111,7 @@ def correlation_lags(args, code_fov_pairs = None, path = None):
     
 
 def align_truncated(args, code_fov_pairs = None):
-    r"""For each volume in code_fov_pairs, find corresponding reference volume, crop both according to starting.py, then perform alignment. 
-    
+    r"""For each volume in code_fov_pairs, find corresponding reference volume, truncate, then perform alignment. 
     Args:
         args (dict): configuration options.
         code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
@@ -262,12 +261,12 @@ def inspect_align_truncated(args, fov_code_pairs = None, path = None):
 
 
 def transform_other_function(args, tasks_queue = None, q_lock = None, mode = 'all'):
-    r"""Description 
+    r"""Takes the transform found from the reference round and applies it to the other channels. 
     Args:
         args (dict): configuration options. 
-        tasks_queue (list):  Default: ``None``
-        q_lock (): Default: ``None``
-        mode (): Default: ``all``
+        tasks_queue (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
+        q_lock (multiporcessing.Lock): a multiporcessing.Lock instance to avoid race condition when processes accessing the task_queue. Default: ``None``
+        mode (string): running mode. Default: ``all``
     """
 
     import multiprocessing
@@ -340,12 +339,12 @@ def transform_other_function(args, tasks_queue = None, q_lock = None, mode = 'al
 
 def transform_other_code(args, code_fov_pairs = None, num_cpu = 8, mode = 'all'):
                     
-    r"""Description 
+    r"""Parallel processing support for transform_other_function.  
     Args:
         args (dict): configuration options.
-        code_fov_pairs (list): 
+        code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
         num_cpu (int): the number of cpus to use for parallel processing. Default: ``8``
-        mode (string): Default: ``all``
+        mode (string): running mode. Default: ``all``
     """
         
     import os
