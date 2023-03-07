@@ -4,11 +4,13 @@ Code for volumetric alignment. For "thick" volumes (volumes that have more than 
 
 
 def transform_ref_code(args, code_fov_pairs = None, mode = 'all'):
-    r"""For each volume specified in code_fov_pairs, convert from an nd2 file to an array, then save into an .h5 file.
-    Args:
-        args (dict): configuration options.
-        code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
-        mode (str): running mode. Default: ``'all'``
+    
+    """
+    Description ---.
+    :param kind: --.
+    :type kind: --
+    :return: --
+    :rtype: --
     """
 
     import h5py
