@@ -1,0 +1,6 @@
+ipykernel
+jupyter
+nd2reader
+pandas
+seaborn
+numbers-parser
