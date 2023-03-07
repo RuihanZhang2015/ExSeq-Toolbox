@@ -8,7 +8,8 @@ Alignment
 
 Docs for the alignment module. 
 
-.. autofunction:: exm.align.align.transform_ref_code
+.. automodule:: exm.align
+    :members:
 
 .. _puncta-extraction:
 
