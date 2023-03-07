@@ -1,5 +1,3 @@
-.. currentmodule:: exm.align
-
 API
 ===
 
@@ -10,10 +8,7 @@ Alignment
 
 Docs for the alignment module. 
 
-.. autofunction:: transform_ref_code
-
-#.. automodule:: exm.align
-#    :members:
+.. autofunction:: exm.align.transform_ref_code
 
 .. _puncta-extraction:
 
