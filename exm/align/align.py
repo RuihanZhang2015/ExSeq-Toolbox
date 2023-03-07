@@ -48,8 +48,8 @@ def identify_matching_z(args, code_fov_pairs = None, path = None):
     
     for code, fov in code_fov_pairs: 
 
-        if not os.path.exists(f'{save_path}/code{code}'):
-            os.makedirs(f'{save_path}/code{code}')
+        if not os.path.exists(f'{path}/code{code}'):
+            os.makedirs(f'{path}/code{code}')
             
         fig,axs = plt.subplots(2,5,figsize = (25,10))
             
@@ -68,20 +68,19 @@ def identify_matching_z(args, code_fov_pairs = None, path = None):
             axs[1,i].set_xlabel(z)
 
         plt.title('fov{} code{}'.format(fov, code))
-        plt.savefig(f'{save_path}/code{code}/fov{fov}.jpg')
+        plt.savefig(f'{path}/code{code}/fov{fov}.jpg')
         plt.close()
         
-def correlation_lags(args, code_fov_pairs, path):
+def correlation_lags(args, code_fov_pairs = None, path = None):
     r"""Calculates the z-offset between the fixed and moving volume and writes it to a .json. A returned offset of -x means that the fixed volume
     starts x slices before the move. A returned offset of x means that the fixed volume starts x slices after 
     the move.
     Args:
         args (dict): configuration options.
         code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
-        path (string): path to save the dictionary
+        path (string): path to save the dictionary. Default: ``None``
     """
-    
-    import json
+    import pickle
     import numpy as np 
     from scipy import signal
     
@@ -102,23 +101,14 @@ def correlation_lags(args, code_fov_pairs, path):
         lag = lags[np.argmax(correlation)]
         
         if lag > 0:
-            lag_dict[(code, fov)] = [0, lag]
+            lag_dict[f'({code}, {fov})'] = [0, lag]
         
         else:
-            lag_dict[(code, fov)] = [lag, 0]
-            
-        # create json object from dictionary
-        json = json.dumps(dict)
-
-        # open file for writing, "w" 
-        f = open(f"{path}/starting.json","w")
-
-        # write json object to file
-        f.write(json)
-
-        # close file
-        f.close()
-
+            lag_dict[f'({code}, {fov})'] = [abs(lag), 0]
+           
+    with open(f'{path}/z_offset.pkl', 'wb') as f: 
+        pickle.dump(lag_dict, f, protocol=pickle.HIGHEST_PROTOCOL)
+    
 
 def align_truncated(args, code_fov_pairs = None):
     r"""For each volume in code_fov_pairs, find corresponding reference volume, crop both according to starting.py, then perform alignment. 
@@ -271,13 +261,13 @@ def inspect_align_truncated(args, fov_code_pairs = None, path = None):
         plt.close()
 
 
-def transform_other_function(args, tasks_queue, q_lock, mode):
+def transform_other_function(args, tasks_queue = None, q_lock = None, mode = 'all'):
     r"""Description 
     Args:
-        args (dict): configuration options.
-        tasks_queue (list): 
-        q_lock (): 
-        mode (): 
+        args (dict): configuration options. 
+        tasks_queue (list):  Default: ``None``
+        q_lock (): Default: ``None``
+        mode (): Default: ``all``
     """
 
     import multiprocessing
@@ -348,14 +338,14 @@ def transform_other_function(args, tasks_queue, q_lock, mode):
                         f.create_dataset(channel_name, out.shape, dtype=out.dtype, data = out)                 
 
 
-def transform_other_code(args, code_fov_pairs = None, num_cpu = 8, mode='all'):
+def transform_other_code(args, code_fov_pairs = None, num_cpu = 8, mode = 'all'):
                     
     r"""Description 
     Args:
         args (dict): configuration options.
         code_fov_pairs (list): 
         num_cpu (int): the number of cpus to use for parallel processing. Default: ``8``
-        mode (string): 
+        mode (string): Default: ``all``
     """
         
     import os
