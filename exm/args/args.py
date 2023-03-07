@@ -92,7 +92,6 @@ class Args():
 
     # load parameters from a pre-set .pkl file
     def load_params(self,param_path):
-        
         r"""Loads and sets attributes from a .pkl file. 
         Args:
             param_path (str): .pkl file path.
