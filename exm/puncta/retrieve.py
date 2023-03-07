@@ -27,7 +27,7 @@ def retrieve_vol(self,fov,code,c,ROI_min,ROI_max):
     return vol
     
 def retrieve_result(self,fov):
-    with open(self.args.work_path + '/fov{}/result.pkl'.format(fov), 'rb') as f:
+    with open(args.work_path + '/fov{}/result.pkl'.format(fov), 'rb') as f:
         return pickle.load(f)
     
 def retrieve_puncta(self,fov,puncta_index):

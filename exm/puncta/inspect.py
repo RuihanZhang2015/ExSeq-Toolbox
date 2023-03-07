@@ -144,11 +144,10 @@ def inspect_localmaximum_plotly(args, fov, code, c, ROI_min, ROI_max):
 # puncta in ROIs
 def inspect_puncta_ROI_matplotlib(args, fov, code, position, centered=40):
 
-    '''
-    exseq.inspect_ROI_matplotlib(fov = 21, code = 5, position = [338, 1202, 1383], centered = 40)
-    '''
-    
-    reference = args.retrieve_result(fov)
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    reference = args.retrieve_all_puncta(fov)
         
     fig,axs = plt.subplots(4,10,figsize = (15,7))
 
@@ -156,78 +155,60 @@ def inspect_puncta_ROI_matplotlib(args, fov, code, position, centered=40):
         for z_ind,z in enumerate(np.linspace(position[0] - 10,position[0] + 10,10)):
             ROI_min = [int(z),position[1] - centered, position[2] - centered]
             ROI_max = [int(z),position[1] + centered, position[2] + centered]
-            img = self.retrieve_img(fov,code,c,ROI_min,ROI_max)
-            axs[c,z_ind].imshow(img,cmap=plt.get_cmap(self.args.colorscales[c]),vmax = 150)
+            img = args.retrieve_img(fov,code,c,ROI_min,ROI_max)
+            axs[c,z_ind].imshow(img,cmap=plt.get_cmap(args.colorscales[c]),vmax = 150)
 
     ROI_min = [position[0] - 10,position[1] - centered, position[2] - centered]
     ROI_max = [position[0] + 10,position[1] + centered, position[2] + centered]    
-    temp = [x['code{}'.format(code)] for x in reference if 'code{}'.format(code) in x and self.in_region(x['code{}'.format(code)]['position'], ROI_min,ROI_max) ] 
+    temp = [x['code{}'.format(code)] for x in reference if 'code{}'.format(code) in x and in_region(x['code{}'.format(code)]['position'], ROI_min,ROI_max) ] 
 
     for c in range(4):
         temp2 = [x['c{}'.format(c)]['position'] for x in temp if 'c{}'.format(c) in x]
         for puncta in temp2:
             axs[c,(puncta[0]-position[0]+10)//2].scatter(puncta[1]-position[1]+centered,puncta[2]-position[2]+centered,s = 20)
-        
-        
 
     fig.suptitle('fov{} code{}'.format(fov,code))    
     plt.show()
         
 
-def inspect_puncta_ROI_plotly(args, fov, ROI_min, ROI_max, codes, c_list=[0,1,2,3],centered=40):
+def inspect_puncta_ROI_plotly(args, fov, codes, position, c_list=[0,1,2,3], centered=40):
 
-        '''
-        exseq.inspect_fov_all(
-                fov =
-                ,ROI_min =
-                ,ROI_max =
-                ,codes = 
-                ,c_list = [0,1,2,3]
-                ,centered = 40
-                )
-        '''
+    import plotly.graph_objects as go
+    import h5py
+    import numpy as np
+    import matplotlib.pyplot as plt
 
-        spacer = 40
+    spacer = 40
+    ROI_min, ROI_max = [position[0]-centered:position[0]+centered,position[1]-centered:position[1]+centered,position[2]-centered:position[2]+centered]
+    reference = args.retrieve_result(fov)
 
-        ROI_center = [(ROI_min[1]+ROI_max[1])//2, (ROI_min[2]+ROI_max[2])//2 ] 
+    fig = go.Figure()
 
-        ROI_min[1] = ROI_center[0] - centered
-        ROI_min[2] = ROI_center[1] - centered
-        ROI_max[1] = ROI_center[0] + centered
-        ROI_max[2] = ROI_center[1] + centered
-        print('ROI_min = [{},{},{}]'.format(*ROI_min))
-        print('ROI_max = [{},{},{}]'.format(*ROI_max))
+    for i,code in enumerate(codes):
 
-        reference = retrieve_result(fov)
+        ## Surface -------------
+        for c in c_list:
 
-        fig = go.Figure()
+            for zz in np.linspace(ROI_min[0],ROI_max[0],7):
 
-        for i,code in enumerate(codes):
+                img = args.retrieve_img(fov,code,c,[int(zz),ROI_min[1],ROI_min[2]],[int(zz),ROI_max[1],ROI_max[2]])
 
-            ## Surface -------------
-            for c in c_list:
-
-                for zz in np.linspace(ROI_min[0],ROI_max[0],7):
-
-                    with h5py.File(self.args.h5_path.format(code,fov), "r") as f:
-                        im = f[self.args.channel_names[c]][int(zz),ROI_min[1]:ROI_max[1],ROI_min[2]:ROI_max[2]]
-                        im = np.squeeze(im)
-                    y = list(range(ROI_min[1], ROI_max[1]))
-                    x = list(range(ROI_min[2], ROI_max[2]))
-                    z = np.ones((ROI_max[1]-ROI_min[1],ROI_max[2]-ROI_min[2])) * ( int(zz)+0.7*c+i*spacer )
-                    fig.add_trace(go.Surface(x=x, y=y, z=z,
-                            surfacecolor=im,
+                y = list(range(ROI_min[1], ROI_max[1]))
+                x = list(range(ROI_min[2], ROI_max[2]))
+                z = np.ones((ROI_max[1]-ROI_min[1],ROI_max[2]-ROI_min[2])) * ( int(zz)+0.7*c+i*spacer )
+                fig.add_trace(go.Surface(x=x, y=y, z=z,
+                            surfacecolor=img,
                             cmin=0, 
                             cmax=500,
-                            colorscale=self.args.colorscales[c],
+                            colorscale=args.colorscales[c],
                             showscale=False,
                             opacity = 0.2,
                         ))
 
-            ## Scatter --------------
-            temp = [x['code{}'.format(code)] for x in reference if 'code{}'.format(code) in x and self.in_region(x['code{}'.format(code)]['position'], ROI_min,ROI_max) ] 
+        ## Scatter --------------
+        temp = [x['code{}'.format(code)] for x in reference if 'code{}'.format(code) in x and in_region(x['code{}'.format(code)]['position'], ROI_min,ROI_max) ] 
 
-            for c in c_list:
+        for c in c_list:
 
                 temp2 = [x['c{}'.format(c)]['position'] for x in temp if 'c{}'.format(c) in x]
                 temp2 = np.asarray(temp2)
@@ -239,55 +220,52 @@ def inspect_puncta_ROI_plotly(args, fov, ROI_min, ROI_max, codes, c_list=[0,1,2,
                         x=temp2[:,2],
                         mode = 'markers',
                         marker = dict(
-                            color = self.args.colors[c],
+                            color = args.colors[c],
                             size=4,
                         )
                     ))
 
-        # ------------
-        fig.add_trace(go.Scatter3d(
-                        z= [ROI_min[0], ROI_max[0] + (len(codes)-1)*spacer],
-                        y= [(ROI_min[1]+ROI_max[1])/2]*2,
-                        x= [(ROI_min[2]+ROI_max[2])/2]*2,
-                        mode = 'lines',
-                        line = dict(
-                            color = 'black',
-                            width = 10,
-                        )
-                    ))        
+    # ------------
+    fig.add_trace(go.Scatter3d(
+                    z= [ROI_min[0], ROI_max[0] + (len(codes)-1)*spacer],
+                    y= [(ROI_min[1]+ROI_max[1])/2]*2,
+                    x= [(ROI_min[2]+ROI_max[2])/2]*2,
+                    mode = 'lines',
+                    line = dict(
+                        color = 'black',
+                        width = 10,
+                    )
+                ))        
 
 
-        # ---------------------
-        fig.update_layout(
-            title = "Inspect fov{}, code ".format(fov) + 'and '.join([str(x) for x in codes]),
-            width = 800,
-            height = 800,
+    # ---------------------
+    fig.update_layout(
+        title = "Inspect fov{}, code ".format(fov) + 'and '.join([str(x) for x in codes]),
+        width = 800,
+        height = 800,
 
-            scene=dict(
-                aspectmode = 'data',
-                xaxis_visible=True,
-                yaxis_visible=True, 
-                zaxis_visible=True, 
-                xaxis_title="X",
-                yaxis_title="Y",
-                zaxis_title="Z" ,
-            ))
+        scene=dict(
+            aspectmode = 'data',
+            xaxis_visible=True,
+            yaxis_visible=True, 
+            zaxis_visible=True, 
+            xaxis_title="X",
+            yaxis_title="Y",
+            zaxis_title="Z" ,
+        ))
 
-        fig.show()
+    fig.show()
 
 
 # Individual puncta
 def inspect_puncta_individual_matplotlib(args,fov,puncta_index, centered=40):
 
-        '''
-        exseq.inspect_puncta_matplotlib(fov,puncta_index = 100, centered = 40)
-        '''
+    import matplotlib.pyplot as plt
+    puncta = args.retrieve_puncta(fov,puncta_index)
         
-        puncta = self.retrieve_puncta(fov,puncta_index)
-        
-        fig,axs = plt.subplots(4,len(self.args.codes),figsize = (15,7))
+    fig,axs = plt.subplots(4,len(args.codes),figsize = (15,7))
             
-        for code_ind,code in enumerate(self.args.codes):
+    for code_ind,code in enumerate(args.codes):
             
             if 'code{}'.format(code) not in puncta:
                 continue
@@ -296,8 +274,8 @@ def inspect_puncta_individual_matplotlib(args,fov,puncta_index, centered=40):
             ROI_min = [int(position[0]),position[1] - centered, position[2] - centered]
             ROI_max = [int(position[0]),position[1] + centered, position[2] + centered]
             for c in range(4):
-                img = self.retrieve_img(fov,code,c,ROI_min,ROI_max)
-                axs[c,code_ind].imshow(img,cmap=plt.get_cmap(self.args.colorscales[c]),vmax = 150)
+                img = args.retrieve_img(fov,code,c,ROI_min,ROI_max)
+                axs[c,code_ind].imshow(img,cmap=plt.get_cmap(args.colorscales[c]),vmax = 150)
                 axs[c,code_ind].set_title('{0:0.2f}'.format(img[centered,centered]))
             
             axs[puncta['code{}'.format(code)]['color'],code_ind].scatter(centered,centered,c = 'white')

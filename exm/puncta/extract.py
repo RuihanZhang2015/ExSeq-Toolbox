@@ -63,7 +63,7 @@ def calculate_coords_gpu(args, tasks_queue,device,lock,queue_lock):
                 for c in range(4):
                     coords_total['c{}'.format(c)] = cp.unique(coords_total['c{}'.format(c)], axis=0)
 
-                with open(args.project_path + 'processed/fov{}/coords_total_code{}.pkl'.format(fov,code), 'wb') as f:
+                with open(args.work_path + '/fov{}/coords_total_code{}.pkl'.format(fov,code), 'wb') as f:
                     pickle.dump(coords_total,f)
                     f.close()
                 args.chmod()
@@ -162,7 +162,7 @@ def calculate_coords_cpu(args,tasks_queue,queue_lock):
             for c in range(4):
                 coords_total['c{}'.format(c)] = np.unique(coords_total['c{}'.format(c)], axis=0)
 
-            with open(args.project_path + 'processed/fov{}/coords_total_code{}.pkl'.format(fov,code), 'wb') as f:
+            with open(args.work_path + '/fov{}/coords_total_code{}.pkl'.format(fov,code), 'wb') as f:
                 pickle.dump(coords_total,f)
                 f.close()
             args.chmod()
@@ -226,7 +226,7 @@ def consolidate_channels_function(args,fov,code):
         return pairs
 
     print('Consolidate channels fov={},code={}'.format(fov,code))
-    with open(args.project_path + 'processed/fov{}/coords_total_code{}.pkl'.format(fov,code), 'rb') as f:
+    with open(args.work_path + '/fov{}/coords_total_code{}.pkl'.format(fov,code), 'rb') as f:
         coords_total = pickle.load(f)
 
     ### 640
@@ -264,7 +264,7 @@ def consolidate_channels_function(args,fov,code):
             duplet['index'] = i
             duplet['position'] = duplet['c{}'.format(duplet['color'])]['position']
                             
-    with open(args.project_path +'processed/fov{}/result_code{}.pkl'.format(fov,code), 'wb') as f:
+    with open(args.work_path +'/fov{}/result_code{}.pkl'.format(fov,code), 'wb') as f:
         pickle.dump(reference,f)
     args.chmod()
 
@@ -340,8 +340,8 @@ def extract(args,fov_code_pairs,use_gpu=False,num_gpu = 3,num_cpu = 3):
     # Add all the extraction tasks to the queue.
     for fov,code in fov_code_pairs:
         tasks_queue.put((fov,code))
-        if not os.path.exists('/mp/nas3/ruihan/20221218_zebrafish/processed/fov{}/'.format(fov)):
-            os.makedirs('/mp/nas3/ruihan/20221218_zebrafish/processed/fov{}/'.format(fov))
+        if not os.path.exists(args.work_path + 'fov{}/'.format(fov)):
+            os.makedirs(args.work_path + 'fov{}/'.format(fov))
 
     if use_gpu:
         processing_device = 'GPU'
@@ -349,6 +349,7 @@ def extract(args,fov_code_pairs,use_gpu=False,num_gpu = 3,num_cpu = 3):
     else:
         processing_device = 'CPU'
         puncta_extraction_cpu(args,tasks_queue,num_cpu)
+    
     consolidate_channels(args,fov_code_pairs)
 
 
@@ -385,14 +386,14 @@ def consolidate_codes(args,fovs,codes=range(7)):
             return pairs
 
         code = 0
-        with open(args.project_path + 'processed/fov{}/result_code{}.pkl'.format(fov,code), 'rb') as f:
+        with open(args.work_path + '/fov{}/result_code{}.pkl'.format(fov,code), 'rb') as f:
             new = pickle.load(f)
 
         reference = [ { 'position': x['position'], 'code0':x } for x in new ] 
 
         for code in set(codes)-set([0]):
 
-            with open(args.project_path + 'processed/fov{}/result_code{}.pkl'.format(fov,code), 'rb') as f:
+            with open(args.work_path + '/fov{}/result_code{}.pkl'.format(fov,code), 'rb') as f:
                 new = pickle.load(f)
 
             point_cloud1 = np.asarray([x['position'] for x in reference])
@@ -414,7 +415,7 @@ def consolidate_codes(args,fovs,codes=range(7)):
             
         reference = [ {**x, 'barcode': ''.join([str(x['code{}'.format(code)]['color']) if 'code{}'.format(code) in x else '_' for code in args.codes ]) } for x in reference ]
 
-        with open(args.project_path + 'processed/fov{}/result.pkl'.format(fov), 'wb') as f:
+        with open(args.work_path + '/fov{}/result.pkl'.format(fov), 'wb') as f:
             pickle.dump(reference,f)
         args.chmod()
 

@@ -53,6 +53,9 @@ class Args():
             self.colors = ['red','yellow','green','blue']
             self.colorscales = ['Reds','Oranges','Greens','Blues']
             self.channel_names = ['640','594','561','488','405']
+
+        if not hasattr(self,'work_path'):
+            self.work_path = self.project_path + 'puncta/'
         
         # Thresholds
         if not thresholds and not hasattr(self,'thresholds'):
@@ -91,7 +94,7 @@ class Args():
         os.system('chmod 777 -R {}'.format(self.project_path))
 
     def retrieve_all_puncta(self,fov):
-        with open(self.project_path + 'processed/fov{}/result.pkl'.format(fov), 'rb') as f:
+        with open(self.work_path + '/fov{}/result.pkl'.format(fov), 'rb') as f:
             return pickle.load(f)
     
     def retrieve_one_puncta(self,fov,puncta_index):
@@ -115,11 +118,11 @@ class Args():
     def retrieve_vol(self,fov,code,c,ROI_min,ROI_max):
         
         import h5py
-        with h5py.File(self.args.h5_path.format(code,fov), "r") as f:
-            vol = f[self.args.channel_names[c]][max(0,ROI_min[0]):ROI_max[0],max(0,ROI_min[1]):min(2048,ROI_max[1]),max(0,ROI_min[2]):min(2048,ROI_max[2])]    
+        with h5py.File(self.h5_path.format(code,fov), "r") as f:
+            vol = f[self.channel_names[c]][max(0,ROI_min[0]):ROI_max[0],max(0,ROI_min[1]):min(2048,ROI_max[1]),max(0,ROI_min[2]):min(2048,ROI_max[2])]    
         return vol
         
-    # def retrieve_result(self,fov):
+    # def retrieve_(self,fov):
     #     with open(self.args.work_path + '/fov{}/result.pkl'.format(fov), 'rb') as f:
     #         return pickle.load(f)
         
