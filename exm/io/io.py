@@ -1,3 +1,7 @@
+"""
+Functions to assist in folder creation and reading/writing image files. 
+"""
+
 import os, sys
 import numpy as np
 import h5py
@@ -11,11 +15,16 @@ import skimage.measure
 from IPython.display import Image as Img2
 
 def readXlsx(xlsx_file):
+    r"""Reads the experiment xlsx_file and returns it as a Pandas dataframe. 
+    Args:
+        xlsx_file (str): Path to the xlsx file. 
+    """
     df = pd.read_excel(
         open(xlsx_file, 'rb'),
         engine='openpyxl',
         header = [1],
         sheet_name=3)
+    
     # drop invalid rows
     flag = []
     for x in df['Point Name']:
@@ -31,6 +40,7 @@ def readXlsx(xlsx_file):
         else:
             flag.append(True)
     df = df.drop(df[flag].index)
+    
     # select columns
     zz, yy, xx = np.array(df['Z Pos[µm]'].values), np.array(df['Y Pos[µm]'].values), np.array(df['X Pos[µm]'].values)
     ii = np.array([int(x[1:])-1 for x in df['Point Name'].values])
@@ -47,6 +57,11 @@ def readXlsx(xlsx_file):
 
 
 def readNd2(nd2_file, do_info = True):
+    r"""Returns the image and metadata from the specified Nd2 file. 
+    Args:
+        nd2_file (str): file path.
+        do_info (boolean): whether or not the Nd2 file has metadata. Default: ``True``
+    """
     vol = ND2Reader(nd2_file)
     info = {}
     if do_info: 
@@ -60,6 +75,14 @@ def readNd2(nd2_file, do_info = True):
     return vol, info
 
 def tiff2H5(tiff_file, h5_file, chunk_size=(100,1024,1024), step=100, im_thres=None):
+    r"""Reads the specified tiff file and re-saves it as a H5 file. 
+    Args:
+        tiff_file (str): path to the existing tiff file.
+        h5_file (str): path to the new H5 file. 
+        chunk_size (tuple): chunck size to break the image into. Default: ``(100,1024,1024)``
+        step (int): z step size. Default: ``100``
+        im_thresh (int, optional): integer used for image thresholding. Default: ``None``
+    """
     # get tiff volume dimension
     img = Image.open(tiff_file)
     num_z = img.n_frames
@@ -80,6 +103,13 @@ def tiff2H5(tiff_file, h5_file, chunk_size=(100,1024,1024), step=100, im_thres=N
     fid.close()
 
 def nd2ToVol(filename: str, fov: int, channel_name: str = '405 SD',ratio = 1):
+    r"""Reads the specified Nd2 file and returns it as an array. 
+    Args:
+        filename (str): path of the Nd2 file. 
+        fov (int): the field of view to be returned. 
+        channel_name (str): the channel to be returned. 
+        ratio (int): downsampling factor. Default: ``1``
+    """
     # volume in zyx order
     
     vol = ND2Reader(filename)
@@ -95,6 +125,14 @@ def nd2ToVol(filename: str, fov: int, channel_name: str = '405 SD',ratio = 1):
     return out
 
 def nd2ToChunk(filename: str, fov: int, z_min: int, z_max :int, channel_name: str = '405 SD'):
+    r"""Reads the speficied Nd2 file and returns a chunk from it. 
+    Args:
+        filename (str): configuration options.
+        fov (int): the field of view to be returned. 
+        z_min (int): starting z position of the chunk. 
+        z_max (int): ending z position of the chunk. 
+        channel_name (str): the channel to be returned. Default: ``'405 SD'``
+    """
     # volume in zyx order
     
     vol = ND2Reader(filename)
@@ -110,6 +148,13 @@ def nd2ToChunk(filename: str, fov: int, z_min: int, z_max :int, channel_name: st
     return out
 
 def nd2ToSlice(filename: str, fov: int, z: int, channel_name: str = '405 SD'):
+    r"""Reads the speficied Nd2 file and returns a slice from it. 
+    Args:
+        filename (str): path of the Nd2 file. 
+        fov (int): the field of view to be returned. 
+        z (int): index of z slice to be returned.
+        channel_name (str): the channel to be returned. Default: ``'405 SD'``
+    """
     # volume in zyx order
     
     vol = ND2Reader(filename)
@@ -123,6 +168,11 @@ def nd2ToSlice(filename: str, fov: int, z: int, channel_name: str = '405 SD'):
 
 
 def createFolderStruc(out_dir: str, code: str):
+    r"""Creates a results folder for the specified code. 
+    Args:
+        outdir (str): the directory where all results for the specified code should be stored. 
+        code (int): the code (staining round) to create the folder structure for. 
+    """
     
     ###################################################################
     # USAGE: place the path of where you would like results to be saved
@@ -160,6 +210,11 @@ def createFolderStruc(out_dir: str, code: str):
     print('creating paths done')
 
 def downsample(arr, block_size):
+    r"""Takes in a single or multidimensional array and downsampled it using skimage.measure.block_reduce.
+    Args:
+        arr (np.array): array to downsample.
+        block_size (np.array): array containing down-sampling integer factor along each axis.
+    """
     block_list = [block_size]*arr.ndim
     block = tuple(block_list)
     assert len(block) == arr.ndim, "block size does not match vector shape"
@@ -169,7 +224,10 @@ def downsample(arr, block_size):
     return new_array
 
 def parseSitkLog(log_path: str):
-    
+    r"""Open the SimpleITK log and return the resulting metric and stepsize. 
+    Args:
+        log_path (str): path to the SimpleITK log. 
+    """
     result_metric = []
     result_stepsize = []
     start_ind = 10000000
@@ -189,6 +247,12 @@ def parseSitkLog(log_path: str):
     return result_metric, result_stepsize
 
 def saveGif(img1, img2, filename):
+    r"""Takes in two images, appends one behind the other, and loops between them in a GIF. Saves and returns resulting GIF.
+    Args:
+        img1 (np.array): the first image to be displayed.
+        img2 (np.array): the second image to be displayed.
+        filename (str): the filename for saving the GIF. 
+    """
     im1 =  Image.fromarray(img1)
     im2 =  Image.fromarray(img2)
     im1.save(filename, format='GIF',
