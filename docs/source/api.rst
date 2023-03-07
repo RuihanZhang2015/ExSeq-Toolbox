@@ -1,4 +1,4 @@
-.. currentmodule:: lumache
+.. currentmodule:: exm.align.align
 
 API
 ===
@@ -10,7 +10,7 @@ Alignment
 
 Docs for the alignment module. 
 
-.. autofunction:: get_random_ingredients
+.. autofunction:: transform_ref_code
 
 .. _puncta-extraction:
 
@@ -21,10 +21,10 @@ Docs for the puncta extraction module.
 
 .. _segmentation:
 
-Segmentation and Stitching
+Segmentation
 ------------
 
-Docs for the segmentation and stitching module. 
+Docs for the segmentation module. 
 
 .. _io:
 
