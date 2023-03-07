@@ -11,8 +11,6 @@ class Args():
     
     def __init__(self,
                 project_path = '/mp/nas3/ruihan/20220916_zebrafish/',
-                codes = [0,1,2,5],
-                fovs = None,
                 ref_code = 0,
                 thresholds = None,
                 ):
@@ -41,10 +39,11 @@ class Args():
         if not ref_code and not hasattr(self,'ref_code'):
             self.ref_code = 0
 
-        if not codes and not hasattr(self,'codes'):
-            self.codes = range(7)
+        if not hasattr(self,'codes'):
+            files = os.listdir(self.project_path)
+            self.codes = sorted([x[4] for x in files if x.startswith('code') and len(x) == 5])
         
-        if not fovs and not hasattr(self,'fovs'): 
+        if not hasattr(self,'fovs'): 
             self.fovs = list(ND2Reader(self.nd2_path.format(self.ref_code,'405',4)).metadata['fields_of_view'])
 
         # Housekeeping
@@ -105,12 +104,12 @@ class Args():
 
         import h5py
         import numpy as np
-        if ROI_min != ROI_max:
+        if ROI_min[0] != ROI_max[0]:
             print('use middle z slices')
-            zz = int((ROI_min[0]+ROI_max[0])//2)
+            ROI_min[0] = int((ROI_min[0]+ROI_max[0])//2)
 
         with h5py.File(self.h5_path.format(code,fov), "r") as f:
-            im = f[self.channel_names[c]][zz, max(0,ROI_min[1]):min(2048,ROI_max[1]), max(0,ROI_min[2]):min(2048,ROI_max[2])]
+            im = f[self.channel_names[c]][ROI_min[0], max(0,ROI_min[1]):min(2048,ROI_max[1]), max(0,ROI_min[2]):min(2048,ROI_max[2])]
             im = np.squeeze(im)
 
         return im

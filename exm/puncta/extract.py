@@ -293,7 +293,7 @@ def consolidate_channels(args,fov_code_pairs):
                 print("No task left for "+ current_process().name)
                 break
             else:
-                consolidate_channels_function(fov,code)
+                consolidate_channels_function(args,fov,code)
                 print('finish fov{},code{}'.format(fov,code))        
                 
                 
@@ -338,22 +338,22 @@ def extract(args,fov_code_pairs,use_gpu=False,num_gpu = 3,num_cpu = 3):
     tasks_queue = Queue() 
     
     # Add all the extraction tasks to the queue.
-    for fov,code in fov_code_pairs:
-        tasks_queue.put((fov,code))
-        if not os.path.exists(args.work_path + 'fov{}/'.format(fov)):
-            os.makedirs(args.work_path + 'fov{}/'.format(fov))
+    # for fov,code in fov_code_pairs:
+    #     tasks_queue.put((fov,code))
+    #     if not os.path.exists(args.work_path + 'fov{}/'.format(fov)):
+    #         os.makedirs(args.work_path + 'fov{}/'.format(fov))
 
-    if use_gpu:
-        processing_device = 'GPU'
-        puncta_extraction_gpu(args,tasks_queue,num_gpu)
-    else:
-        processing_device = 'CPU'
-        puncta_extraction_cpu(args,tasks_queue,num_cpu)
+    # if use_gpu:
+    #     processing_device = 'GPU'
+    #     puncta_extraction_gpu(args,tasks_queue,num_gpu)
+    # else:
+    #     processing_device = 'CPU'
+    #     puncta_extraction_cpu(args,tasks_queue,num_cpu)
     
     consolidate_channels(args,fov_code_pairs)
 
 
-def consolidate_codes(args,fovs,codes=range(7)):
+def consolidate_codes(args,fovs):
         
     '''
     exseq.consolidate_code(
@@ -366,7 +366,7 @@ def consolidate_codes(args,fovs,codes=range(7)):
     import pickle
     from scipy.spatial.distance import cdist
 
-    def consolidate_codes_function(fov,codes):
+    def consolidate_codes_function(fov):
 
         def find_matching_points(point_cloud1,point_cloud2,distance_threshold=14):
 
@@ -391,8 +391,9 @@ def consolidate_codes(args,fovs,codes=range(7)):
 
         reference = [ { 'position': x['position'], 'code0':x } for x in new ] 
 
-        for code in set(codes)-set([0]):
+        for code in range(1,7):
 
+            print('Code = {}'.format(code))
             with open(args.work_path + '/fov{}/result_code{}.pkl'.format(fov,code), 'rb') as f:
                 new = pickle.load(f)
 
@@ -421,6 +422,6 @@ def consolidate_codes(args,fovs,codes=range(7)):
 
     for fov in fovs:
         print('Consolidate Code fov={}'.format(fov))
-        consolidate_codes_function(fov,codes)
+        consolidate_codes_function(fov)
             
          

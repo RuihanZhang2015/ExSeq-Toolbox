@@ -4,7 +4,7 @@
 # import plotly.express as px
 
 
-def in_region(self,coord,ROI_min,ROI_max):
+def in_region(coord,ROI_min,ROI_max):
         
     """in_region(self,coord,ROI_min,ROI_max)"""
 
@@ -19,7 +19,7 @@ def in_region(self,coord,ROI_min,ROI_max):
         return False
         
 # Raw
-def inspect_raw_plotly(args,fov,code,c,ROI_min,ROI_max,vmax):
+def inspect_raw_plotly(args,fov,code,c,ROI_min,ROI_max,vmax=500,mode = 'raw'):
         
     '''
     exseq.inspect_raw_plotly(
@@ -35,13 +35,14 @@ def inspect_raw_plotly(args,fov,code,c,ROI_min,ROI_max,vmax):
     import plotly.express as px
     
     img = args.retrieve_img(fov,code,c,ROI_min,ROI_max)
-    gaussian_filter(img, 1, output=img, mode='reflect', cval=0)
+    if mode == 'blur':
+        gaussian_filter(img, 1, output=img, mode='reflect', cval=0)
 
     fig = px.imshow(img, zmax = vmax)
     fig.show()
 
 
-def inspect_raw_matplotlib(args,fov,code,c,ROI_min,ROI_max,vmax=500):
+def inspect_raw_matplotlib(args,fov,code,c,ROI_min,ROI_max,vmax=500,mode = 'raw'):
 
     '''
         exseq.inspect_raw_matplotlib(
@@ -55,16 +56,19 @@ def inspect_raw_matplotlib(args,fov,code,c,ROI_min,ROI_max,vmax=500):
 
     import matplotlib.pyplot as plt
     import h5py
+    from scipy.ndimage import gaussian_filter
 
     img = args.retrieve_img(fov,code,c,ROI_min,ROI_max)
-    
+    if mode == 'blur':
+        gaussian_filter(img, 1, output=img, mode='reflect', cval=0)
+
     fig,ax = plt.subplots(1,1)
-    ax.imshow(img, vmax)
+    ax.imshow(img, vmax=vmax)
     plt.show()
         
 
 # Local maximum
-def inspect_localmaximum_matplotlib(args,fov,code,ROI_min,ROI_max,vmax):
+def inspect_localmaximum_matplotlib(args,fov,code,ROI_min,ROI_max):
 
     import matplotlib.pyplot as plt
     import h5py
@@ -142,14 +146,14 @@ def inspect_localmaximum_plotly(args, fov, code, c, ROI_min, ROI_max):
 
 
 # puncta in ROIs
-def inspect_puncta_ROI_matplotlib(args, fov, code, position, centered=40):
+def inspect_puncta_ROI_matplotlib(args, fov, code, position, centered = 40):
 
     import matplotlib.pyplot as plt
     import numpy as np
 
     reference = args.retrieve_all_puncta(fov)
         
-    fig,axs = plt.subplots(4,10,figsize = (15,7))
+    fig,axs = plt.subplots(4,10,figsize = (10,5),dpi=100)
 
     for c in range(4):
         for z_ind,z in enumerate(np.linspace(position[0] - 10,position[0] + 10,10)):
@@ -157,21 +161,25 @@ def inspect_puncta_ROI_matplotlib(args, fov, code, position, centered=40):
             ROI_max = [int(z),position[1] + centered, position[2] + centered]
             img = args.retrieve_img(fov,code,c,ROI_min,ROI_max)
             axs[c,z_ind].imshow(img,cmap=plt.get_cmap(args.colorscales[c]),vmax = 150)
+            if c == 3:
+                axs[c,z_ind].set_xlabel('{0:0.0f}'.format(z))
+            if z_ind == 0:
+                axs[c,z_ind].set_ylabel(args.channel_names[c])
 
     ROI_min = [position[0] - 10,position[1] - centered, position[2] - centered]
     ROI_max = [position[0] + 10,position[1] + centered, position[2] + centered]    
-    temp = [x['code{}'.format(code)] for x in reference if 'code{}'.format(code) in x and in_region(x['code{}'.format(code)]['position'], ROI_min,ROI_max) ] 
+    temp = [x['code{}'.format(code)] for x in reference if 'code{}'.format(code) in x and in_region( x['code{}'.format(code)]['position'], ROI_min,ROI_max) ] 
 
     for c in range(4):
         temp2 = [x['c{}'.format(c)]['position'] for x in temp if 'c{}'.format(c) in x]
         for puncta in temp2:
-            axs[c,(puncta[0]-position[0]+10)//2].scatter(puncta[1]-position[1]+centered,puncta[2]-position[2]+centered,s = 20)
+            axs[c,(puncta[0]-position[0]+10)//2].scatter(puncta[1]-position[1]+centered,puncta[2]-position[2]+centered, marker = 'o', s = 30)
 
     fig.suptitle('fov{} code{}'.format(fov,code))    
     plt.show()
         
 
-def inspect_puncta_ROI_plotly(args, fov, codes, position, c_list=[0,1,2,3], centered=40):
+def inspect_puncta_ROI_plotly(args, fov, position, c_list = [0,1,2,3], centered = 40):
 
     import plotly.graph_objects as go
     import h5py
@@ -179,12 +187,13 @@ def inspect_puncta_ROI_plotly(args, fov, codes, position, c_list=[0,1,2,3], cent
     import matplotlib.pyplot as plt
 
     spacer = 40
-    ROI_min, ROI_max = [position[0]-centered:position[0]+centered,position[1]-centered:position[1]+centered,position[2]-centered:position[2]+centered]
-    reference = args.retrieve_result(fov)
+    ROI_min = [position[0]-centered,position[1]-centered,position[2]-centered]
+    ROI_max = [position[0]+centered,position[1]+centered,position[2]+centered]
+    reference = args.retrieve_all_puncta(fov)
 
     fig = go.Figure()
 
-    for i,code in enumerate(codes):
+    for i,code in enumerate(args.codes):
 
         ## Surface -------------
         for c in c_list:
@@ -227,7 +236,7 @@ def inspect_puncta_ROI_plotly(args, fov, codes, position, c_list=[0,1,2,3], cent
 
     # ------------
     fig.add_trace(go.Scatter3d(
-                    z= [ROI_min[0], ROI_max[0] + (len(codes)-1)*spacer],
+                    z= [ROI_min[0], ROI_max[0] + (len(args.codes)-1)*spacer],
                     y= [(ROI_min[1]+ROI_max[1])/2]*2,
                     x= [(ROI_min[2]+ROI_max[2])/2]*2,
                     mode = 'lines',
@@ -240,7 +249,7 @@ def inspect_puncta_ROI_plotly(args, fov, codes, position, c_list=[0,1,2,3], cent
 
     # ---------------------
     fig.update_layout(
-        title = "Inspect fov{}, code ".format(fov) + 'and '.join([str(x) for x in codes]),
+        title = "Inspect fov{}, code ".format(fov) + 'and '.join([str(x) for x in args.codes]),
         width = 800,
         height = 800,
 
@@ -258,7 +267,7 @@ def inspect_puncta_ROI_plotly(args, fov, codes, position, c_list=[0,1,2,3], cent
 
 
 # Individual puncta
-def inspect_puncta_individual_matplotlib(args,fov,puncta_index, centered=40):
+def inspect_puncta_individual_matplotlib(args, fov, puncta_index, centered = 40):
 
     import matplotlib.pyplot as plt
     puncta = args.retrieve_puncta(fov,puncta_index)
@@ -267,251 +276,246 @@ def inspect_puncta_individual_matplotlib(args,fov,puncta_index, centered=40):
             
     for code_ind,code in enumerate(args.codes):
             
-            if 'code{}'.format(code) not in puncta:
-                continue
+        if 'code{}'.format(code) not in puncta:
+            continue
                 
-            position = puncta['code{}'.format(code)]['position']
-            ROI_min = [int(position[0]),position[1] - centered, position[2] - centered]
-            ROI_max = [int(position[0]),position[1] + centered, position[2] + centered]
-            for c in range(4):
-                img = args.retrieve_img(fov,code,c,ROI_min,ROI_max)
-                axs[c,code_ind].imshow(img,cmap=plt.get_cmap(args.colorscales[c]),vmax = 150)
-                axs[c,code_ind].set_title('{0:0.2f}'.format(img[centered,centered]))
+        position = puncta['code{}'.format(code)]['position']
+        ROI_min = [int(position[0]),position[1] - centered, position[2] - centered]
+        ROI_max = [int(position[0]),position[1] + centered, position[2] + centered]
+        for c in range(4):
+            img = args.retrieve_img(fov,code,c,ROI_min,ROI_max)
+            axs[c,code_ind].imshow(img,cmap=plt.get_cmap(args.colorscales[c]),vmax = 150)
+            axs[c,code_ind].set_title('{0:0.2f}'.format(img[centered,centered]))
             
-            axs[puncta['code{}'.format(code)]['color'],code_ind].scatter(centered,centered,c = 'white')
+        axs[puncta['code{}'.format(code)]['color'],code_ind].scatter(centered,centered,c = 'white')
 
-        fig.suptitle('fov{} puncta{}'.format(fov,puncta_index))    
-        plt.show() 
-   
+    fig.suptitle('fov{} puncta{}'.format(fov,puncta_index))    
+    plt.show() 
+    
         
-def inspect_puncta_individual_plotly(args, fov, puncta_index,spacer = 40 ):
+def inspect_puncta_individual_plotly(args, fov, puncta_index, spacer = 40 ):
 
-        '''
-        exseq.inspect_puncta(
-                fov = 
-                ,puncta_index = 
-                ,spacer = 40 
-                )
-        '''
+    import numpy as np
+    import plotly.graph_objects as go
+    import h5py
+    codes = args.codes
+    reference = args.retrieve_all_puncta(fov)
+    puncta = args.retrieve_one_puncta(fov, puncta_index)
 
-        codes = self.args.codes
+    fig = go.Figure()
+    for i, code in enumerate(codes):
 
-        puncta = self.retrieve_puncta(fov,puncta_index)
+        if 'code{}'.format(code) in puncta:
 
-        
-        fig = go.Figure()
-        for i, code in enumerate(codes):
+            print('code{}'.format(code))
+            puncta = puncta['code{}'.format(code)]   
+            d0, d1, d2 = puncta['position']
+            ROI_min = [d0-10, d1-40, d2-40]
+            ROI_max = [d0+10, d1+40, d2+40]
 
-            if 'code{}'.format(code) in interest:
+            print('ROI_min = [{},{},{}]'.format(*ROI_min))
+            print('ROI_max = [{},{},{}]'.format(*ROI_max))
 
-                print('code{}'.format(code))
-                puncta = reference[puncta_index]['code{}'.format(code)]   
-                d0, d1, d2 = puncta['position']
-                ROI_min = [d0-10, d1-40, d2-40]
-                ROI_max = [d0+10, d1+40, d2+40]
+            c_candidates = []
 
-                print('ROI_min = [{},{},{}]'.format(*ROI_min))
-                print('ROI_max = [{},{},{}]'.format(*ROI_max))
-                # pprint.pprint(puncta)
+            ## Surface -------------
+            for c in range(4):
 
+                if 'c{}'.format(c) in puncta:
 
-                c_candidates = []
+                    c_candidates.append(c)
 
-                ## Surface -------------
-                for c in range(4):
+                    for zz in np.linspace(ROI_min[0],ROI_max[0],7):
 
-                    if 'c{}'.format(c) in puncta:
-
-                        c_candidates.append(c)
-
-                        for zz in np.linspace(ROI_min[0],ROI_max[0],7):
-
-                            with h5py.File(self.args.h5_path.format(code,fov), "r") as f:
-                                im = f[self.args.channel_names[c]][int(zz),ROI_min[1]:ROI_max[1],ROI_min[2]:ROI_max[2]]
-                                im = np.squeeze(im)
-                            y = list(range(ROI_min[1], ROI_max[1]))
-                            x = list(range(ROI_min[2], ROI_max[2]))
-                            z = np.ones((ROI_max[1]-ROI_min[1],ROI_max[2]-ROI_min[2])) * (int(zz)+0.5*c + i* spacer)
-                            fig.add_trace(go.Surface(x=x, y=y, z=z,
-                                surfacecolor=im,
-                                cmin=0, 
-                                cmax=500,
-                                colorscale=self.args.colorscales[c],
-                                showscale=False,
-                                opacity = 0.2,
-                            ))
-
-                ## Scatter --------------
-
-                temp = [x['code{}'.format(code)] for x in reference if 'code{}'.format(code) in x and self.in_region(x['code{}'.format(code)]['position'], ROI_min,ROI_max) ] 
-
-                for c in c_candidates:
-
-                    fig.add_trace(go.Scatter3d(
-                            z = [puncta['c{}'.format(c)]['position'][0]+ i * spacer], 
-                            y = [puncta['c{}'.format(c)]['position'][1]],
-                            x = [puncta['c{}'.format(c)]['position'][2]],
-                            mode = 'markers',
-                            marker = dict(
-                                color = 'gray',
-                                size= 8,
-                                symbol = 'circle-open'
-                            )
+                        with h5py.File(args.h5_path.format(code,fov), "r") as f:
+                            im = f[args.channel_names[c]][int(zz),ROI_min[1]:ROI_max[1],ROI_min[2]:ROI_max[2]]
+                            im = np.squeeze(im)
+                        y = list(range(ROI_min[1], ROI_max[1]))
+                        x = list(range(ROI_min[2], ROI_max[2]))
+                        z = np.ones((ROI_max[1]-ROI_min[1],ROI_max[2]-ROI_min[2])) * (int(zz)+0.5*c + i* spacer)
+                        fig.add_trace(go.Surface(x=x, y=y, z=z,
+                            surfacecolor=im,
+                            cmin=0, 
+                            cmax=500,
+                            colorscale=args.colorscales[c],
+                            showscale=False,
+                            opacity = 0.2,
                         ))
 
-                    temp2 = np.asarray([x['c{}'.format(c)]['position'] for x in temp if 'c{}'.format(c) in x])
+            ## Scatter --------------
 
-                    if len(temp2) == 0:
-                        continue
+            temp = [x['code{}'.format(code)] for x in reference if 'code{}'.format(code) in x and in_region(x['code{}'.format(code)]['position'], ROI_min,ROI_max) ] 
 
-                    fig.add_trace(go.Scatter3d(
-                            z = temp2[:,0] + i* spacer,
-                            y = temp2[:,1],
-                            x = temp2[:,2],
-                            mode = 'markers',
-                            marker = dict(
-                                color = self.args.colors[c],
-                                size=4,
-                            )
-                        ))
+            for c in c_candidates:
 
-        # ---------------------
-        fig.update_layout(
-            title="puncta index {}".format(puncta_index),
-            width=800,
-            height=800,
+                fig.add_trace(go.Scatter3d(
+                        z = [puncta['c{}'.format(c)]['position'][0]+ i * spacer], 
+                        y = [puncta['c{}'.format(c)]['position'][1]],
+                        x = [puncta['c{}'.format(c)]['position'][2]],
+                        mode = 'markers',
+                        marker = dict(
+                            color = 'gray',
+                            size= 8,
+                            symbol = 'circle-open'
+                        )
+                    ))
 
-            scene=dict(
-                aspectmode = 'data',
-                xaxis_visible = True,
-                yaxis_visible = True, 
-                zaxis_visible = True, 
-                xaxis_title = "X",
-                yaxis_title = "Y",
-                zaxis_title = "Z" ,
-            ))
+                temp2 = np.asarray([x['c{}'.format(c)]['position'] for x in temp if 'c{}'.format(c) in x])
 
-        fig.show()
+                if len(temp2) == 0:
+                    continue
+
+                fig.add_trace(go.Scatter3d(
+                        z = temp2[:,0] + i* spacer,
+                        y = temp2[:,1],
+                        x = temp2[:,2],
+                        mode = 'markers',
+                        marker = dict(
+                            color = args.colors[c],
+                            size=4,
+                        )
+                    ))
+
+    # ---------------------
+    fig.update_layout(
+        title="puncta index {}".format(puncta_index),
+        width=800,
+        height=800,
+
+        scene=dict(
+            aspectmode = 'data',
+            xaxis_visible = True,
+            yaxis_visible = True, 
+            zaxis_visible = True, 
+            xaxis_title = "X",
+            yaxis_title = "Y",
+            zaxis_title = "Z" ,
+        ))
+
+    fig.show()
 
 
 # Puncta across rounds
 def inspect_between_rounds(args, fov, code1, code2, ROI_min, ROI_max):
 
-        '''
-        exseq.inspect_fov_all_to_all(
+    '''
+    exseq.inspect_fov_all_to_all(
                 fov=
                 ,code1=
                 ,code2=
                 ,ROI_min=
                 ,ROI_max=
                 )
-        '''
+    '''
+    
+    import numpy as np
+    import pickle
+    import plotly.graph_objects as go
+    spacer = 100
 
-        spacer = 100
+    with open(args.work_path +'/fov{}/result.pkl'.format(fov), 'rb') as f:
+        reference = pickle.load(f)
+    reference = [ x for x in reference if in_region(x['position'], ROI_min,ROI_max) ] 
 
-        with open(self.args.work_path +'/fov{}/result.pkl'.format(fov), 'rb') as f:
-            reference = pickle.load(f)
-        reference = [ x for x in reference if self.in_region(x['position'], ROI_min,ROI_max) ] 
+    fig = go.Figure()
 
-        fig = go.Figure()
+    ## Lines ====================
 
-        ## Lines ====================
-
-        temp = [x for x in reference if (code1 in x) and (code2 in x) ]
-        for x in temp:
-            center1,center2 = x[code1]['position'], x[code2]['position']
-            name = x['index']
-            fig.add_trace(go.Scatter3d(
-                z=[center1[0],center2[0]+spacer],
-                y=[center1[1],center2[1]],
-                x=[center1[2],center2[2]],
-                mode = 'lines',
-                name = name,
-                line = dict(
-                    color = 'gray',
-                    # size=4,
-                )
-            ))
+    temp = [x for x in reference if (code1 in x) and (code2 in x) ]
+    for x in temp:
+        center1,center2 = x[code1]['position'], x[code2]['position']
+        name = x['index']
+        fig.add_trace(go.Scatter3d(
+            z=[center1[0],center2[0]+spacer],
+            y=[center1[1],center2[1]],
+            x=[center1[2],center2[2]],
+            mode = 'lines',
+            name = name,
+            line = dict(
+                color = 'gray',
+                # size=4,
+            )
+        ))
             
 
-        ## Code1  =========================
+    ## Code1  =========================
 
-        temp = [x for x in reference if (code1 in x)]
+    temp = [x for x in reference if (code1 in x)]
 
 
-        ### Centers
-        points = [x[code1]['position'] for x in temp]
-        points = np.asarray(points)
-        texts = [x['index'] for x in temp]
-        if len(points)>0:
-            fig.add_trace(go.Scatter3d(
-                    z=points[:,0],
-                    y=points[:,1],
-                    x=points[:,2],
-                    text = texts,
-                    mode = 'markers+text',
-                    name = 'consensus',
-                    marker = dict(
-                        color = 'gray',
-                        size=10,
-                        opacity = 0.2,
-                    )
-                ))
-
-        ## Scatters --------------
-
-        for c in range(4):
-
-            points = [x[code1]['c{}'.format(c)]['position'] for x in temp if 'c{}'.format(c) in x[code1]]
-            points = np.asarray(points)
-            if len(points) == 0:
-                continue
-
-            fig.add_trace(go.Scatter3d(
+    ### Centers
+    points = [x[code1]['position'] for x in temp]
+    points = np.asarray(points)
+    texts = [x['index'] for x in temp]
+    if len(points)>0:
+        fig.add_trace(go.Scatter3d(
                 z=points[:,0],
                 y=points[:,1],
                 x=points[:,2],
-                name = 'channels',
-                mode = 'markers',
+                text = texts,
+                mode = 'markers+text',
+                name = 'consensus',
                 marker = dict(
-                    color = self.args.colors[c],
-                    size=4,
+                    color = 'gray',
+                    size=10,
+                    opacity = 0.2,
                 )
             ))
 
-        ## Lines --------------
+    ## Scatters --------------
 
-        for x in temp:
-            points = [ x[code1][c]['position'] for c in ['c0','c1','c2','c3'] if c in x[code1] ]
+    for c in range(4):
 
-            for i in range(len(points)-1):
-                for j in range(i+1,len(points)):
-
-                    fig.add_trace(go.Scatter3d(
-                        z = [ points[i][0], points[j][0] ],
-                        y = [ points[i][1], points[j][1] ],
-                        x = [ points[i][2], points[j][2] ],
-                        mode = 'lines',
-                        name = 'inter channel',
-                        line = dict(
-                            color = 'gray',
-                            # size=4,
-                        )
-                    ))   
-
-
-        ## Code2  =========================
-
-
-        temp = [x for x in reference if (code2 in x)]
-
-        ### Centers
-        points = [x[code2]['position'] for x in temp]
+        points = [x[code1]['c{}'.format(c)]['position'] for x in temp if 'c{}'.format(c) in x[code1]]
         points = np.asarray(points)
-        texts = [x['index'] for x in temp]
+        if len(points) == 0:
+            continue
 
-        if len(points)>0:
-            fig.add_trace(go.Scatter3d(
+        fig.add_trace(go.Scatter3d(
+            z=points[:,0],
+            y=points[:,1],
+            x=points[:,2],
+            name = 'channels',
+            mode = 'markers',
+            marker = dict(
+                color = args.colors[c],
+                size=4,
+            )
+        ))
+
+    ## Lines --------------
+
+    for x in temp:
+        points = [ x[code1][c]['position'] for c in ['c0','c1','c2','c3'] if c in x[code1] ]
+
+        for i in range(len(points)-1):
+            for j in range(i+1,len(points)):
+
+                fig.add_trace(go.Scatter3d(
+                    z = [ points[i][0], points[j][0] ],
+                    y = [ points[i][1], points[j][1] ],
+                    x = [ points[i][2], points[j][2] ],
+                    mode = 'lines',
+                    name = 'inter channel',
+                    line = dict(
+                        color = 'gray',
+                        # size=4,
+                    )
+                ))   
+
+
+    ## Code2  =========================
+
+
+    temp = [x for x in reference if (code2 in x)]
+
+    ### Centers
+    points = [x[code2]['position'] for x in temp]
+    points = np.asarray(points)
+    texts = [x['index'] for x in temp]
+
+    if len(points)>0:
+        fig.add_trace(go.Scatter3d(
                 z=points[:,0] + spacer,
                 y=points[:,1],
                 x=points[:,2],
@@ -525,46 +529,46 @@ def inspect_between_rounds(args, fov, code1, code2, ROI_min, ROI_max):
                 )
             ))
 
-        ## Scatters --------------
+    ## Scatters --------------
 
-        for c in range(4):
+    for c in range(4):
 
-            points = [x[code2]['c{}'.format(c)]['position'] for x in temp if 'c{}'.format(c) in x[code2]]
-            points = np.asarray(points)
-            if len(points) == 0:
-                continue
-            fig.add_trace(go.Scatter3d(
-                z=points[:,0] + spacer,
-                y=points[:,1],
-                x=points[:,2],
-                mode = 'markers',
-                name = 'channels',
-                marker = dict(
-                    color = self.args.colors[c],
-                    size=4,
-                )
-            ))
+        points = [x[code2]['c{}'.format(c)]['position'] for x in temp if 'c{}'.format(c) in x[code2]]
+        points = np.asarray(points)
+        if len(points) == 0:
+            continue
+        fig.add_trace(go.Scatter3d(
+            z=points[:,0] + spacer,
+            y=points[:,1],
+            x=points[:,2],
+            mode = 'markers',
+            name = 'channels',
+            marker = dict(
+                color = args.colors[c],
+                size=4,
+            )
+        ))
 
-        ## Lines --------------
+    ## Lines --------------
 
-        for x in temp:
-            points = [ x[code2][c]['position'] for c in ['c0','c1','c2','c3'] if c in x[code2] ]
-            for i in range(len(points)-1):
-                for j in range(i+1,len(points)):
-                    fig.add_trace(go.Scatter3d(
-                        z = [ points[i][0]+spacer, points[j][0]+spacer ],
-                        y = [ points[i][1], points[j][1] ],
-                        x = [ points[i][2], points[j][2] ],
-                        mode = 'lines',
-                        name = 'inter channel',
-                        line = dict(
-                            color = 'gray',
-                            # size=4,
-                        )
-                    ))        
+    for x in temp:
+        points = [ x[code2][c]['position'] for c in ['c0','c1','c2','c3'] if c in x[code2] ]
+        for i in range(len(points)-1):
+            for j in range(i+1,len(points)):
+                fig.add_trace(go.Scatter3d(
+                    z = [ points[i][0]+spacer, points[j][0]+spacer ],
+                    y = [ points[i][1], points[j][1] ],
+                    x = [ points[i][2], points[j][2] ],
+                    mode = 'lines',
+                    name = 'inter channel',
+                    line = dict(
+                        color = 'gray',
+                        # size=4,
+                    )
+                ))        
 
-        # ---------------------
-        fig.update_layout(
+    # ---------------------
+    fig.update_layout(
             title="My 3D scatter plot",
             width=800,
             height=800,
@@ -579,67 +583,68 @@ def inspect_between_rounds(args, fov, code1, code2, ROI_min, ROI_max):
                 zaxis_title="Z" ,
             ))
 
-        fig.show()
+    fig.show()
 
 
 def inspect_across_rounds(args, fov, ROI_min, ROI_max):
 
-        '''
-        exseq.inspect_fov_all(
-                fov=
-                ,ROI_min=
-                ,ROI_max=
-                )
-        '''
+    '''
+    exseq.inspect_fov_all(
+            fov=
+            ,ROI_min=
+            ,ROI_max=
+            )
+    '''
+        
+    import pickle
+    import numpy as np
+    import plotly.graph_objects as go
+    spacer = 100
 
-        spacer = 100
+    reference = args.retrieve_all_puncta(fov)
+    reference = [ x for x in reference if in_region(x['position'], ROI_min,ROI_max) ] 
 
-        with open(self.args.work_path +'/fov{}/result.pkl'.format(fov), 'rb') as f:
-            reference = pickle.load(f)
-        reference = [ x for x in reference if self.in_region(x['position'], ROI_min,ROI_max) ] 
-#         print(reference)
+    fig = go.Figure()
 
-        fig = go.Figure()
+    ## Lines ====================
 
-        ## Lines ====================
+    for i1 in range(len(args.codes))[:-1]:
 
-        for i1 in range(len(self.args.codes))[:-1]:
+        code1 = 'code{}'.format(args.codes[i1])
+        i2 = i1+1
+        code2 = 'code{}'.format(args.codes[i2])
 
-            code1 = 'code{}'.format(self.args.codes[i1])
-            i2 = i1+1
-            code2 = 'code{}'.format(self.args.codes[i2])
-
-            temp = [x for x in reference if (code1 in x) and (code2 in x) ]
-            for x in temp:
-                    center1,center2 = x[code1]['position'], x[code2]['position']
-                    name = x['index']
-                    fig.add_trace(go.Scatter3d(
-                        z=[center1[0]+i1*spacer,center2[0]+i2*spacer],
-                        y=[center1[1],center2[1]],
-                        x=[center1[2],center2[2]],
-                        mode = 'lines',
-                        name = name,
-                        line = dict(
-                            color = 'gray',
-                            # size=4,
-                        )
-                    ))
-
-
-        ## Code1  =========================
-
-        for ii,code in enumerate(self.args.codes):
-
-            code1 = 'code{}'.format(code)
-
-            temp = [x for x in reference if (code1 in x)]
-
-            ### Centers
-            points = [x[code1]['position'] for x in temp]
-            points = np.asarray(points)
-            texts = [x['index'] for x in temp]
-            if len(points)>0:
+        temp = [x for x in reference if (code1 in x) and (code2 in x) ]
+        for x in temp:
+                center1,center2 = x[code1]['position'], x[code2]['position']
+                name = x['index']
                 fig.add_trace(go.Scatter3d(
+                    z=[center1[0]+i1*spacer,center2[0]+i2*spacer],
+                    y=[center1[1],center2[1]],
+                    x=[center1[2],center2[2]],
+                    mode = 'lines',
+                    name = name,
+                    line = dict(
+                        color = 'gray',
+                        # size=4,
+                    )
+                ))
+
+
+    ## Code1  =========================
+
+    for ii,code in enumerate(args.codes):
+
+        code1 = 'code{}'.format(code)
+
+        temp = [x for x in reference if (code1 in x)]
+
+        ## Centers
+        points = [x[code1]['position'] for x in temp]
+        points = np.asarray(points)
+        texts = [x['index'] for x in temp]
+        if len(points)>0:
+            fig.add_trace(go.Scatter3d(
                         z=points[:,0]+ii*spacer,
                         y=points[:,1],
                         x=points[:,2],
@@ -648,68 +653,68 @@ def inspect_across_rounds(args, fov, ROI_min, ROI_max):
                         name = 'consensus',
                         marker = dict(
                             color = 'gray',
-                            size=10,
+                            size = 10,
                             opacity = 0.2,
                         )
                     ))
 
-            ## Scatters --------------
+        ## Scatters --------------
 
-            for c in range(4):
+        for c in range(4):
 
-                points = [x[code1]['c{}'.format(c)]['position'] for x in temp if 'c{}'.format(c) in x[code1]]
-                points = np.asarray(points)
-                if len(points) == 0:
-                    continue
+            points = [x[code1]['c{}'.format(c)]['position'] for x in temp if 'c{}'.format(c) in x[code1]]
+            points = np.asarray(points)
+            if len(points) == 0:
+                continue
 
-                fig.add_trace(go.Scatter3d(
-                    z=points[:,0]+ii*spacer,
-                    y=points[:,1],
-                    x=points[:,2],
-                    name = 'channels',
-                    mode = 'markers',
-                    marker = dict(
-                        color = self.args.colors[c],
-                        size=4,
-                    )
-                ))
-
-            ## Lines --------------
-
-            for x in temp:
-                points = [ x[code1][c]['position'] for c in ['c0','c1','c2','c3'] if c in x[code1] ]
-
-                for i in range(len(points)-1):
-                    for j in range(i+1,len(points)):
-
-                        fig.add_trace(go.Scatter3d(
-                            z = [ points[i][0]+ii*spacer, points[j][0]+ii*spacer ],
-                            y = [ points[i][1], points[j][1] ],
-                            x = [ points[i][2], points[j][2] ],
-                            mode = 'lines',
-                            name = 'inter channel',
-                            line = dict(
-                                color = 'gray',
-                                # size=4,
-                            )
-                        ))   
-
-
-        # ---------------------
-        fig.update_layout(
-            title="My 3D scatter plot",
-            width=800,
-            height=800,
-            showlegend=False,
-            scene=dict(
-                aspectmode = 'data',
-                xaxis_visible=True,
-                yaxis_visible=True, 
-                zaxis_visible=True, 
-                xaxis_title="X",
-                yaxis_title="Y",
-                zaxis_title="Z" ,
+            fig.add_trace(go.Scatter3d(
+                z=points[:,0]+ii*spacer,
+                y=points[:,1],
+                x=points[:,2],
+                name = 'channels',
+                mode = 'markers',
+                marker = dict(
+                    color = args.colors[c],
+                    size=4,
+                )
             ))
 
-        fig.show()
+        ## Lines --------------
+
+        for x in temp:
+            points = [ x[code1][c]['position'] for c in ['c0','c1','c2','c3'] if c in x[code1] ]
+
+            for i in range(len(points)-1):
+                for j in range(i+1,len(points)):
+
+                    fig.add_trace(go.Scatter3d(
+                        z = [ points[i][0]+ii*spacer, points[j][0]+ii*spacer ],
+                        y = [ points[i][1], points[j][1] ],
+                        x = [ points[i][2], points[j][2] ],
+                        mode = 'lines',
+                        name = 'inter channel',
+                        line = dict(
+                            color = 'gray',
+                            # size=4,
+                        )
+                    ))   
+
+
+    # ---------------------
+    fig.update_layout(
+        title="My 3D scatter plot",
+        width=800,
+        height=800,
+        showlegend=False,
+        scene=dict(
+            aspectmode = 'data',
+            xaxis_visible=True,
+            yaxis_visible=True, 
+            zaxis_visible=True, 
+            xaxis_title="X",
+            yaxis_title="Y",
+            zaxis_title="Z" ,
+        ))
+
+    fig.show()
     
