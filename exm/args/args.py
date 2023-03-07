@@ -9,16 +9,20 @@ import pickle
 
 class Args():
     
-    def __init__(self,
-                project_path = '/mp/nas3/ruihan/20220916_zebrafish/',
-                codes = [0,1,2,5],
+    def __init__(self):
+        pass
+
+    def set_params(self,
+                project_path = '',
+                codes = [0,1,2,3],
                 fovs = None,
                 ref_code = 0,
                 thresholds = None,
+                align_init=None,
                 ):
         
-        if os.path.isfile(project_path + 'args2.pkl'):
-            with open(project_path + 'args2.pkl','rb') as f:
+        if os.path.isfile(os.path.join(project_path,'args.pkl')):
+            with open(os.path.join(project_path,'args.pkl'),'rb') as f:
                 self.__dict__.update(pickle.load(f))
         else:
             self.project_path = project_path
@@ -26,16 +30,16 @@ class Args():
 
         # Input ND2 path
         if not hasattr(self,'nd2_path'):
-            self.nd2_path = self.project_path + 'code{}/Channel{} SD_Seq000{}.nd2'
+            self.nd2_path = os.path.join(self.project_path,'code{}/Channel{} SD_Seq000{}.nd2')
 
         # Output h5 path
         if not hasattr(self,'h5_path'):
-            self.h5_path = self.project_path + 'processed/code{}/{}.h5'
-            self.tform_path = self.project_path + 'processed/code{}/tforms/{}.txt'
+            self.h5_path = os.path.join(self.project_path,'processed/code{}/{}.h5')
+            self.tform_path = os.path.join(self.project_path,'processed/code{}/tforms/{}.txt')
         
         # Cropped temporary h5 path
         if not hasattr(self,'h5_path_cropped'):
-            self.h5_path_cropped = self.project_path + 'processed/code{}/{}_cropped.h5'
+            self.h5_path_cropped = os.path.join(self.project_path,'processed/code{}/{}_cropped.h5')
         
         # Codes and fovs
         if not ref_code and not hasattr(self,'ref_code'):
@@ -61,14 +65,25 @@ class Args():
         if not thresholds and not hasattr(self,'thresholds'):
             self.thresholds = [200,300,300,200]
 
-        from exm.align.starting import starting
-        self.starting = starting
-        with open(self.project_path + 'args2.pkl','wb') as f:
+        # Initilization for alignment parameter 
+        if not align_init and not hasattr(self,'align_init'):
+            from exm.args.default_align_init import default_starting
+            self.align_init = default_starting
+        else:
+            self.align_init = align_init
+
+        with open(os.path.join(self.project_path,'args.pkl'),'wb') as f:
             pickle.dump(self.__dict__,f)
-        self.chmod()
-    
+        
+
+    # load parameters from a pre-set .pkl file
+    def load_params(self,param_path):
+        with open(os.path.abspath(param_path),'rb') as f:
+            self.__dict__.update(pickle.load(f))
+
+
+    # TODO decide connection to slack if is needed
     def send_slack(self,message):
-        import os
         os.system("curl -X POST -H \'Content-type: application/json\' --data \'{\"text\":\" + 'amama'+   '\"}\' https://hooks.slack.com/services/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")
 
         
@@ -78,9 +93,9 @@ class Args():
             if not attr.startswith('__'):
                 print(attr,getattr(self,attr))
 
+
     def tree(self):
-        import os
-        startpath = self.project_path + '/processed/'
+        startpath = os.path.join(self.project_path,'processed/')
         for root, dirs, files in os.walk(startpath):
             level = root.replace(startpath, '').count(os.sep)
             indent = ' ' * 4 * (level)
@@ -89,6 +104,8 @@ class Args():
             for f in files:
                 print('{}{}'.format(subindent, f))
       
+    # TODO clear, move or use the visualization function in args
+    
     def chmod(self):
         import os
         os.system('chmod 777 -R {}'.format(self.project_path))
@@ -152,58 +169,57 @@ class Args():
     #         return coordinate
 
     # def retrieve_coordinate2(self):
-        import xml.etree.ElementTree 
-        def get_offsets(filename= "/mp/nas3/fixstars/yves/zebrafish_data/20221025/code2/stitched_raw_small.xml"):
-            tree = xml.etree.ElementTree.parse(filename)
-            root = tree.getroot()
-            vtrans = list()
-            for registration_tag in root.findall('./ViewRegistrations/ViewRegistration'):
-                tot_mat = np.eye(4, 4)
-                for view_transform in registration_tag.findall('ViewTransform'):
-                    affine_transform = view_transform.find('affine')
-                    mat = np.array([float(a) for a in affine_transform.text.split(" ")] + [0, 0, 0, 1]).reshape((4, 4))
-                    tot_mat = np.matmul(tot_mat, mat)
-                vtrans.append(tot_mat)
-            def transform_to_translate(m):
-                m[0, :] = m[0, :] / m[0][0]
-                m[1, :] = m[1, :] / m[1][1]
-                m[2, :] = m[2, :] / m[2][2]
-                return m[:-1, -1]
+    import xml.etree.ElementTree 
+    def get_offsets(filename= "/mp/nas3/fixstars/yves/zebrafish_data/20221025/code2/stitched_raw_small.xml"):
+        tree = xml.etree.ElementTree.parse(filename)
+        root = tree.getroot()
+        vtrans = list()
+        for registration_tag in root.findall('./ViewRegistrations/ViewRegistration'):
+            tot_mat = np.eye(4, 4)
+            for view_transform in registration_tag.findall('ViewTransform'):
+                affine_transform = view_transform.find('affine')
+                mat = np.array([float(a) for a in affine_transform.text.split(" ")] + [0, 0, 0, 1]).reshape((4, 4))
+                tot_mat = np.matmul(tot_mat, mat)
+            vtrans.append(tot_mat)
+        def transform_to_translate(m):
+            m[0, :] = m[0, :] / m[0][0]
+            m[1, :] = m[1, :] / m[1][1]
+            m[2, :] = m[2, :] / m[2][2]
+            return m[:-1, -1]
 
-            trans = [transform_to_translate(vt).astype(np.int64) for vt in vtrans]
-            return np.stack(trans)
+        trans = [transform_to_translate(vt).astype(np.int64) for vt in vtrans]
+        return np.stack(trans)
 
-        coordinate = get_offsets()
-        coordinate = np.asarray(coordinate)
+    coordinate = get_offsets()
+    coordinate = np.asarray(coordinate)
 
-        coordinate[:,0] = max(coordinate[:,0]) - coordinate[:,0]
-        coordinate[:,1] -= min(coordinate[:,1])
-        coordinate[:,2] -= min(coordinate[:,2])
-        # coordinate[:,:2] = np.asarray(coordinate[:,:2]/0.1625)
-        # coordinate[:,2] = np.asarray(coordinate[:,2]/0.4)
-        return coordinate
+    coordinate[:,0] = max(coordinate[:,0]) - coordinate[:,0]
+    coordinate[:,1] -= min(coordinate[:,1])
+    coordinate[:,2] -= min(coordinate[:,2])
+    # coordinate[:,:2] = np.asarray(coordinate[:,:2]/0.1625)
+    # coordinate[:,2] = np.asarray(coordinate[:,2]/0.4)
+    return coordinate
 
-        # ### Visualization
-        # doc = Document(sheet_path)
-        # sheets = doc.sheets()
-        # tables = sheets[0].tables()
-        # data = tables[0].rows(values_only=True)
+    # ### Visualization
+    # doc = Document(sheet_path)
+    # sheets = doc.sheets()
+    # tables = sheets[0].tables()
+    # data = tables[0].rows(values_only=True)
 
-        # df = pd.DataFrame(data[1:], columns=data[0])
+    # df = pd.DataFrame(data[1:], columns=data[0])
 
-        
-        # self.map_gene = collections.defaultdict(list)
-        # for i in range(len(df)):
-        #     temp = df.loc[i,'Barcode']
-        #     temp = ''.join([self.code2num[temp[code]] for code in self.codes])
-        #     self.map_gene[temp] = df.loc[i,'Gene']
+    
+    # self.map_gene = collections.defaultdict(list)
+    # for i in range(len(df)):
+    #     temp = df.loc[i,'Barcode']
+    #     temp = ''.join([self.code2num[temp[code]] for code in self.codes])
+    #     self.map_gene[temp] = df.loc[i,'Gene']
 
-        # colors = sns.color_palette(None, len(self.map_gene.keys()))
-        # self.map_color = {a:b for a,b in zip(self.map_gene.keys(),colors)}
-       
-        # if not gene_list and not hasattr(self,'gene_list'):
-        #     self.gene_list = 'gene_list.numbers'
+    # colors = sns.color_palette(None, len(self.map_gene.keys()))
+    # self.map_color = {a:b for a,b in zip(self.map_gene.keys(),colors)}
+    
+    # if not gene_list and not hasattr(self,'gene_list'):
+    #     self.gene_list = 'gene_list.numbers'
 
-        # if not layout_file and not hasattr(self,'layout_file'):
-        #     self.layout_file = project_path + 'code0/out.csv'
-   
+    # if not layout_file and not hasattr(self,'layout_file'):
+    #     self.layout_file = project_path + 'code0/out.csv'
