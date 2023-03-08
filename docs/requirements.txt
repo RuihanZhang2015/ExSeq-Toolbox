@@ -1,6 +1,5 @@
 furo
 h5py
-tempfile
 numpy
 matplotlib.pyplot
 scipy
