@@ -4,5 +4,5 @@ API
 .. autosummary::
    :toctree: generated
    
-   apache
+   lumache
    
