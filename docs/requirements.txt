@@ -1,6 +1,6 @@
 furo
 h5py
 numpy
-matplotlib.pyplot
+matplotlib
 scipy
 SimpleITK
