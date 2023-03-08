@@ -2,14 +2,21 @@ from sphinx.ext.autosummary import Autosummary
 import sphinx.ext.autosummary
 import sys
 import os
+import h5py
+import pickle
+import tempfile
+import numpy as np
+import SimpleITK as sitk
+from scipy import signal
+import matplotlib.pyplot as plt
+import multiprocessing
+import queue
 
 sys.path.insert(0, os.path.abspath("../.."))
 
 # -- Project information
 
 project = 'ExM Toolbox'
-copyright = '2021, Graziella'
-author = 'Graziella'
 
 release = '0.1'
 version = '0.1.0'
