@@ -13,10 +13,6 @@ import pickle
 
 class Args():
     
-<<<<<<< HEAD:exm/puncta/args.py
-    def __init__(self,
-                project_path = '/mp/nas3/ruihan/20220916_zebrafish/',
-=======
     def __init__(self):
         pass
 
@@ -24,7 +20,6 @@ class Args():
                 project_path = '',
                 codes = [0,1,2,3],
                 fovs = None,
->>>>>>> cef8237516a61d10733a272193248ea48610f62d:exm/args/args.py
                 ref_code = 0,
                 thresholds = None,
                 align_init=None,

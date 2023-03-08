@@ -1,4 +1,0 @@
-output/*
-TransformParameters.0.txt
-.gitignore
-exm/__pycache__/
