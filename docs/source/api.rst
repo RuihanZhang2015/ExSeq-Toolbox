@@ -4,4 +4,5 @@ API
 .. autosummary::
    :toctree: generated
 
-   lumache
+   #lumache
+   exm.align.align
