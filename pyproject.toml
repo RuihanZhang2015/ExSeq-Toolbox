@@ -1,6 +1,8 @@
 [build-system]
-requires = [
-    "setuptools>=42",
-    "wheel"
-]
-build-backend = "setuptools.build_meta"
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "exm-toolbox"
+authors = [{name = "Emma", email = "emmabesier@g.harvard.edu"}]
+dynamic = ["version", "description"]

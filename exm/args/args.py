@@ -1,3 +1,7 @@
+"""
+Sets up the project parameters. 
+"""
+
 from nd2reader import ND2Reader
 import pandas as pd
 pd.set_option('display.expand_frame_repr', False)
@@ -22,6 +26,15 @@ class Args():
                 spacing = [1.625,1.625,4.0],
                 ):
         
+        r"""Sets parameters for running alignment code. 
+        Args:
+            project_path (str): path to project data.
+            codes (list): a list of integers, where each integer represents a code. 
+            fovs (list): a list of integers, where each integer represents a field of view.
+            ref_code (int): integer that specifies which code is the reference round. 
+            thresholds (list): list of integers, where each integer is a threshold for the code of the same index. Should be the same length as the codes parameter.
+            align_init (SimpleITK.tranform): a SimpleITK parameter map used as the initial alignment. 
+        """
         self.project_path = project_path
         self.codes = codes
         self.ref_code = ref_code
@@ -62,11 +75,16 @@ class Args():
 
     # load parameters from a pre-set .pkl file
     def load_params(self,param_path):
+        r"""Loads and sets attributes from a .pkl file. 
+        Args:
+            param_path (str): .pkl file path.
+        """
+        
         with open(os.path.abspath(param_path),'rb') as f:
             self.__dict__.update(pickle.load(f))
 
         
-    def print_args(self):
+    def print(self):
         for attr in dir(self):
             # print(attr)
             if not attr.startswith('__'):
@@ -74,6 +92,8 @@ class Args():
 
 
     def tree(self):
+        r"""TO DO. 
+        """
         startpath = os.path.join(self.project_path,'processed/')
         for root, dirs, files in os.walk(startpath):
             level = root.replace(startpath, '').count(os.sep)
