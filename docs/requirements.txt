@@ -1,6 +1,5 @@
 furo
 h5py
-pickle
 tempfile
 numpy
 matplotlib.pyplot
