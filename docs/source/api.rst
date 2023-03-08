@@ -4,4 +4,4 @@ API
 .. autosummary::
    :toctree: generated
    
-   exm.align
+   exm.align.align
