@@ -1,3 +1,7 @@
+"""
+TO DO: Description of file.
+"""
+
 import seaborn as sns
 from ..config.utils import load_cfg
 # from ..align.build import alignBuild
@@ -26,12 +30,15 @@ from tqdm import tqdm
 class ExSeq():
     
     def __init__(self, args):
+        r"""TO DO: Description of function
+        Args:
+            args (exm.Args): configuration options.
+        """
         self.args = args
         self.folder_structure()
         
     def folder_structure(self):
-        
-        '''Create args.work_path'''
+        r"""Create args.work_path"""    
         
         if not os.path.exists(self.args.work_path):
             os.makedirs(self.args.work_path)
@@ -62,66 +69,139 @@ class ExSeq():
        
     ### =============== Retrieve =====================
     def retrieve_img(self,fov,code,c,ROI_min,ROI_max):
+        r"""Retrieves a chunk of an image volume and returns the middle slice.
+        Args:
+            fov (int): the field of view to be returned. 
+            code (int): index of the the code to be returned. 
+            c (int): index of the the channel to be returned. 
+            ROI_min (list): lower bound for image chunk, in the format of [z, y x].
+            ROI_max (list): upper bound for image chunk, in the format of [z, y x].
+        """
         from exm.puncta.retrieve import retrieve_img
         return retrieve_img(self,fov,code,c,ROI_min,ROI_max)
     
     def retrieve_vol(self,fov,code,c,ROI_min,ROI_max):
+        r"""Retrieves a chunk of an image volume and returns it.
+        Args:
+            fov (int): the field of view to be returned. 
+            code (int): index of the the code to be returned. 
+            c (int): index of the the channel to be returned. 
+            ROI_min (list): lower bound for image chunk, in the format of [z, y x].
+            ROI_max (list): upper bound for image chunk, in the format of [z, y x].
+        """
         from exm.puncta.retrieve import retrieve_vol
         return retrieve_vol(self,fov,code,c,ROI_min,ROI_max)
 
     def retrieve_result(self,fov):
+        r"""TO DO: Description of function
+        Args:
+            fov (int): the field of view to be returned. 
+        """
         from exm.puncta.retrieve import retrieve_result
         return retrieve_result(self,fov)
     
     def retrieve_puncta(self,fov,puncta_index):
+        r"""TO DO: Description of function
+        Args:
+            fov (int): the field of view to be returned. 
+            puncta_index (int): the index of the puncta to be returned. 
+        """
         from exm.puncta.retrieve import retrieve_puncta
         return retrieve_puncta(self,fov,puncta_index)
     
     def retrieve_complete(self,fov):
+        r"""TO DO: Description of function
+        Args:
+            fov (int): the field of view to be returned. 
+        """
         from exm.puncta.retrieve import retrieve_complete
         return retrieve_complete(self,fov)
         
     def retrieve_coordinate(self):
+        r"""TO DO: Description of function
+        """
         from exm.puncta.retrieve import retrieve_coordinate
         return retrieve_coordinate(self)
         
     def retrieve_coordinate2(self):
+        r"""TO DO: Description of function
+        """
         from exm.puncta.retrieve import retrieve_coordinate2
         return retrieve_coordinate2(self)
        
     
     ### =============== Align =====================
-    def transform_405_truncated(self,fov_code_pairs):
+    def transform_405_truncated(self,fov_code_pairs=None):
+        r"""TO DO: Description of function
+        Args:
+            fov_code_pairs (list): a list of tuples, where each tuple is a (fov, code) pair. Default: ``None``
+        """
         from exm.align.align import transform_405_truncated
         transform_405_truncated(self,fov_code_pairs)
         
-    def transform_405_full(self,fov_code_pairs):
+    def transform_405_full(self,fov_code_pairs=None):
+        r"""TO DO: Description of function
+        Args:
+            fov_code_pairs (list): a list of tuples, where each tuple is a (fov, code) pair. Default: ``None``
+        """
         from exm.align.align import transform_405_full
         transform_405_full(self,fov_code_pairs)
 
-    def transform_others_full(self,fov_code_pairs,num_cpu):
+    def transform_others_full(self,fov_code_pairs = None, num_cpu = 1):
+        r"""TO DO: Description of function
+        Args:
+            fov_code_pairs (list): a list of tuples, where each tuple is a (fov, code) pair. Default: ``None``
+            num_cpu (int): the number of CPUs to use for parallel processing. Default: ``1``
+        """
         from exm.align.align import transform_others_full
         transform_others_full(self,fov_code_pairs,num_cpu)
 
     def inspect_alignment(self,fov_code_pairs,temp_dir):
+        r"""TO DO: Description of function
+        Args:
+            fov_code_pairs (list): a list of tuples, where each tuple is a (fov, code) pair. Default: ``None``
+            temp_dir (str): the directory where the generated images will be saved.
+        """
         from exm.align.align import inspect_alignment
         inspect_alignment(self,fov_code_pairs,temp_dir)
 
 
     ### =============== Consolidate =====================
     def extract(self,fov_code_pairs,use_gpu=False,num_gpu = 3,num_cpu = 3,chunk_size=100):
+        r"""TO DO: Description of function
+        Args:
+            fov_code_pairs (list): a list of tuples, where each tuple is a (fov, code) pair. Default: ``None``
+            use_gpu (boolean): whether or not to use a GPU. Default: ``False``
+            num_gpu (int): the number of GPUs to use for parallel processing. Default: ``3``
+            num_cpu (int): the number of CPUs to use for parallel processing. Default: ``3``
+            chunk_size (int): the number of z-slices to consider for each round of processing. Default: ``100``
+        """
         from exm.puncta.extract import extract
         return extract(self,fov_code_pairs,use_gpu,num_gpu,num_cpu,chunk_size)
        
     def consolidate_channels_function(self,fov,code):
+        r"""TO DO: Description of function
+        Args:
+            fov (int): the field of view to consolidate.
+            code (int): index of the the code to consolidate.
+        """
         from exm.puncta.consolidate import consolidate_channels_function
         consolidate_channels_function(self,fov,code)
 
     def consolidate_channels(self,fov_code_pairs):
+        r"""TO DO: Description of function
+        Args:
+            fov_code_pairs (list): a list of tuples, where each tuple is a (fov, code) pair. Default: ``None```
+        """
         from exm.puncta.consolidate import consolidate_channels
         consolidate_channels(self,fov_code_pairs)
 
     def consolidate_codes(self,fovs,codes=range(7)):
+        r"""TO DO: Description of function
+        Args:
+            fov_code_pairs (list): a list of tuples, where each tuple is a (fov, code) pair. Default: ``None``
+            codes (list): TO DO: decsription
+        """
         from exm.puncta.consolidate import consolidate_codes
         consolidate_codes(self,fovs,codes=range(7))
     
