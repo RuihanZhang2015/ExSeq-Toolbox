@@ -1,6 +1,9 @@
+SimpleITK-SimpleElastix
 ipykernel
 jupyter
 nd2reader
 pandas
 seaborn
-numbers-parser
+h5py
+tifffile
+scikit-image
