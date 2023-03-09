@@ -6,6 +6,8 @@ import pickle
 import tempfile
 import numpy as np
 import os
+import queue
+import multiprocessing 
 
 from exm.io.io import nd2ToVol,nd2ToSlice,nd2ToChunk
 
@@ -289,8 +291,6 @@ def transform_other_function(args, tasks_queue = None, q_lock = None, mode = 'al
         mode (string): running mode. Default: ``all``
     """
 
-    import multiprocessing
-    import queue
     import SimpleITK as sitk
 
     while True: # Check for remaining task in the Queue
@@ -365,10 +365,6 @@ def transform_other_code(args, code_fov_pairs = None, num_cpu = None, mode = 'al
         num_cpu (int): the number of cpus to use for parallel processing. Default: ``8``
         mode (string): running mode. Default: ``all``
     """
-        
-    import os
-    import multiprocessing 
-    import queue # imported for using queue.Empty exception
 
     os.environ["OMP_NUM_THREADS"] = "1"
 
