@@ -21,15 +21,7 @@ def in_region(coord,ROI_min,ROI_max):
 # Raw
 def inspect_raw_plotly(args,fov,code,c,ROI_min,ROI_max,vmax=500,mode = 'raw'):
         
-    '''
-    exseq.inspect_raw_plotly(
-                fov=
-                ,code=
-                ,c=
-                ,ROI_min=
-                ,ROI_max=
-                ,zmax = 600)
-    '''
+
     from scipy.ndimage import gaussian_filter
     from skimage.feature import peak_local_max
     import plotly.express as px
@@ -73,6 +65,7 @@ def inspect_localmaximum_matplotlib(args,fov,code,ROI_min,ROI_max):
     import matplotlib.pyplot as plt
     import h5py
 
+    vmax = 500
     fig,ax = plt.subplots(1,5,figsize = (20,5))
     for c in range(5):
         img = args.retrieve_img(fov,code,c,ROI_min,ROI_max)
@@ -108,7 +101,7 @@ def inspect_localmaximum_plotly(args, fov, code, c, ROI_min, ROI_max):
         ))
 
     ## Scatter --------------
-    with open(args.project_path +'processed/fov{}/coords_total_code{}.pkl'.format(fov,code), 'rb') as f:
+    with open(args.work_path +'/fov{}/coords_total_code{}.pkl'.format(fov,code), 'rb') as f:
         coords_total = pickle.load(f)
         temp = []
         for coord in coords_total['c{}'.format(c)]:
@@ -146,11 +139,12 @@ def inspect_localmaximum_plotly(args, fov, code, c, ROI_min, ROI_max):
 
 
 # puncta in ROIs
-def inspect_puncta_ROI_matplotlib(args, fov, code, position, centered = 40):
+def inspect_puncta_ROI_matplotlib(args, fov, code, position):
 
     import matplotlib.pyplot as plt
     import numpy as np
 
+    centered = 40
     reference = args.retrieve_all_puncta(fov)
         
     fig,axs = plt.subplots(4,10,figsize = (10,5),dpi=100)
@@ -179,7 +173,7 @@ def inspect_puncta_ROI_matplotlib(args, fov, code, position, centered = 40):
     plt.show()
         
 
-def inspect_puncta_ROI_plotly(args, fov, position, c_list = [0,1,2,3], centered = 40):
+def inspect_puncta_ROI_plotly(args, fov, position, c_list = [0,1,2,3]):
 
     import plotly.graph_objects as go
     import h5py
@@ -187,8 +181,9 @@ def inspect_puncta_ROI_plotly(args, fov, position, c_list = [0,1,2,3], centered 
     import matplotlib.pyplot as plt
 
     spacer = 40
-    ROI_min = [position[0]-centered,position[1]-centered,position[2]-centered]
-    ROI_max = [position[0]+centered,position[1]+centered,position[2]+centered]
+    centered = 40
+    ROI_min = [position[0]-10,position[1]-centered,position[2]-centered]
+    ROI_max = [position[0]+10,position[1]+centered,position[2]+centered]
     reference = args.retrieve_all_puncta(fov)
 
     fig = go.Figure()
@@ -204,7 +199,7 @@ def inspect_puncta_ROI_plotly(args, fov, position, c_list = [0,1,2,3], centered 
 
                 y = list(range(ROI_min[1], ROI_max[1]))
                 x = list(range(ROI_min[2], ROI_max[2]))
-                z = np.ones((ROI_max[1]-ROI_min[1],ROI_max[2]-ROI_min[2])) * ( int(zz)+0.7*c+i*spacer )
+                z = np.ones((ROI_max[1]-ROI_min[1],ROI_max[2]-ROI_min[2])) * (int(zz)+0.7*c+i*spacer )
                 fig.add_trace(go.Surface(x=x, y=y, z=z,
                             surfacecolor=img,
                             cmin=0, 
@@ -249,7 +244,7 @@ def inspect_puncta_ROI_plotly(args, fov, position, c_list = [0,1,2,3], centered 
 
     # ---------------------
     fig.update_layout(
-        title = "Inspect fov{}, code ".format(fov) + 'and '.join([str(x) for x in args.codes]),
+        title = "Inspect fov{}, code: ".format(fov) + ' '.join([str(x) for x in args.codes]),
         width = 800,
         height = 800,
 
@@ -267,11 +262,12 @@ def inspect_puncta_ROI_plotly(args, fov, position, c_list = [0,1,2,3], centered 
 
 
 # Individual puncta
-def inspect_puncta_individual_matplotlib(args, fov, puncta_index, centered = 40):
+def inspect_puncta_individual_matplotlib(args, fov, puncta_index):
 
     import matplotlib.pyplot as plt
-    puncta = args.retrieve_puncta(fov,puncta_index)
+    puncta = args.retrieve_one_puncta(fov,puncta_index)
         
+    centered = 40
     fig,axs = plt.subplots(4,len(args.codes),figsize = (15,7))
             
     for code_ind,code in enumerate(args.codes):
@@ -293,17 +289,17 @@ def inspect_puncta_individual_matplotlib(args, fov, puncta_index, centered = 40)
     plt.show() 
     
         
-def inspect_puncta_individual_plotly(args, fov, puncta_index, spacer = 40 ):
+def inspect_puncta_individual_plotly(args, fov, puncta_index):
 
     import numpy as np
     import plotly.graph_objects as go
     import h5py
-    codes = args.codes
+
     reference = args.retrieve_all_puncta(fov)
     puncta = args.retrieve_one_puncta(fov, puncta_index)
-
+    spacer = 40 
     fig = go.Figure()
-    for i, code in enumerate(codes):
+    for i, code in enumerate(args.codes):
 
         if 'code{}'.format(code) in puncta:
 
@@ -398,29 +394,26 @@ def inspect_puncta_individual_plotly(args, fov, puncta_index, spacer = 40 ):
 # Puncta across rounds
 def inspect_between_rounds(args, fov, code1, code2, ROI_min, ROI_max):
 
-    '''
-    exseq.inspect_fov_all_to_all(
-                fov=
-                ,code1=
-                ,code2=
-                ,ROI_min=
-                ,ROI_max=
-                )
-    '''
+   
     
     import numpy as np
     import pickle
     import plotly.graph_objects as go
-    spacer = 100
+    
+    if ROI_max[0]-ROI_min[0]>20:
+        print('ROI_max[0]-ROI_min[0]should be smaller than 20')
+        return 
+    
+    spacer = 40
+    code1, code2 = 'code{}'.format(code1),'code{}'.format(code2)
 
-    with open(args.work_path +'/fov{}/result.pkl'.format(fov), 'rb') as f:
-        reference = pickle.load(f)
+    reference = args.retrieve_all_puncta(fov)
     reference = [ x for x in reference if in_region(x['position'], ROI_min,ROI_max) ] 
+    print('Only {} puncta remained'.format(len(reference)))
 
     fig = go.Figure()
 
-    ## Lines ====================
-
+    # Lines  between codes ====================
     temp = [x for x in reference if (code1 in x) and (code2 in x) ]
     for x in temp:
         center1,center2 = x[code1]['position'], x[code2]['position']
@@ -438,15 +431,13 @@ def inspect_between_rounds(args, fov, code1, code2, ROI_min, ROI_max):
         ))
             
 
-    ## Code1  =========================
-
+    # Code1  =========================
     temp = [x for x in reference if (code1 in x)]
 
-
-    ### Centers
+    # Centers
     points = [x[code1]['position'] for x in temp]
     points = np.asarray(points)
-    texts = [x['index'] for x in temp]
+    texts = ['{} {}'.format(x['index'],code1) for x in temp]
     if len(points)>0:
         fig.add_trace(go.Scatter3d(
                 z=points[:,0],
@@ -462,8 +453,7 @@ def inspect_between_rounds(args, fov, code1, code2, ROI_min, ROI_max):
                 )
             ))
 
-    ## Scatters --------------
-
+    # Scatters --------------
     for c in range(4):
 
         points = [x[code1]['c{}'.format(c)]['position'] for x in temp if 'c{}'.format(c) in x[code1]]
@@ -483,8 +473,7 @@ def inspect_between_rounds(args, fov, code1, code2, ROI_min, ROI_max):
             )
         ))
 
-    ## Lines --------------
-
+    # Lines --------------
     for x in temp:
         points = [ x[code1][c]['position'] for c in ['c0','c1','c2','c3'] if c in x[code1] ]
 
@@ -504,15 +493,13 @@ def inspect_between_rounds(args, fov, code1, code2, ROI_min, ROI_max):
                 ))   
 
 
-    ## Code2  =========================
-
-
+    # Code2  =========================
     temp = [x for x in reference if (code2 in x)]
 
-    ### Centers
+    # Centers
     points = [x[code2]['position'] for x in temp]
     points = np.asarray(points)
-    texts = [x['index'] for x in temp]
+    texts = ['{} {}'.format(x['index'],code2) for x in temp]
 
     if len(points)>0:
         fig.add_trace(go.Scatter3d(
@@ -529,10 +516,8 @@ def inspect_between_rounds(args, fov, code1, code2, ROI_min, ROI_max):
                 )
             ))
 
-    ## Scatters --------------
-
+    # Scatters --------------
     for c in range(4):
-
         points = [x[code2]['c{}'.format(c)]['position'] for x in temp if 'c{}'.format(c) in x[code2]]
         points = np.asarray(points)
         if len(points) == 0:
@@ -550,7 +535,6 @@ def inspect_between_rounds(args, fov, code1, code2, ROI_min, ROI_max):
         ))
 
     ## Lines --------------
-
     for x in temp:
         points = [ x[code2][c]['position'] for c in ['c0','c1','c2','c3'] if c in x[code2] ]
         for i in range(len(points)-1):
@@ -586,66 +570,53 @@ def inspect_between_rounds(args, fov, code1, code2, ROI_min, ROI_max):
     fig.show()
 
 
-def inspect_across_rounds(args, fov, ROI_min, ROI_max):
+def inspect_across_rounds_plotly(args, fov, ROI_min, ROI_max):
 
-    '''
-    exseq.inspect_fov_all(
-            fov=
-            ,ROI_min=
-            ,ROI_max=
-            )
-    '''
-        
     import pickle
     import numpy as np
     import plotly.graph_objects as go
-    spacer = 100
-
+    
+    spacer = 40
     reference = args.retrieve_all_puncta(fov)
     reference = [ x for x in reference if in_region(x['position'], ROI_min,ROI_max) ] 
 
     fig = go.Figure()
 
     ## Lines ====================
+    for puncta in reference:
+        codes = sorted([x for x in puncta if x.startswith('code')])
+        for i in range(len(codes)-1):
+            code1 = codes[i]
+            code2 = codes[i+1]
 
-    for i1 in range(len(args.codes))[:-1]:
-
-        code1 = 'code{}'.format(args.codes[i1])
-        i2 = i1+1
-        code2 = 'code{}'.format(args.codes[i2])
-
-        temp = [x for x in reference if (code1 in x) and (code2 in x) ]
-        for x in temp:
-                center1,center2 = x[code1]['position'], x[code2]['position']
-                name = x['index']
-                fig.add_trace(go.Scatter3d(
-                    z=[center1[0]+i1*spacer,center2[0]+i2*spacer],
+            center1,center2 = puncta[code1]['position'], puncta[code2]['position']
+            name = puncta['index']
+            fig.add_trace(go.Scatter3d(
+                    z=[center1[0]+int(code1[-1])*spacer,center2[0]+int(code2[-1])*spacer],
                     y=[center1[1],center2[1]],
                     x=[center1[2],center2[2]],
                     mode = 'lines',
                     name = name,
                     line = dict(
                         color = 'gray',
-                        # size=4,
                     )
                 ))
 
 
-    ## Code1  =========================
+    ## Code  =========================
+    for code in range(7):
 
-    for ii,code in enumerate(args.codes):
+        code_str = 'code{}'.format(code)
 
-        code1 = 'code{}'.format(code)
-
-        temp = [x for x in reference if (code1 in x)]
+        temp = [x for x in reference if (code_str in x)]
 
         ## Centers
-        points = [x[code1]['position'] for x in temp]
+        points = [x[code_str]['position'] for x in temp]
         points = np.asarray(points)
-        texts = [x['index'] for x in temp]
+        texts = ['{} {}'.format(x['index'],code_str) for x in temp]
         if len(points)>0:
             fig.add_trace(go.Scatter3d(
-                        z=points[:,0]+ii*spacer,
+                        z=points[:,0]+code*spacer,
                         y=points[:,1],
                         x=points[:,2],
                         text = texts,
@@ -659,16 +630,14 @@ def inspect_across_rounds(args, fov, ROI_min, ROI_max):
                     ))
 
         ## Scatters --------------
-
         for c in range(4):
-
-            points = [x[code1]['c{}'.format(c)]['position'] for x in temp if 'c{}'.format(c) in x[code1]]
+            points = [x[code_str]['c{}'.format(c)]['position'] for x in temp if 'c{}'.format(c) in x[code_str]]
             points = np.asarray(points)
             if len(points) == 0:
                 continue
 
             fig.add_trace(go.Scatter3d(
-                z=points[:,0]+ii*spacer,
+                z=points[:,0]+code*spacer,
                 y=points[:,1],
                 x=points[:,2],
                 name = 'channels',
@@ -680,15 +649,14 @@ def inspect_across_rounds(args, fov, ROI_min, ROI_max):
             ))
 
         ## Lines --------------
-
         for x in temp:
-            points = [ x[code1][c]['position'] for c in ['c0','c1','c2','c3'] if c in x[code1] ]
+            points = [ x[code_str][c]['position'] for c in ['c0','c1','c2','c3'] if c in x[code_str] ]
 
             for i in range(len(points)-1):
                 for j in range(i+1,len(points)):
 
                     fig.add_trace(go.Scatter3d(
-                        z = [ points[i][0]+ii*spacer, points[j][0]+ii*spacer ],
+                        z = [ points[i][0]+code*spacer, points[j][0]+code*spacer ],
                         y = [ points[i][1], points[j][1] ],
                         x = [ points[i][2], points[j][2] ],
                         mode = 'lines',
