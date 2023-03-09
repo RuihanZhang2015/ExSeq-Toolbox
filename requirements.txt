@@ -7,3 +7,4 @@ seaborn
 h5py
 tifffile
 scikit-image
+cucim
