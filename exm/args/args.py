@@ -1,15 +1,14 @@
 """
 Sets up the project parameters. 
 """
-
+import os
+import pickle
 from nd2reader import ND2Reader
 import pandas as pd
 pd.set_option('display.expand_frame_repr', False)
-import seaborn as sns
-# from numbers_parser import Document
-import collections
-import os
-import pickle
+
+from exm.utils import chmod
+
 
 class Args():
     
@@ -75,6 +74,8 @@ class Args():
 
         with open(os.path.join(self.project_path,'args.pkl'),'wb') as f:
             pickle.dump(self.__dict__,f)
+
+        chmod(os.path.join(self.project_path,'args.pkl'))
         
 
     # load parameters from a pre-set .pkl file
