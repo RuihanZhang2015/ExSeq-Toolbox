@@ -6,17 +6,20 @@ import pickle
 import tempfile
 import numpy as np
 import os
+import queue
+import multiprocessing 
 
-from exm.io.io import nd2ToVol,nd2ToSlice,nd2ToChunk
+from exm.io import nd2ToVol,nd2ToSlice,nd2ToChunk
+from exm.utils import chmod
 
 
 ## TODO what does mode refers to:
 def transform_ref_code(args, code_fov_pairs = None, mode = 'all'): 
     r"""For each volume specified in code_fov_pairs, convert from an nd2 file to an array, then save into an .h5 file.
     Args:
-        args (dict): configuration options.
+        args (args.Args): configuration options.
         code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
-        mode (str): running mode. Default: ``'all'``
+        mode (str): channels to run, should be one of 'all' (all channels), '405' (just the reference channel) or '4' (all channels other than reference). Default: ``'all'``
     """
 
     if not code_fov_pairs:
@@ -34,12 +37,13 @@ def transform_ref_code(args, code_fov_pairs = None, mode = 'all'):
                     continue
                 fix_vol = nd2ToVol(args.nd2_path.format(code,channel_name,channel_name_ind), fov, channel_name)
                 f.create_dataset(channel_name, fix_vol.shape, dtype=fix_vol.dtype, data = fix_vol)
-
+        
+        chmod(args.h5_path.format(code,fov))
 
 def identify_matching_z(args, code_fov_pairs = None, path = None):
     r"""For each volume specified in code_fov_pairs, save a series of images that allow the user to match corresponding z-slices. 
     Args:
-        args (dict): configuration options.
+        args (args.Args): configuration options.
         code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
         path (string): Path to save the images. Default: ``None``
     """
@@ -82,7 +86,7 @@ def correlation_lags(args, code_fov_pairs = None, path = None):
     starts x slices before the move. A returned offset of x means that the fixed volume starts x slices after 
     the move.
     Args:
-        args (dict): configuration options.
+        args (args.Args): configuration options.
         code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
         path (string): path to save the dictionary. Default: ``None``
     """
@@ -117,12 +121,14 @@ def correlation_lags(args, code_fov_pairs = None, path = None):
            
     with open(f'{path}/z_offset.pkl', 'wb') as f: 
         pickle.dump(lag_dict, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    chmod(f'{path}/z_offset.pkl')
     
 
 def align_truncated(args, code_fov_pairs = None):
     r"""For each volume in code_fov_pairs, find corresponding reference volume, truncate, then perform alignment. 
     Args:
-        args (dict): configuration options.
+        args (args.Args): configuration options.
         code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
     """
 
@@ -132,12 +138,12 @@ def align_truncated(args, code_fov_pairs = None):
     
     for code,fov in code_fov_pairs:
 
-        if tuple([code,fov]) not in args.align_init:
+        if tuple([code,fov]) not in args.align_z_init:
             continue
         print(f'align_truncated: code{code},fov{fov}')
 
         # Get the indexes in the matching slices in two dataset
-        fix_start,mov_start,last = args.align_init[tuple([code,fov])]
+        fix_start,mov_start,last = args.align_z_init[tuple([code,fov])]
 
         # Fixed volume
         fix_vol = nd2ToChunk(args.nd2_path.format(args.ref_code,'405',4), fov, fix_start, fix_start+last)
@@ -193,13 +199,15 @@ def align_truncated(args, code_fov_pairs = None):
         with h5py.File(args.h5_path_cropped.format(code,fov), 'w') as f:
             f.create_dataset('405', out.shape, dtype=out.dtype, data = out)
 
+        chmod(args.h5_path_cropped.format(code,fov))
+
         tmpdir_obj.cleanup()
 
 
 def inspect_align_truncated(args, fov_code_pairs = None, path = None):
     r"""For each volume in code_fov_pairs, save a series of images that allow the user to check the quality of alignmentt. 
     Args:
-        args (dict): configuration options.
+        args (args.Args): configuration options.
         code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
         path (string): Path to save the images. Default: ``None``
     """
@@ -208,7 +216,7 @@ def inspect_align_truncated(args, fov_code_pairs = None, path = None):
     
     for code,fov in fov_code_pairs:
     
-        if tuple([code,fov]) not in args.align_init:
+        if tuple([code,fov]) not in args.align_z_init:
             continue
         print(f'inspect_align_truncated: code{code},fov{fov}')
 
@@ -220,7 +228,7 @@ def inspect_align_truncated(args, fov_code_pairs = None, path = None):
         if not os.path.exists(f'{path}/code{code}'):
             os.makedirs(f'{path}/code{code}') 
 
-        fix_start,mov_start,last = args.align_init[tuple([code,fov])]
+        fix_start,mov_start,last = args.align_z_init[tuple([code,fov])]
         z_stacks = np.linspace(fix_start,fix_start+last-1,5)
 
         # ---------- Full resolution -----------------
@@ -278,19 +286,18 @@ def inspect_align_truncated(args, fov_code_pairs = None, path = None):
         plt.savefig(f'{path}/code{code}/fov{fov}_bottomright.jpg')
         plt.close()
 
+
 #TODO limit itk multithreading 
 #TODO add basic alignment approach
 def transform_other_function(args, tasks_queue = None, q_lock = None, mode = 'all'):
     r"""Takes the transform found from the reference round and applies it to the other channels. 
     Args:
-        args (dict): configuration options. 
+        args (args.Args): configuration options. 
         tasks_queue (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
         q_lock (multiporcessing.Lock): a multiporcessing.Lock instance to avoid race condition when processes accessing the task_queue. Default: ``None``
-        mode (string): running mode. Default: ``all``
+        mode (str): channels to run, should be one of 'all' (all channels), '405' (just the reference channel) or '4' (all channels other than reference). Default: ``'all'``
     """
 
-    import multiprocessing
-    import queue
     import SimpleITK as sitk
 
     while True: # Check for remaining task in the Queue
@@ -304,12 +311,12 @@ def transform_other_function(args, tasks_queue = None, q_lock = None, mode = 'al
             break
         else:
 
-            if tuple([code,fov]) not in args.align_init:
+            if tuple([code,fov]) not in args.align_z_init:
                 continue
             print(f'transform_other_function: code{code},fov{fov}')
             
             # Load the start position
-            fix_start, mov_start, last = args.align_init[tuple([code,fov])]
+            fix_start, mov_start, last = args.align_z_init[tuple([code,fov])]
 
             for channel_name_ind,channel_name in enumerate(args.channel_names):
 
@@ -355,20 +362,17 @@ def transform_other_function(args, tasks_queue = None, q_lock = None, mode = 'al
                 with h5py.File(args.h5_path.format(code,fov), 'a') as f:
                     f.create_dataset(channel_name, out.shape, dtype=out.dtype, data = out)                 
 
+            chmod(args.h5_path.format(code,fov))
 
 def transform_other_code(args, code_fov_pairs = None, num_cpu = None, mode = 'all'):
                     
     r"""Parallel processing support for transform_other_function.  
     Args:
-        args (dict): configuration options.
+        args (args.Args): configuration options.
         code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
         num_cpu (int): the number of cpus to use for parallel processing. Default: ``8``
-        mode (string): running mode. Default: ``all``
+        mode (str): channels to run, should be one of 'all' (all channels), '405' (just the reference channel) or '4' (all channels other than reference). Default: ``'all'``
     """
-        
-    import os
-    import multiprocessing 
-    import queue # imported for using queue.Empty exception
 
     os.environ["OMP_NUM_THREADS"] = "1"
 
