@@ -1,34 +1,26 @@
-
-
 import os
 import pickle
 import h5py
 import numpy as np
 
-# TODO decide connection to slack if it is needed and find a method to setup the connection securly
-def send_slack(message):
-    os.system("curl -X POST -H \'Content-type: application/json\' --data \'{\"text\":\" + 'amama'+   '\"}\' https://hooks.slack.com/services/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")
 
-
-# TODO clean refactor utils function
-def chmod(args):
-    os.system('chmod 777 -R {}'.format(args.project_path))
+def chmod(path):
+    os.system('chmod 777 -R {}'.format(path))
 
 def retrieve_all_puncta(args,fov):
     with open(args.work_path + '/fov{}/result.pkl'.format(fov), 'rb') as f:
         return pickle.load(f)
 
 def retrieve_one_puncta(args,fov,puncta_index):
-    return args.retrieve_all_puncta(fov)[puncta_index]
+    return retrieve_all_puncta(args,fov)[puncta_index]
 
-def retrieve_img(args,fov,code,c,ROI_min,ROI_max):
+def retrieve_img(args,fov,code,channel,ROI_min,ROI_max):
 
     if ROI_min != ROI_max:
-        print('use middle z slices')
         zz = int((ROI_min[0]+ROI_max[0])//2)
 
     with h5py.File(args.h5_path.format(code,fov), "r") as f:
-        im = f[args.channel_names[c]][zz, max(0,ROI_min[1]):min(2048,ROI_max[1]), max(0,ROI_min[2]):min(2048,ROI_max[2])]
+        im = f[args.channel_names[channel]][zz, max(0,ROI_min[1]):min(2048,ROI_max[1]), max(0,ROI_min[2]):min(2048,ROI_max[2])]
         im = np.squeeze(im)
 
     return im
@@ -39,6 +31,10 @@ def retrieve_vol(args,fov,code,c,ROI_min,ROI_max):
         vol = f[args.channel_names[c]][max(0,ROI_min[0]):ROI_max[0],max(0,ROI_min[1]):min(2048,ROI_max[1]),max(0,ROI_min[2]):min(2048,ROI_max[2])]    
     return vol
 
+
+
+
+# TODO clean refactor utils function
 # TODO clean unsed functions 
   
 # def retrieve_(args,fov):
