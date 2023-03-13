@@ -1,15 +1,14 @@
 """
 Sets up the project parameters. 
 """
-
+import os
+import pickle
 from nd2reader import ND2Reader
 import pandas as pd
 pd.set_option('display.expand_frame_repr', False)
-import seaborn as sns
-# from numbers_parser import Document
-import collections
-import os
-import pickle
+
+from exm.utils import chmod
+
 
 class Args():
     
@@ -22,7 +21,7 @@ class Args():
                 fovs = None,
                 ref_code = 0,
                 thresholds = [200,300,300,200],
-                align_init=None,
+                align_z_init=None,
                 spacing = [1.625,1.625,4.0],
                 ):
         
@@ -33,12 +32,12 @@ class Args():
             fovs (list): a list of integers, where each integer represents a field of view.
             ref_code (int): integer that specifies which code is the reference round. 
             thresholds (list): list of integers, where each integer is a threshold for the code of the same index. Should be the same length as the codes parameter.
-            align_init (str): path to .pkl file that has initial z-alignment positions. 
+            align_z_init (str): path to .pkl file that has initial z-alignment positions. 
         """
         self.project_path = project_path
         self.codes = codes
         self.ref_code = ref_code
-        self.thresholds = thresholds 
+        self.thresholds = thresholds
         self.spacing = spacing
 
         # Input ND2 path
@@ -62,15 +61,21 @@ class Args():
         self.colorscales = ['Reds','Oranges','Greens','Blues']
         self.channel_names = ['640','594','561','488','405']
 
+        # align_z_init
+        if not align_z_init:
+            self.align_z_init = align_z_init
+        else:
+            with open(align_z_init, 'rb') as f:
+                z_init = pickle.load(f)
+            self.align_z_init = z_init
+
         self.work_path = self.project_path + 'puncta/'
-        
-        # Initilization for alignment parameter 
-        #if not align_init:
-        #    from exm.args.default_align_init import default_starting
-        #    self.align_init = default_starting
+
 
         with open(os.path.join(self.project_path,'args.pkl'),'wb') as f:
             pickle.dump(self.__dict__,f)
+
+        chmod(os.path.join(self.project_path,'args.pkl'))
         
 
     # load parameters from a pre-set .pkl file

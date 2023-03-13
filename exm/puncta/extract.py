@@ -74,8 +74,8 @@ def calculate_coords_gpu(args,tasks_queue,device,lock,queue_lock):
                 with open(args.work_path + '/fov{}/coords_total_code{}.pkl'.format(fov,code), 'wb') as f:
                     pickle.dump(coords_total,f)
                     f.close()
-                # TODO check why this step is needed    
-                # chmod(args)
+  
+                chmod(os.path.join(args.work_path,'fov{}/coords_total_code{}.pkl'.format(fov,code)))
             print('------ Fov:{}, Code:{} Finished on {}\n'.format(fov,code, current_process().name))
 
 
@@ -162,7 +162,7 @@ def calculate_coords_cpu(args,tasks_queue,queue_lock):
                 pickle.dump(coords_total,f)
                 f.close()
 
-            # chmod(args)
+            chmod(os.path.join(args.work_path,'fov{}/coords_total_code{}.pkl'.format(fov,code)))
 
         print('Extract Puncta: Fov{}, Code{} Finished on {}\n'.format(fov,code,current_process().name))
 
