@@ -46,32 +46,34 @@ def get_offsets_nd2(filename):
     return trans
 
 
-
-def blend(offsets, pictures, indices=None, transposes=[1,2,0], inverts = None):
+def blend(offsets, pictures, indices=None, inverts=None):
     # Blends a list of tiles together according to offsets
     if indices is None:
         indices = range(0,len(offsets))
-    tile_size = np.array(pictures[0].shape)[transposes]
+    tile_size = np.array(pictures[0].shape)
     origin = np.min(offsets, axis=0)
-    newshape = np.ceil(np.abs(np.max(offsets, axis=0)-origin) + np.array(tile_size)).astype(np.uint)
+    newshape = np.ceil(np.abs(np.max(offsets, axis=0)-origin)[[2, 1, 0]] + np.array(tile_size)).astype(np.uint)
     newpic = np.zeros(newshape, dtype=pictures[0].dtype)
-    for off, tile, index in zip(offsets,pictures, indices):
+    for off, tile, index in zip(offsets, pictures, indices):
         if inverts:
             tile = np.flip(tile, axis=inverts)
-        blit = np.transpose(tile, axes=transposes)
+        blit = tile
         if pictures[0].dtype == np.dtype('uint8'):
             blitmask = ((blit == 0) * 255).astype(np.uint8)
         elif pictures[0].dtype == np.dtype('uint16'):
             blitmask = ((blit==0)*65535).astype(np.uint16)
-        newpic[int(off[0]-origin[0]):int(off[0]-origin[0])+tile_size[0],
+        # print(tile.shape, blitmask.shape, transposes, tile_size, int(off[0]-origin[0])+tile_size[2])
+        newpic[int(off[2]-origin[2]):int(off[2]-origin[2])+tile_size[0],
                int(off[1]-origin[1]):int(off[1]-origin[1])+tile_size[1],
-               int(off[2]-origin[2]):int(off[2]-origin[2])+tile_size[2]] &= blitmask
-        newpic[int(off[0]-origin[0]):int(off[0]-origin[0])+tile_size[0],
+               int(off[0]-origin[0]):int(off[0]-origin[0])+tile_size[2]] &= blitmask
+        newpic[int(off[2]-origin[2]):int(off[2]-origin[2])+tile_size[0],
                int(off[1]-origin[1]):int(off[1]-origin[1])+tile_size[1],
-               int(off[2]-origin[2]):int(off[2]-origin[2])+tile_size[2]] |= blit
+               int(off[0]-origin[0]):int(off[0]-origin[0])+tile_size[2]] |= blit
     return newpic
 
+
 def blend2(offsets, pictures):
+    # TODO: fix (remove) the transposes here
     # Blends 2 tiles of 16 bpp together into a 32 bpp. One tile is blit on the upper byte and one on the bottom byte
     # This is used during the deduplication process
     tile_size = np.array(pictures[0].shape)[[2,1,0]]

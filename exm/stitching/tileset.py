@@ -55,6 +55,7 @@ class Tileset:
         self.tiles = list()
         self.voxel_size = voxel_size
         self.original_xyz_size = orig_size
+        self.nd2=None
 
     def init_from_jp2(self, files_list, offsets_file, downscale=[1, 1, 1]):
         # initializes the tileset from a list of JP2 files, each representing a single
@@ -81,6 +82,8 @@ class Tileset:
         # and will lazily load the necessary information on calls to `load_fov` or
         # `preview_nd2`
 
+        if type(nd2) is str:
+            nd2 = ND2Reader(nd2)
         self.nd2=nd2
         # Extract offsets from ND2 file
         meta = self.nd2._parser._raw_metadata.image_metadata
@@ -270,6 +273,7 @@ class Tileset:
         # Loads all tiles from the ND2 file. Before that call, tiles exist but are placeholders without image data
         # Method can be "fast" or "safe". The fast method makes the loading faster but makes some assumptions about the
         # data format
+        # Note that the downscale parameter is in the axis order of the tiles, typically ZYX
         #
         # TODO: implement the "safe" method
         for i,t in enumerate(self.tiles):
@@ -390,8 +394,7 @@ class Tileset:
         scale = np.array(self.original_xyz_size) / np.array(self.tiles[0].img.shape)[[2, 1, 0]]
         return stitching.blend(
             [t.offset/(np.array(self.voxel_size)*scale) for t in self.tiles],
-            [t.img for t in self.tiles],
-            transposes=[2,1,0]
+            [t.img for t in self.tiles]
         )
 
     def dedup_segmentation_ids_lut(self):
@@ -522,7 +525,6 @@ class Tile:
             data = fh.read(data_length)
             a = np.frombuffer(data[len(data) - sz*2:], dtype=np.uint16)
             a.shape = (w, h)
-
             img[z//downscale[0],:,:] = a[::downscale[1],::downscale[2]]
         self.img = img
 
