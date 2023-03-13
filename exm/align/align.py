@@ -9,7 +9,7 @@ import os
 import queue
 import multiprocessing 
 
-from exm.io.io import nd2ToVol,nd2ToSlice,nd2ToChunk
+from exm.io import nd2ToVol,nd2ToSlice,nd2ToChunk
 
 
 ## TODO what does mode refers to:
@@ -134,12 +134,12 @@ def align_truncated(args, code_fov_pairs = None):
     
     for code,fov in code_fov_pairs:
 
-        if tuple([code,fov]) not in args.align_init:
+        if tuple([code,fov]) not in args.align_z_init:
             continue
         print(f'align_truncated: code{code},fov{fov}')
 
         # Get the indexes in the matching slices in two dataset
-        fix_start,mov_start,last = args.align_init[tuple([code,fov])]
+        fix_start,mov_start,last = args.align_z_init[tuple([code,fov])]
 
         # Fixed volume
         fix_vol = nd2ToChunk(args.nd2_path.format(args.ref_code,'405',4), fov, fix_start, fix_start+last)
@@ -210,7 +210,7 @@ def inspect_align_truncated(args, fov_code_pairs = None, path = None):
     
     for code,fov in fov_code_pairs:
     
-        if tuple([code,fov]) not in args.align_init:
+        if tuple([code,fov]) not in args.align_z_init:
             continue
         print(f'inspect_align_truncated: code{code},fov{fov}')
 
@@ -222,7 +222,7 @@ def inspect_align_truncated(args, fov_code_pairs = None, path = None):
         if not os.path.exists(f'{path}/code{code}'):
             os.makedirs(f'{path}/code{code}') 
 
-        fix_start,mov_start,last = args.align_init[tuple([code,fov])]
+        fix_start,mov_start,last = args.align_z_init[tuple([code,fov])]
         z_stacks = np.linspace(fix_start,fix_start+last-1,5)
 
         # ---------- Full resolution -----------------
@@ -280,6 +280,7 @@ def inspect_align_truncated(args, fov_code_pairs = None, path = None):
         plt.savefig(f'{path}/code{code}/fov{fov}_bottomright.jpg')
         plt.close()
 
+
 #TODO limit itk multithreading 
 #TODO add basic alignment approach
 def transform_other_function(args, tasks_queue = None, q_lock = None, mode = 'all'):
@@ -304,12 +305,12 @@ def transform_other_function(args, tasks_queue = None, q_lock = None, mode = 'al
             break
         else:
 
-            if tuple([code,fov]) not in args.align_init:
+            if tuple([code,fov]) not in args.align_z_init:
                 continue
             print(f'transform_other_function: code{code},fov{fov}')
             
             # Load the start position
-            fix_start, mov_start, last = args.align_init[tuple([code,fov])]
+            fix_start, mov_start, last = args.align_z_init[tuple([code,fov])]
 
             for channel_name_ind,channel_name in enumerate(args.channel_names):
 
