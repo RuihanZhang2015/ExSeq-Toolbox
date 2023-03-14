@@ -8,6 +8,7 @@ import pandas as pd
 pd.set_option('display.expand_frame_repr', False)
 
 from exm.utils import chmod
+from exm.io import createFolderStruc
 
 
 class Args():
@@ -23,6 +24,8 @@ class Args():
                 thresholds = [200,300,300,200],
                 align_z_init=None,
                 spacing = [1.625,1.625,4.0],
+                Create_directroy_Struc = False,
+                permission = False,
                 ):
         
         r"""Sets parameters for running alignment code. 
@@ -33,6 +36,8 @@ class Args():
             ref_code (int): integer that specifies which code is the reference round. 
             thresholds (list): list of integers, where each integer is a threshold for the code of the same index. Should be the same length as the codes parameter.
             align_z_init (str): path to .pkl file that has initial z-alignment positions. 
+            Create_directroy_Struc (bool): If True, Create the working folders stucture for the porject path. Default:False
+            permission (bool): Give other users the permission to read and write on the generated files (linux and macOS only). Default:False 
         """
         self.project_path = project_path
         self.codes = codes
@@ -71,11 +76,15 @@ class Args():
 
         self.work_path = self.project_path + 'puncta/'
 
+        if Create_directroy_Struc:
+            createFolderStruc(project_path,codes)
 
         with open(os.path.join(self.project_path,'args.pkl'),'wb') as f:
             pickle.dump(self.__dict__,f)
 
-        chmod(os.path.join(self.project_path,'args.pkl'))
+        if permission:
+            self.permission = permission 
+            chmod(os.path.join(self.project_path,'args.pkl'))
         
 
     # load parameters from a pre-set .pkl file

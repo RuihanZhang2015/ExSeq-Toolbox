@@ -38,7 +38,8 @@ def transform_ref_code(args, code_fov_pairs = None, mode = 'all'):
                 fix_vol = nd2ToVol(args.nd2_path.format(code,channel_name,channel_name_ind), fov, channel_name)
                 f.create_dataset(channel_name, fix_vol.shape, dtype=fix_vol.dtype, data = fix_vol)
         
-        chmod(args.h5_path.format(code,fov))
+        if args.permission:
+            chmod(args.h5_path.format(code,fov))
 
 def identify_matching_z(args, code_fov_pairs = None, path = None):
     r"""For each volume specified in code_fov_pairs, save a series of images that allow the user to match corresponding z-slices. 
@@ -122,7 +123,8 @@ def correlation_lags(args, code_fov_pairs = None, path = None):
     with open(f'{path}/z_offset.pkl', 'wb') as f: 
         pickle.dump(lag_dict, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-    chmod(f'{path}/z_offset.pkl')
+    if args.permission:
+        chmod(f'{path}/z_offset.pkl')
     
 
 def align_truncated(args, code_fov_pairs = None):
@@ -199,7 +201,8 @@ def align_truncated(args, code_fov_pairs = None):
         with h5py.File(args.h5_path_cropped.format(code,fov), 'w') as f:
             f.create_dataset('405', out.shape, dtype=out.dtype, data = out)
 
-        chmod(args.h5_path_cropped.format(code,fov))
+        if args.permission:
+            chmod(args.h5_path_cropped.format(code,fov))
 
         tmpdir_obj.cleanup()
 
@@ -362,7 +365,8 @@ def transform_other_function(args, tasks_queue = None, q_lock = None, mode = 'al
                 with h5py.File(args.h5_path.format(code,fov), 'a') as f:
                     f.create_dataset(channel_name, out.shape, dtype=out.dtype, data = out)                 
 
-            chmod(args.h5_path.format(code,fov))
+            if args.permission:
+                chmod(args.h5_path.format(code,fov))
 
 def transform_other_code(args, code_fov_pairs = None, num_cpu = None, mode = 'all'):
                     
