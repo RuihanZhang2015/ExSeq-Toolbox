@@ -11,8 +11,13 @@ import os
 import queue
 import multiprocessing
 
+<<<<<<< HEAD
 from tqdm import tqdm
 from exm.io.io import nd2ToVol, nd2ToSlice, nd2ToChunk
+=======
+from exm.io import nd2ToVol,nd2ToSlice,nd2ToChunk
+from exm.utils import chmod
+>>>>>>> main
 
 
 ## TODO what does mode refers to:
@@ -37,6 +42,7 @@ def transform_ref_code(args, code_fov_pairs=None, mode="all"):
                     continue
                 if channel_name in f.keys():
                     continue
+<<<<<<< HEAD
                 fix_vol = nd2ToVol(
                     args.nd2_path.format(code, channel_name, channel_name_ind),
                     fov,
@@ -46,6 +52,13 @@ def transform_ref_code(args, code_fov_pairs=None, mode="all"):
                     channel_name, fix_vol.shape, dtype=fix_vol.dtype, data=fix_vol
                 )
 
+=======
+                fix_vol = nd2ToVol(args.nd2_path.format(code,channel_name,channel_name_ind), fov, channel_name)
+                f.create_dataset(channel_name, fix_vol.shape, dtype=fix_vol.dtype, data = fix_vol)
+        
+        if args.permission:
+            chmod(args.h5_path.format(code,fov))
+>>>>>>> main
 
 def computeMinFlann(
     fix,
@@ -283,6 +296,26 @@ def correlation_lags(args, code_fov_pairs=None, path=None):
 
         intensities_fixed = np.array([np.mean(im.flatten()) for im in fixed_vol])
         intensities_mov = np.array([np.mean(im.flatten()) for im in mov_vol])
+<<<<<<< HEAD
+=======
+    
+        correlation = signal.correlate(intensities_fixed, intensities_mov, mode="full")
+        lags = signal.correlation_lags(intensities_fixed.size, intensities_mov.size, mode="full")
+        lag = lags[np.argmax(correlation)]
+        
+        if lag > 0:
+            lag_dict[f'({code}, {fov})'] = [0, lag]
+        
+        else:
+            lag_dict[f'({code}, {fov})'] = [abs(lag), 0]
+           
+    with open(f'{path}/z_offset.pkl', 'wb') as f: 
+        pickle.dump(lag_dict, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    if args.permission:
+        chmod(f'{path}/z_offset.pkl')
+    
+>>>>>>> main
 
         correlation = signal.correlate(intensities_fixed, intensities_mov, mode="full")
         lags = signal.correlation_lags(
@@ -311,14 +344,22 @@ def align_truncated(args, code_fov_pairs=None):
 
     sitk.ProcessObject_SetGlobalWarningDisplay(False)
 
+<<<<<<< HEAD
     for code, fov in code_fov_pairs:
 
         if tuple([code, fov]) not in args.align_init:
+=======
+        if tuple([code,fov]) not in args.align_z_init:
+>>>>>>> main
             continue
         print(f"align_truncated: code{code},fov{fov}")
 
         # Get the indexes in the matching slices in two dataset
+<<<<<<< HEAD
         fix_start, mov_start, last = args.align_init[tuple([code, fov])]
+=======
+        fix_start,mov_start,last = args.align_z_init[tuple([code,fov])]
+>>>>>>> main
 
         # Fixed volume
         fix_vol = nd2ToChunk(
@@ -389,6 +430,9 @@ def align_truncated(args, code_fov_pairs=None):
         with h5py.File(args.h5_path_cropped.format(code, fov), "w") as f:
             f.create_dataset("405", out.shape, dtype=out.dtype, data=out)
 
+        if args.permission:
+            chmod(args.h5_path_cropped.format(code,fov))
+
         tmpdir_obj.cleanup()
 
 
@@ -401,10 +445,17 @@ def inspect_align_truncated(args, fov_code_pairs=None, path=None):
     """
 
     import matplotlib.pyplot as plt
+<<<<<<< HEAD
 
     for code, fov in fov_code_pairs:
 
         if tuple([code, fov]) not in args.align_init:
+=======
+    
+    for code,fov in fov_code_pairs:
+    
+        if tuple([code,fov]) not in args.align_z_init:
+>>>>>>> main
             continue
         print(f"inspect_align_truncated: code{code},fov{fov}")
 
@@ -416,8 +467,13 @@ def inspect_align_truncated(args, fov_code_pairs=None, path=None):
         if not os.path.exists(f"{path}/code{code}"):
             os.makedirs(f"{path}/code{code}")
 
+<<<<<<< HEAD
         fix_start, mov_start, last = args.align_init[tuple([code, fov])]
         z_stacks = np.linspace(fix_start, fix_start + last - 1, 5)
+=======
+        fix_start,mov_start,last = args.align_z_init[tuple([code,fov])]
+        z_stacks = np.linspace(fix_start,fix_start+last-1,5)
+>>>>>>> main
 
         # ---------- Full resolution -----------------
         fig, axs = plt.subplots(2, 5, figsize=(20, 5))
@@ -481,10 +537,17 @@ def inspect_align_truncated(args, fov_code_pairs=None, path=None):
         plt.close()
 
 
+<<<<<<< HEAD
 # TODO limit itk multithreading
 # TODO add basic alignment approach
 def transform_other_function(args, tasks_queue=None, q_lock=None, mode="all"):
     r"""Takes the transform found from the reference round and applies it to the other channels.
+=======
+#TODO limit itk multithreading 
+#TODO add basic alignment approach
+def transform_other_function(args, tasks_queue = None, q_lock = None, mode = 'all'):
+    r"""Takes the transform found from the reference round and applies it to the other channels. 
+>>>>>>> main
     Args:
         args (args.Args): configuration options.
         tasks_queue (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
@@ -505,12 +568,20 @@ def transform_other_function(args, tasks_queue=None, q_lock=None, mode="all"):
             break
         else:
 
+<<<<<<< HEAD
             if tuple([code, fov]) not in args.align_init:
+=======
+            if tuple([code,fov]) not in args.align_z_init:
+>>>>>>> main
                 continue
             print(f"transform_other_function: code{code},fov{fov}")
 
             # Load the start position
+<<<<<<< HEAD
             fix_start, mov_start, last = args.align_init[tuple([code, fov])]
+=======
+            fix_start, mov_start, last = args.align_z_init[tuple([code,fov])]
+>>>>>>> main
 
             for channel_name_ind, channel_name in enumerate(args.channel_names):
 
@@ -568,6 +639,8 @@ def transform_other_function(args, tasks_queue=None, q_lock=None, mode="all"):
                 with h5py.File(args.h5_path.format(code, fov), "a") as f:
                     f.create_dataset(channel_name, out.shape, dtype=out.dtype, data=out)
 
+            if args.permission:
+                chmod(args.h5_path.format(code,fov))
 
 def transform_other_code(args, code_fov_pairs=None, num_cpu=None, mode="all"):
 

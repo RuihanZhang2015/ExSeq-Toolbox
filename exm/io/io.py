@@ -2,7 +2,7 @@
 Functions to assist in folder creation and reading/writing image files. 
 """
 
-import os, sys
+import os
 import numpy as np
 import h5py
 import pandas as pd
@@ -14,6 +14,8 @@ from PIL import Image
 import skimage.measure
 from IPython.display import Image as Img2
 
+
+# TODO document the expected Xlsx structure 
 def readXlsx(xlsx_file):
     r"""Reads the experiment xlsx_file and returns it as a Pandas dataframe. 
     Args:
@@ -55,7 +57,7 @@ def readXlsx(xlsx_file):
         # take the longest one
     return out 
 
-
+# TODO document the expected Xlsx structure
 def readNd2(nd2_file, do_info = True):
     r"""Returns the image and metadata from the specified Nd2 file. 
     Args:
@@ -167,47 +169,50 @@ def nd2ToSlice(filename: str, fov: int, z: int, channel_name: str = '405 SD'):
     return out
 
 
-def createFolderStruc(out_dir: str, code: str):
+def createFolderStruc(out_dir, codes):
     r"""Creates a results folder for the specified code. 
     Args:
         outdir (str): the directory where all results for the specified code should be stored. 
-        code (int): the code (staining round) to create the folder structure for. 
+        codes (list): the list of codes create the folder structure for. 
     """
     
-    ###################################################################
-    # USAGE: place the path of where you would like results to be saved
-    # in out_dir, along with date data were collected and code ########
-    ###################################################################
+    processed_dir = os.path.join(out_dir,"processed/")
+    puncta_dir = os.path.join(out_dir,"puncta/")
+
+    if os.path.isdir(processed_dir) is False:
+        os.makedirs(processed_dir)
     
-    if os.path.isdir(out_dir) is False:
-        os.makedirs(out_dir)
-    
-    code_dir = 'code{}'.format(code)
-    code_path = os.path.join(out_dir,code_dir)
-    
-    if os.path.isdir(code_path) is False:
-        os.makedirs(code_path)
-    
-    tform_dir = os.path.join(code_path, 'tforms')
-    
-    if os.path.isdir(tform_dir) is False:
-        os.makedirs(tform_dir)
-    
-    gif_parent_path = os.path.join(code_path, 'gifs')
-    
-    if os.path.isdir(gif_parent_path) is False:
-        os.makedirs(gif_parent_path)
-    
-    gif_dirs = ['xy','zy','zx']
-    
-    for gif_dir in gif_dirs:
+    if os.path.isdir(puncta_dir) is False:
+        os.makedirs(puncta_dir)
+
+
+    for code in codes: 
         
-        gif_path = os.path.join(gif_parent_path, gif_dir)
+        code_path = os.path.join(processed_dir,'code{}'.format(code))
         
-        if os.path.isdir(gif_path) is False:
-            os.makedirs(gif_path)
+        if os.path.isdir(code_path) is False:
+            os.makedirs(code_path)
+        
+        tform_dir = os.path.join(code_path, 'tforms')
+        
+        if os.path.isdir(tform_dir) is False:
+            os.makedirs(tform_dir)
+
+        # TODO Do we need the gifs Dir 
+        # gif_parent_path = os.path.join(code_path, 'gifs')
     
-    print('creating paths done')
+        # if os.path.isdir(gif_parent_path) is False:
+        #     os.makedirs(gif_parent_path)
+    
+        # gif_dirs = ['xy','zy','zx']
+        
+        # for gif_dir in gif_dirs:
+            
+        #     gif_path = os.path.join(gif_parent_path, gif_dir)
+            
+        #     if os.path.isdir(gif_path) is False:
+        #         os.makedirs(gif_path)
+
 
 def downsample(arr, block_size):
     r"""Takes in a single or multidimensional array and downsampled it using skimage.measure.block_reduce.
