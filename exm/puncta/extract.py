@@ -189,13 +189,13 @@ def puncta_extraction_cpu(args,tasks_queue,num_cpu):
     for p in child_processes:
         p.join()
 
-def extract(args,fov_code_pairs,use_gpu=False,num_gpu = 3,num_cpu = 3):
+def extract(args,code_fov_pairs,use_gpu=False,num_gpu = 3,num_cpu = 3):
 
     # Queue to hold all the puncta extraction tasks.
     tasks_queue = Queue() 
     
     # Add all the extraction tasks to the queue.
-    for code,fov in fov_code_pairs:
+    for code,fov in code_fov_pairs:
         tasks_queue.put((fov,code))
         if not os.path.exists(args.work_path + 'fov{}/'.format(fov)):
             os.makedirs(args.work_path + 'fov{}/'.format(fov))
