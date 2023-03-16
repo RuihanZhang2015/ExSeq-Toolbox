@@ -35,7 +35,7 @@ def test_puncta_module_extract():
     args = Args()
     args.load_params('/mp/nas3/ruihan/20221218_zebrafish/args.pkl')
     code_fov_pairs = [[0,0],[1,0]]
-    extract(args, code_fov_pairs, use_gpu = True,num_cpu=8)
+    extract(args, code_fov_pairs, use_gpu = False,num_cpu=8)
 
     assert os.path.exists(os.path.join(args.work_path,'fov{}/coords_total_code{}.pkl'.format(0,0))) == True
     assert os.path.exists(os.path.join(args.work_path,'fov{}/coords_total_code{}.pkl'.format(0,1))) == True
