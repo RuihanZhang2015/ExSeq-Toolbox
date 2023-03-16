@@ -3,7 +3,6 @@ Sets up the project parameters.
 """
 import os
 import pickle
-from nd2reader import ND2Reader
 import pandas as pd
 pd.set_option('display.expand_frame_repr', False)
 
@@ -19,7 +18,7 @@ class Args():
     def set_params(self,
                 project_path = '',
                 codes = list(range(7)),
-                fovs = None,
+                fovs = list(range(3)),
                 ref_code = 0,
                 thresholds = [200,300,300,200],
                 align_z_init=None,
@@ -41,9 +40,11 @@ class Args():
         """
         self.project_path = project_path
         self.codes = codes
+        self.fovs = fovs
         self.ref_code = ref_code
         self.thresholds = thresholds
         self.spacing = spacing
+        self.permission = permission
 
         # Input ND2 path
         self.nd2_path = os.path.join(self.project_path,'code{}/Channel{} SD_Seq000{}.nd2')
@@ -55,9 +56,6 @@ class Args():
         # Cropped temporary h5 path
         self.h5_path_cropped = os.path.join(self.project_path,'processed/code{}/{}_cropped.h5')
 
-        # Nd2 Fovs                  
-        if not fovs: 
-            self.fovs = list(ND2Reader(self.nd2_path.format(self.ref_code,'405',4)).metadata['fields_of_view'])
 
         # Housekeeping
 
@@ -82,9 +80,9 @@ class Args():
         with open(os.path.join(self.project_path,'args.pkl'),'wb') as f:
             pickle.dump(self.__dict__,f)
 
-        if permission:
-            self.permission = permission 
+        if permission:             
             chmod(os.path.join(self.project_path,'args.pkl'))
+
         
 
     # load parameters from a pre-set .pkl file
