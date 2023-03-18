@@ -22,8 +22,9 @@ class Args():
                 fovs = None,
                 ref_code = 0,
                 thresholds = [200,300,300,200],
-                align_init=None,
+                align_init = None,
                 spacing = [1.625,1.625,4.0],
+                pickle_file = None
                 ):
         
         r"""Sets parameters for running alignment code. 
@@ -45,11 +46,15 @@ class Args():
         self.nd2_path = os.path.join(self.project_path,'code{}/Channel{} SD_Seq000{}.nd2')
 
         # Output h5 path
-        self.h5_path = os.path.join(self.project_path,'processed/code{}/{}.h5')
-        self.tform_path = os.path.join(self.project_path,'processed/code{}/tforms/{}.txt')
+        self.processed_path =  os.path.join(self.project_path,'processed_ruihan')
+        if not os.path.exists(self.processed_path):
+            print(self.processed_path)
+            os.makedirs(self.processed_path)
+        self.h5_path = os.path.join(self.processed_path,'code{}/{}.h5')
+        self.tform_path = os.path.join(self.processed_path,'code{}/tforms/{}.txt')
         
         # Cropped temporary h5 path
-        self.h5_path_cropped = os.path.join(self.project_path,'processed/code{}/{}_cropped.h5')
+        self.h5_path_cropped = os.path.join(self.processed_path,'code{}/{}_cropped.h5')
 
         # Nd2 Fovs                  
         if not fovs: 
@@ -65,11 +70,14 @@ class Args():
         self.work_path = self.project_path + 'puncta/'
         
         # Initilization for alignment parameter 
-        #if not align_init:
-        #    from exm.args.default_align_init import default_starting
-        #    self.align_init = default_starting
+        if not align_init:
+            import json
+            with open('/mp/nas2/ruihan/ExSeq-Toolbox/exm/args/align_init.json') as f:
+                self.align_init = json.load(f)
 
-        with open(os.path.join(self.project_path,'args.pkl'),'wb') as f:
+        if pickle_file == None:
+            pickle_file = 'args.pkl'
+        with open(os.path.join(self.project_path,pickle_file),'wb') as f:
             pickle.dump(self.__dict__,f)
         
 
@@ -96,12 +104,13 @@ class Args():
     def tree(self):
         r"""Lists the files in the output directory.
         """
-        startpath = os.path.join(self.project_path,'processed/')
-        for root, dirs, files in os.walk(startpath):
-            level = root.replace(startpath, '').count(os.sep)
+        for root, dirs, files in os.walk(self.processed_path):
+            level = root.replace(self.processed_path, '').count(os.sep)
             indent = ' ' * 4 * (level)
             print('{}{}/'.format(indent, os.path.basename(root)))
             subindent = ' ' * 4 * (level + 1)
             for f in files:
                 print('{}{}'.format(subindent, f))
       
+    def progress(self):
+        
