@@ -8,3 +8,4 @@ exm/args/__pycache__/args.cpython-38.pyc
 exm/args/__pycache__/default_align_init.cpython-38.pyc
 exm/io/__pycache__/__init__.cpython-38.pyc
 exm/io/__pycache__/io.cpython-38.pyc
+examples/align_z_init.pkl
