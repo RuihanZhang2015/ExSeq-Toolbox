@@ -544,16 +544,22 @@ def transform_other_function(args, tasks_queue=None, q_lock=None, mode="all"):
         else:
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 9f25febbe2aa971a738fd7df6732854719df6f99
             if tuple([code, fov]) not in args.align_z_init:
                 continue
             print(f"transform_other_function: code{code},fov{fov}")
 
             # Load the start position
             fix_start, mov_start, last = args.align_z_init[tuple([code, fov])]
+<<<<<<< HEAD
 =======
             print(f'transform_other_function: code{code},fov{fov}')
             
 >>>>>>> origin/main
+=======
+>>>>>>> 9f25febbe2aa971a738fd7df6732854719df6f99
 
             for channel_name_ind, channel_name in enumerate(args.channel_names):
 
@@ -579,6 +585,9 @@ def transform_other_function(args, tasks_queue=None, q_lock=None, mode="all"):
 
                 # Read the transform map
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 9f25febbe2aa971a738fd7df6732854719df6f99
                 transform_map = sitk.ReadParameterFile(
                     args.tform_path.format(code, fov)
                 )
@@ -599,6 +608,7 @@ def transform_other_function(args, tasks_queue=None, q_lock=None, mode="all"):
                 )
                 cen_um[-1] += mov_start * 4
                 transform_map["CenterOfRotationPoint"] = tuple([str(x) for x in cen_um])
+<<<<<<< HEAD
 =======
                 transform_map = sitk.ReadParameterFile(args.tform_path.format(code,fov))
 
@@ -618,6 +628,8 @@ def transform_other_function(args, tasks_queue=None, q_lock=None, mode="all"):
                     cen_um[-1] += mov_start*4
                     transform_map['CenterOfRotationPoint'] = tuple([str(x) for x in cen_um])  
 >>>>>>> origin/main
+=======
+>>>>>>> 9f25febbe2aa971a738fd7df6732854719df6f99
 
                 # Apply the transform
                 transformix = sitk.TransformixImageFilter()
