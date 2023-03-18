@@ -74,8 +74,9 @@ def calculate_coords_gpu(args,tasks_queue,device,lock,queue_lock):
                 with open(args.work_path + '/fov{}/coords_total_code{}.pkl'.format(fov,code), 'wb') as f:
                     pickle.dump(coords_total,f)
                     f.close()
-                # TODO check why this step is needed    
-                # chmod(args)
+  
+                if args.permission:
+                    chmod(os.path.join(args.work_path,'fov{}/coords_total_code{}.pkl'.format(fov,code)))
             print('------ Fov:{}, Code:{} Finished on {}\n'.format(fov,code, current_process().name))
 
 
@@ -162,7 +163,8 @@ def calculate_coords_cpu(args,tasks_queue,queue_lock):
                 pickle.dump(coords_total,f)
                 f.close()
 
-            # chmod(args)
+            if args.permission:
+                chmod(os.path.join(args.work_path,'fov{}/coords_total_code{}.pkl'.format(fov,code)))
 
         print('Extract Puncta: Fov{}, Code{} Finished on {}\n'.format(fov,code,current_process().name))
 
@@ -187,13 +189,13 @@ def puncta_extraction_cpu(args,tasks_queue,num_cpu):
     for p in child_processes:
         p.join()
 
-def extract(args,fov_code_pairs,use_gpu=False,num_gpu = 3,num_cpu = 3):
+def extract(args,code_fov_pairs,use_gpu=False,num_gpu = 3,num_cpu = 3):
 
     # Queue to hold all the puncta extraction tasks.
     tasks_queue = Queue() 
     
     # Add all the extraction tasks to the queue.
-    for code,fov in fov_code_pairs:
+    for code,fov in code_fov_pairs:
         tasks_queue.put((fov,code))
         if not os.path.exists(args.work_path + 'fov{}/'.format(fov)):
             os.makedirs(args.work_path + 'fov{}/'.format(fov))
