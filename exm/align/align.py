@@ -218,9 +218,9 @@ def identify_matching_z(args, code_fov_pairs=None, path=None):
         ]
 
     if not path:
-        path = os.path.join(args.project_path, "processed/align_matching_z")
-
-    for code, fov in code_fov_pairs:
+        path = os.path.join(args.processed_path,'align_matching_z') 
+    
+    for code, fov in code_fov_pairs: 
 
         if not os.path.exists(f"{path}/code{code}"):
             os.makedirs(f"{path}/code{code}")
@@ -269,7 +269,7 @@ def correlation_lags(args, code_fov_pairs=None, path=None):
         ]
 
     if not path:
-        path = os.path.join(args.project_path, "processed/correlation_lags")
+        path = os.path.join(args.processed_path,'correlation_lags')
         if not os.path.exists(path):
             os.makedirs(path)
 
@@ -285,23 +285,41 @@ def correlation_lags(args, code_fov_pairs=None, path=None):
         intensities_mov = np.array([np.mean(im.flatten()) for im in mov_vol])
 
         correlation = signal.correlate(intensities_fixed, intensities_mov, mode="full")
-        lags = signal.correlation_lags(
-            intensities_fixed.size, intensities_mov.size, mode="full"
-        )
-        lag = lags[np.argmax(correlation)]
+        lags = signal.correlation_lags(intensities_fixed.size, intensities_mov.size, mode="full")
+        lag = int(lags[np.argmax(correlation)])
 
         if lag > 0:
-            lag_dict[f"({code}, {fov})"] = [0, lag]
-
+            # TODO
+            # threshold = np.percentile(intensities_fixed,0.2)
+            # start = int(np.argmax(intensities_fixed>threshold))
+            start = 50
+            last = int(np.min([mov_vol.shape[0]-start-lag,fixed_vol.shape[0]-start,200]))
+            lag_dict['code{},fov{}'.format(code,fov)] = [start, start+lag,last]
+            
+        
         else:
-            lag_dict[f"({code}, {fov})"] = [abs(lag), 0]
+            # TODO
+            # threshold = np.percentile(intensities_mov,0.2)
+            # start = int(np.argmax(intensities_mov>threshold))
+            start = 50
+            last = int(np.min([mov_vol.shape[0]-start,fixed_vol.shape[0]-start-abs(lag),200]))
+            lag_dict['code{},fov{}'.format(code,fov)] = [start+abs(lag), start,last]
 
-    with open(f"{path}/z_offset.pkl", "wb") as f:
-        pickle.dump(lag_dict, f, protocol=pickle.HIGHEST_PROTOCOL)
 
+    args.align_z_init.update(lag_dict)
+    print(args.align_init)
 
-def align_truncated(args, code_fov_pairs=None):
-    r"""For each volume in code_fov_pairs, find corresponding reference volume, truncate, then perform alignment.
+    with open(f'{path}/z_offset.pkl','wb') as f:
+        json_object = json.dumps(args.align_z_init,indent = 4)
+        f.write(json_object)
+
+    if args.permission:
+        chmod(f'{path}/z_offset.pkl')
+
+    
+
+def align_truncated(args, code_fov_pairs = None):
+    r"""For each volume in code_fov_pairs, find corresponding reference volume, truncate, then perform alignment. 
     Args:
         args (args.Args): configuration options.
         code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
@@ -310,15 +328,19 @@ def align_truncated(args, code_fov_pairs=None):
     import SimpleITK as sitk
 
     sitk.ProcessObject_SetGlobalWarningDisplay(False)
+    
+    for code,fov in code_fov_pairs:
 
-    for code, fov in code_fov_pairs:
-
-        if tuple([code, fov]) not in args.align_init:
+        if 'code{},fov{}'.format(code,fov) not in args.align_init:
             continue
         print(f"align_truncated: code{code},fov{fov}")
 
+
+        if not os.path.exists(os.path.join(args.processed_path,'code{}'.format(code))):
+            os.makedirs(os.path.join(args.processed_path,'code{}'.format(code)))
+
         # Get the indexes in the matching slices in two dataset
-        fix_start, mov_start, last = args.align_init[tuple([code, fov])]
+        fix_start,mov_start,last = args.align_init['code{},fov{}'.format(code,fov)]
 
         # Fixed volume
         fix_vol = nd2ToChunk(
@@ -401,23 +423,23 @@ def inspect_align_truncated(args, fov_code_pairs=None, path=None):
     """
 
     import matplotlib.pyplot as plt
-
-    for code, fov in fov_code_pairs:
-
-        if tuple([code, fov]) not in args.align_init:
+    
+    for code,fov in fov_code_pairs:
+    
+        if 'code{},fov{}'.format(code,fov) not in args.align_init:
             continue
         print(f"inspect_align_truncated: code{code},fov{fov}")
 
         if not path:
-            path = os.path.join(args.project_path, "processed/inspect_align_truncated")
+            path = os.path.join(args.processed_path,'/inspect_align_truncated/')
             if not os.path.exists(path):
                 os.makedirs(path)
 
         if not os.path.exists(f"{path}/code{code}"):
             os.makedirs(f"{path}/code{code}")
 
-        fix_start, mov_start, last = args.align_init[tuple([code, fov])]
-        z_stacks = np.linspace(fix_start, fix_start + last - 1, 5)
+        fix_start,mov_start,last = args.align_init['code{},fov{}'.format(code,fov)]
+        z_stacks = np.linspace(fix_start,fix_start+last-1,5)
 
         # ---------- Full resolution -----------------
         fig, axs = plt.subplots(2, 5, figsize=(20, 5))
