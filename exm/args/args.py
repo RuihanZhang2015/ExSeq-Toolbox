@@ -2,6 +2,7 @@
 Sets up the project parameters. 
 """
 import os
+import json
 import pickle
 import pandas as pd
 pd.set_option('display.expand_frame_repr', False)
@@ -21,9 +22,10 @@ class Args():
                 fovs = list(range(3)),
                 ref_code = 0,
                 thresholds = [200,300,300,200],
-                align_init = None,
+                align_z_init=None,
                 spacing = [1.625,1.625,4.0],
-                pickle_file = None
+                Create_directroy_Struc = False,
+                permission = False,
                 ):
         
         r"""Sets parameters for running alignment code. 
@@ -49,16 +51,12 @@ class Args():
         self.nd2_path = os.path.join(self.project_path,'code{}/Channel{} SD_Seq000{}.nd2')
 
         # Output h5 path
-        self.processed_path =  os.path.join(self.project_path,'processed_ruihan')
-        if not os.path.exists(self.processed_path):
-            print(self.processed_path)
-            os.makedirs(self.processed_path)
+        self.processed_path =  os.path.join(self.project_path,'processed')
         self.h5_path = os.path.join(self.processed_path,'code{}/{}.h5')
         self.tform_path = os.path.join(self.processed_path,'code{}/tforms/{}.txt')
         
         # Cropped temporary h5 path
         self.h5_path_cropped = os.path.join(self.processed_path,'code{}/{}_cropped.h5')
-
 
         # Housekeeping
 
@@ -67,30 +65,23 @@ class Args():
         self.colorscales = ['Reds','Oranges','Greens','Blues']
         self.channel_names = ['640','594','561','488','405']
 
-        # align_z_init
+        # # Initilization for alignment parameter 
         if not align_z_init:
             self.align_z_init = align_z_init
         else:
-            with open(align_z_init, 'rb') as f:
-                z_init = pickle.load(f)
-            self.align_z_init = z_init
+            with open(align_z_init) as f:
+                self.align_z_init = json.load(f)
 
         self.work_path = self.project_path + 'puncta/'
         
-        # Initilization for alignment parameter 
-        if not align_init:
-            import json
-            with open('/mp/nas2/ruihan/ExSeq-Toolbox/exm/args/align_init.json') as f:
-                self.align_init = json.load(f)
+        if Create_directroy_Struc:
+            createFolderStruc(project_path,codes)
 
-        if pickle_file == None:
-            pickle_file = 'args.pkl'
-        with open(os.path.join(self.project_path,pickle_file),'wb') as f:
+        with open(os.path.join(self.project_path,'args.pkl'),'wb') as f:
             pickle.dump(self.__dict__,f)
 
         if permission:             
             chmod(os.path.join(self.project_path,'args.pkl'))
-
         
 
     # load parameters from a pre-set .pkl file
@@ -124,5 +115,4 @@ class Args():
             for f in files:
                 print('{}{}'.format(subindent, f))
       
-    def progress(self):
         

@@ -1,6 +1,7 @@
 """
 Code for volumetric alignment. For "thick" volumes (volumes that have more than 400 slices), use the alignment functions that end in "truncated".
 """
+import json
 import h5py
 import pickle
 import tempfile
@@ -117,6 +118,7 @@ def correlation_lags(args, code_fov_pairs = None, path = None):
         lag = int(lags[np.argmax(correlation)])
 
         if lag > 0:
+            # TODO
             # threshold = np.percentile(intensities_fixed,0.2)
             # start = int(np.argmax(intensities_fixed>threshold))
             start = 50
@@ -125,21 +127,24 @@ def correlation_lags(args, code_fov_pairs = None, path = None):
             
         
         else:
+            # TODO
             # threshold = np.percentile(intensities_mov,0.2)
             # start = int(np.argmax(intensities_mov>threshold))
             start = 50
             last = int(np.min([mov_vol.shape[0]-start,fixed_vol.shape[0]-start-abs(lag),200]))
             lag_dict['code{},fov{}'.format(code,fov)] = [start+abs(lag), start,last]
 
-    import json
-    args.align_init.update(lag_dict)
+
+    args.align_z_init.update(lag_dict)
     print(args.align_init)
 
-    with open('/mp/nas2/ruihan/ExSeq-Toolbox/exm/args/align_init.json','w') as f:
-        json_object = json.dumps(args.align_init,indent = 4)
+    with open(f'{path}/z_offset.pkl','wb') as f:
+        json_object = json.dumps(args.align_z_init,indent = 4)
         f.write(json_object)
 
-    return lag_dict
+    if args.permission:
+        chmod(f'{path}/z_offset.pkl')
+
     
 
 def align_truncated(args, code_fov_pairs = None):
@@ -244,7 +249,6 @@ def inspect_align_truncated(args, fov_code_pairs = None, path = None):
 
         if not path:
             path = os.path.join(args.processed_path,'/inspect_align_truncated/')
-            print(args.processed_path, path)
             if not os.path.exists(path):
                 os.makedirs(path)
         
