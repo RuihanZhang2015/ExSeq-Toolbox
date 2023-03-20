@@ -1,4 +1,4 @@
-
+import os
 import h5py
 import pickle
 import numpy as np
@@ -24,13 +24,17 @@ def in_region(coord,ROI_min,ROI_max):
         return False
         
 # Raw plotly
-def inspect_raw_plotly(args,fov,code,channel,ROI_min,ROI_max,vmax=500,mode ='raw'):
+def inspect_raw_plotly(args,fov,code,channel,ROI_min,ROI_max,vmax=500,mode ='raw',export_file_name=False):
         
     img = retrieve_img(args,fov,code,channel,ROI_min,ROI_max)
     if mode == 'blur':
         gaussian_filter(img, 1, output=img, mode='reflect', cval=0)
 
     fig = px.imshow(img, zmax = vmax,title='Raw Fov {} Code {} Channel {}'.format(fov,code,args.channel_names[channel]),labels=dict(color="Intensity"))
+    
+    if export_file_name != None:
+        fig.write_html(os.path.join(args.work_path,'inspect_puncta/{}'.format(str(export_file_name)+".html")))
+
     fig.show()
 
 # raw matplotlib
@@ -70,7 +74,7 @@ def inspect_localmaximum_matplotlib(args,fov,code,ROI_min,ROI_max,vmax=500):
     plt.show()
 
 # Local maximum plotly
-def inspect_localmaximum_plotly(args, fov, code, channel, ROI_min, ROI_max):
+def inspect_localmaximum_plotly(args, fov, code, channel, ROI_min, ROI_max, export_file_name=None):
         
     fig = go.Figure()
 
@@ -127,6 +131,9 @@ def inspect_localmaximum_plotly(args, fov, code, channel, ROI_min, ROI_max):
             zaxis_title = "Z" ,
         ))
 
+    if export_file_name != None:
+        fig.write_html(os.path.join(args.work_path,'inspect_puncta/{}'.format(str(export_file_name)+".html")))
+
     fig.show()
 
 
@@ -161,9 +168,7 @@ def inspect_puncta_ROI_matplotlib(args, fov, code, position,center_dist=40):
     plt.show()
         
 
-def inspect_puncta_ROI_plotly(args, fov, position, c_list = [0,1,2,3],center_dist=40,spacer=40):
-
-    
+def inspect_puncta_ROI_plotly(args, fov, position, c_list = [0,1,2,3],center_dist=40,spacer=40,export_file_name=False):
 
     ROI_min = [position[0]-10,position[1]-center_dist,position[2]-center_dist]
     ROI_max = [position[0]+10,position[1]+center_dist,position[2]+center_dist]
@@ -224,7 +229,6 @@ def inspect_puncta_ROI_plotly(args, fov, position, c_list = [0,1,2,3],center_dis
                     )
                 ))        
 
-
     # ---------------------
     fig.update_layout(
         title = "Inspect fov{}, code: ".format(fov) + ' '.join([str(x) for x in args.codes]),
@@ -240,7 +244,10 @@ def inspect_puncta_ROI_plotly(args, fov, position, c_list = [0,1,2,3],center_dis
             yaxis_title="Y",
             zaxis_title="Z" ,
         ))
-
+    
+    if export_file_name != None:
+        fig.write_html(os.path.join(args.work_path,'inspect_puncta/{}'.format(str(export_file_name)+".html")))
+    
     fig.show()
 
 
@@ -276,7 +283,7 @@ def inspect_puncta_individual_matplotlib(args, fov, puncta_index,center_dist = 4
     plt.show() 
     
         
-def inspect_puncta_individual_plotly(args, fov, puncta_index,center_dist=40,spacer = 40):
+def inspect_puncta_individual_plotly(args, fov, puncta_index,center_dist=40,spacer = 40,export_file_name=None):
 
     reference = retrieve_all_puncta(args,fov)
     puncta = retrieve_one_puncta(args,fov, puncta_index)
@@ -371,11 +378,14 @@ def inspect_puncta_individual_plotly(args, fov, puncta_index,center_dist=40,spac
             zaxis_title = "Z" ,
         ))
 
+    if export_file_name != None:
+        fig.write_html(os.path.join(args.work_path,'inspect_puncta/{}'.format(str(export_file_name)+".html")))
+
     fig.show()
 
 
 # Puncta across rounds
-def inspect_between_rounds_plotly(args, fov, code1, code2, ROI_min, ROI_max,spacer = 40):
+def inspect_between_rounds_plotly(args, fov, code1, code2, ROI_min, ROI_max,spacer = 40,export_file_name=None):
 
     if ROI_max[0]-ROI_min[0]>20:
         print('ROI_max[0]-ROI_min[0]should be smaller than 20')
@@ -541,10 +551,13 @@ def inspect_between_rounds_plotly(args, fov, code1, code2, ROI_min, ROI_max,spac
                 zaxis_title="Z" ,
             ))
     
+    if export_file_name != None:
+        fig.write_html(os.path.join(args.work_path,'inspect_puncta/{}'.format(str(export_file_name)+".html")))
+
     fig.show()
 
 
-def inspect_across_rounds_plotly(args, fov, ROI_min, ROI_max,spacer = 20):
+def inspect_across_rounds_plotly(args, fov, ROI_min, ROI_max,spacer = 20,export_file_name=None):
 
 
     reference = retrieve_all_puncta(args,fov)
@@ -552,6 +565,7 @@ def inspect_across_rounds_plotly(args, fov, ROI_min, ROI_max,spacer = 20):
 
     fig = go.Figure()
 
+    
     ## Lines ====================
     for puncta in reference:
         codes = sorted([x for x in puncta if x.startswith('code')])
@@ -652,6 +666,9 @@ def inspect_across_rounds_plotly(args, fov, ROI_min, ROI_max,spacer = 20):
             yaxis_title="Y",
             zaxis_title="Z" ,
         ))
+
+    if export_file_name != None:
+        fig.write_html(os.path.join(args.work_path,'inspect_puncta/{}'.format(str(export_file_name)+".html")))
 
     fig.show()
     

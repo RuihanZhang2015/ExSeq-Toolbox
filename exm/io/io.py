@@ -178,12 +178,18 @@ def createFolderStruc(out_dir, codes):
     
     processed_dir = os.path.join(out_dir,"processed/")
     puncta_dir = os.path.join(out_dir,"puncta/")
+    puncta_inspect_dir = os.path.join(puncta_dir,"inspect_puncta/")
 
     if os.path.isdir(processed_dir) is False:
         os.makedirs(processed_dir)
     
     if os.path.isdir(puncta_dir) is False:
         os.makedirs(puncta_dir)
+
+    if os.path.isdir(puncta_inspect_dir) is False:
+        os.makedirs(puncta_inspect_dir)
+
+
 
 
     for code in codes: 
