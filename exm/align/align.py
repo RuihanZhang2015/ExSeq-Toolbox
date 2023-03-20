@@ -190,7 +190,7 @@ def computeOffset(args, code_fov_pairs=None, path=None):
         # log in offset dictionary
         # note that the keys are strings instead of tuples (JSON rquires this)
         last = int(np.min([mov_vol.shape[0] - max_ind, fixed_vol.shape[0], 200]))
-        offset_dict.update({str(f"({code}, {fov})"): [0, max_ind, last]})
+        offset_dict.update({str(f"(code{code}, fov{fov})"): [0, max_ind, last]})
 
     # write offset dictionary to path
     with open(f"{path}/z_offset.json", "w") as f:
