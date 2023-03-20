@@ -13,8 +13,6 @@ import multiprocessing
 
 from tqdm import tqdm
 from exm.io.io import nd2ToVol, nd2ToSlice, nd2ToChunk
-from exm.io import nd2ToVol, nd2ToSlice, nd2ToChunk
-from exm.utils import chmod
 
 
 ## TODO what does mode refers to:
@@ -47,18 +45,6 @@ def transform_ref_code(args, code_fov_pairs=None, mode="all"):
                 f.create_dataset(
                     channel_name, fix_vol.shape, dtype=fix_vol.dtype, data=fix_vol
                 )
-
-                fix_vol = nd2ToVol(
-                    args.nd2_path.format(code, channel_name, channel_name_ind),
-                    fov,
-                    channel_name,
-                )
-                f.create_dataset(
-                    channel_name, fix_vol.shape, dtype=fix_vol.dtype, data=fix_vol
-                )
-
-        if args.permission:
-            chmod(args.h5_path.format(code, fov))
 
 
 def computeMinFlann(
@@ -313,24 +299,6 @@ def correlation_lags(args, code_fov_pairs=None, path=None):
     with open(f"{path}/z_offset.pkl", "wb") as f:
         pickle.dump(lag_dict, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-    if args.permission:
-        chmod(f"{path}/z_offset.pkl")
-
-        correlation = signal.correlate(intensities_fixed, intensities_mov, mode="full")
-        lags = signal.correlation_lags(
-            intensities_fixed.size, intensities_mov.size, mode="full"
-        )
-        lag = lags[np.argmax(correlation)]
-
-        if lag > 0:
-            lag_dict[f"({code}, {fov})"] = [0, lag]
-
-        else:
-            lag_dict[f"({code}, {fov})"] = [abs(lag), 0]
-
-    with open(f"{path}/z_offset.pkl", "wb") as f:
-        pickle.dump(lag_dict, f, protocol=pickle.HIGHEST_PROTOCOL)
-
 
 def align_truncated(args, code_fov_pairs=None):
     r"""For each volume in code_fov_pairs, find corresponding reference volume, truncate, then perform alignment.
@@ -345,13 +313,12 @@ def align_truncated(args, code_fov_pairs=None):
 
     for code, fov in code_fov_pairs:
 
-        if tuple([code, fov]) not in args.align_z_init:
+        if tuple([code, fov]) not in args.align_init:
             continue
         print(f"align_truncated: code{code},fov{fov}")
 
         # Get the indexes in the matching slices in two dataset
         fix_start, mov_start, last = args.align_init[tuple([code, fov])]
-        fix_start, mov_start, last = args.align_z_init[tuple([code, fov])]
 
         # Fixed volume
         fix_vol = nd2ToChunk(
@@ -422,9 +389,6 @@ def align_truncated(args, code_fov_pairs=None):
         with h5py.File(args.h5_path_cropped.format(code, fov), "w") as f:
             f.create_dataset("405", out.shape, dtype=out.dtype, data=out)
 
-        if args.permission:
-            chmod(args.h5_path_cropped.format(code, fov))
-
         tmpdir_obj.cleanup()
 
 
@@ -440,7 +404,7 @@ def inspect_align_truncated(args, fov_code_pairs=None, path=None):
 
     for code, fov in fov_code_pairs:
 
-        if tuple([code, fov]) not in args.align_z_init:
+        if tuple([code, fov]) not in args.align_init:
             continue
         print(f"inspect_align_truncated: code{code},fov{fov}")
 
@@ -453,8 +417,6 @@ def inspect_align_truncated(args, fov_code_pairs=None, path=None):
             os.makedirs(f"{path}/code{code}")
 
         fix_start, mov_start, last = args.align_init[tuple([code, fov])]
-        z_stacks = np.linspace(fix_start, fix_start + last - 1, 5)
-        fix_start, mov_start, last = args.align_z_init[tuple([code, fov])]
         z_stacks = np.linspace(fix_start, fix_start + last - 1, 5)
 
         # ---------- Full resolution -----------------
@@ -543,13 +505,21 @@ def transform_other_function(args, tasks_queue=None, q_lock=None, mode="all"):
             break
         else:
 
-            if tuple([code, fov]) not in args.align_z_init:
-                continue
-            print(f"transform_other_function: code{code},fov{fov}")
+            # compute offset
+            computeOffset(args)
 
-            # Load the start position
-            fix_start, mov_start, last = args.align_z_init[tuple([code, fov])]
-            print(f"transform_other_function: code{code},fov{fov}")
+            # read JSON file
+            path = os.path.join(args.project_path, "processed/compute_offset")
+            with open(f"{path}/z_offset.json", "r") as f:
+                offset_info = json.load(f)
+
+            # keys are strings
+            if str(f"({code}, {fov})") not in offset_info.keys():
+                continue
+            print(f"transform_other_function: code{code}, fov{fov}")
+
+            # load offset
+            offset = offset_info[str(f"({code}, {fov})")]
 
             for channel_name_ind, channel_name in enumerate(args.channel_names):
 
@@ -585,42 +555,15 @@ def transform_other_function(args, tasks_queue=None, q_lock=None, mode="all"):
                 trans_um = np.array(
                     [float(x) for x in transform_map["TransformParameters"]]
                 )
-                trans_um[-1] -= (fix_start - mov_start) * 4
+                trans_um[-1] -= (-offset) * 4
                 transform_map["TransformParameters"] = tuple([str(x) for x in trans_um])
 
                 # Center of rotation
                 cen_um = np.array(
                     [float(x) for x in transform_map["CenterOfRotationPoint"]]
                 )
-                cen_um[-1] += mov_start * 4
+                cen_um[-1] += offset * 4
                 transform_map["CenterOfRotationPoint"] = tuple([str(x) for x in cen_um])
-                transform_map = sitk.ReadParameterFile(
-                    args.tform_path.format(code, fov)
-                )
-
-                if tuple([code, fov]) in args.align_z_init:
-                    # Load the start position
-                    fix_start, mov_start, last = args.align_z_init[tuple([code, fov])]
-                    # Change the size
-                    transform_map["Size"] = tuple([str(x) for x in mov_vol.shape[::-1]])
-
-                    # Shift the start
-                    trans_um = np.array(
-                        [float(x) for x in transform_map["TransformParameters"]]
-                    )
-                    trans_um[-1] -= (fix_start - mov_start) * 4
-                    transform_map["TransformParameters"] = tuple(
-                        [str(x) for x in trans_um]
-                    )
-
-                    # Center of rotation
-                    cen_um = np.array(
-                        [float(x) for x in transform_map["CenterOfRotationPoint"]]
-                    )
-                    cen_um[-1] += mov_start * 4
-                    transform_map["CenterOfRotationPoint"] = tuple(
-                        [str(x) for x in cen_um]
-                    )
 
                 # Apply the transform
                 transformix = sitk.TransformixImageFilter()
@@ -633,9 +576,6 @@ def transform_other_function(args, tasks_queue=None, q_lock=None, mode="all"):
 
                 with h5py.File(args.h5_path.format(code, fov), "a") as f:
                     f.create_dataset(channel_name, out.shape, dtype=out.dtype, data=out)
-
-            if args.permission:
-                chmod(args.h5_path.format(code, fov))
 
 
 def transform_other_code(args, code_fov_pairs=None, num_cpu=None, mode="all"):
