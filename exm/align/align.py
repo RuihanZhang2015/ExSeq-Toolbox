@@ -11,8 +11,8 @@ import os
 import queue
 import multiprocessing
 
-from tqdm import tqdm
 from exm.io.io import nd2ToVol, nd2ToSlice, nd2ToChunk
+from exm.utils import chmod
 
 
 ## TODO what does mode refers to:
@@ -176,13 +176,7 @@ def computeOffset(args, code_fov_pairs=None, path=None):
         fix_slice = fixed_vol[0, :, :]
         dists = []
 
-        for z in tqdm(
-            mov_vol[
-                30:180,
-                :,
-            ],
-            desc="Computing FLANN distance...",
-        ):
+        for z in mov_vol[30:180,:,]:    
             try:
                 _, dist = computeMinFlann(fix_slice, z)
                 dists.append(dist)
@@ -307,7 +301,6 @@ def correlation_lags(args, code_fov_pairs=None, path=None):
 
 
     args.align_z_init.update(lag_dict)
-    print(args.align_init)
 
     with open(f'{path}/z_offset.pkl','wb') as f:
         json_object = json.dumps(args.align_z_init,indent = 4)
@@ -527,22 +520,6 @@ def transform_other_function(args, tasks_queue=None, q_lock=None, mode="all"):
             break
         else:
 
-            # compute offset
-            computeOffset(args)
-
-            # read JSON file
-            path = os.path.join(args.project_path, "processed/compute_offset")
-            with open(f"{path}/z_offset.json", "r") as f:
-                offset_info = json.load(f)
-
-            # keys are strings
-            if str(f"({code}, {fov})") not in offset_info.keys():
-                continue
-            print(f"transform_other_function: code{code}, fov{fov}")
-
-            # load offset
-            offset = offset_info[str(f"({code}, {fov})")]
-
             for channel_name_ind, channel_name in enumerate(args.channel_names):
 
                 with h5py.File(args.h5_path.format(code, fov), "a") as f:
@@ -561,7 +538,7 @@ def transform_other_function(args, tasks_queue=None, q_lock=None, mode="all"):
                     args.nd2_path.format(code, channel_name, channel_name_ind),
                     fov,
                     channel_name,
-                )
+                    )
                 mov_vol_sitk = sitk.GetImageFromArray(mov_vol)
                 mov_vol_sitk.SetSpacing(args.spacing)
 
@@ -570,22 +547,21 @@ def transform_other_function(args, tasks_queue=None, q_lock=None, mode="all"):
                     args.tform_path.format(code, fov)
                 )
 
-                # Change the size
-                transform_map["Size"] = tuple([str(x) for x in mov_vol.shape[::-1]])
+                if 'code{},fov{}'.format(code,fov) in args.align_z_init:
 
-                # Shift the start
-                trans_um = np.array(
-                    [float(x) for x in transform_map["TransformParameters"]]
-                )
-                trans_um[-1] -= (-offset) * 4
-                transform_map["TransformParameters"] = tuple([str(x) for x in trans_um])
+                    fix_start, mov_start, last = args.align_init['code{},fov{}'.format(code,fov)]
+                    # Change the size
+                    transform_map["Size"] = tuple([str(x) for x in mov_vol.shape[::-1]])
 
-                # Center of rotation
-                cen_um = np.array(
-                    [float(x) for x in transform_map["CenterOfRotationPoint"]]
-                )
-                cen_um[-1] += offset * 4
-                transform_map["CenterOfRotationPoint"] = tuple([str(x) for x in cen_um])
+                    # Shift the start
+                    trans_um = np.array([float(x) for x in transform_map["TransformParameters"]])
+                    trans_um[-1] -= (fix_start-mov_start) * 4
+                    transform_map["TransformParameters"] = tuple([str(x) for x in trans_um])
+
+                    # Center of rotation
+                    cen_um = np.array([float(x) for x in transform_map["CenterOfRotationPoint"]])
+                    cen_um[-1] += mov_start * 4
+                    transform_map["CenterOfRotationPoint"] = tuple([str(x) for x in cen_um])
 
                 # Apply the transform
                 transformix = sitk.TransformixImageFilter()
