@@ -9,6 +9,7 @@ import numpy as np
 import os
 import queue
 import multiprocessing 
+import skimage
 
 from exm.io import nd2ToVol,nd2ToSlice,nd2ToChunk
 from exm.utils import chmod
@@ -147,11 +148,12 @@ def correlation_lags(args, code_fov_pairs = None, path = None):
 
     
 
-def align_truncated(args, code_fov_pairs = None):
+def align_truncated(args, code_fov_pairs = None, perform_masking = False):
     r"""For each volume in code_fov_pairs, find corresponding reference volume, truncate, then perform alignment. 
     Args:
         args (args.Args): configuration options.
         code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
+        perform_masking (bool): Whether or not to use a binary mask of the fixed volume to aid in registration. Works best on volumes that are sparse. Default: ``False`
     """
 
     import SimpleITK as sitk
@@ -202,6 +204,27 @@ def align_truncated(args, code_fov_pairs = None):
         parameter_map['FinalBSplineInterpolationOrder'] = ['1'] #FinalBSplineInterpolationOrder
         parameter_map['NumberOfResolutions'] = ['2']
         elastixImageFilter.SetParameterMap(parameter_map)
+        
+        if perform_masking:
+            
+            def generate_mask(vol):
+                H,_,_ = vol.shape
+                vol = skimage.transform.resize(vol[int(H//2),:,:], (128, 128))
+                radius = 7
+                kernel = np.zeros((2*radius+1, 2*radius+1))
+                y,x = np.ogrid[-radius:radius+1, -radius:radius+1]
+                mask = x**2 + y**2 <= radius**2
+                kernel[mask] = 1
+                mask = scipy.ndimage.grey_dilation(vol, structure=kernel)
+                mask = skimage.transform.resize(mask, (2048, 2048))
+                val = skimage.filters.threshold_otsu(mask)
+                out = mask>val
+                out = np.repeat(out[np.newaxis,:,:], H, axis=0)
+                return out
+            
+              fixed_mask = generate_mask(fix_vol)
+              elastixImageFilter.SetFixedMask(fixed_mask)
+        
         elastixImageFilter.Execute()
 
         transform_map = elastixImageFilter.GetTransformParameterMap()
