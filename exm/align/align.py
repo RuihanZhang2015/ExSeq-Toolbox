@@ -223,7 +223,7 @@ def align_truncated(args, code_fov_pairs = None, perform_masking = False):
                 return out
             
               fixed_mask = generate_mask(fix_vol)
-              elastixImageFilter.SetFixedMask(fixed_mask)
+              elastixImageFilter.SetFixedMask(fixed_mask.astype('uint8'))
         
         elastixImageFilter.Execute()
 
