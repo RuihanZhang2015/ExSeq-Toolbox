@@ -8,6 +8,7 @@ import struct
 import glymur
 import pathlib
 from natsort import natsorted # pip install natsort
+from scipy import ndimage
 
 import exm.stitching.stitching as stitching
 
@@ -124,7 +125,6 @@ class Tileset:
                                   self.tiles[0].img.shape[1],
                                   self.tiles[0].img.shape[0]]
 
-
     def init_from_h5(self, filename, downscale=[1,1,1], progress=False):
         # Loads a tileset from a non-BDV H5, will expect transforms from another source
         file = h5py.File(filename, 'r')
@@ -210,8 +210,20 @@ class Tileset:
     #         self.tiles[i].img = file['t00000'][f's{i:02d}']['0']['cells'].astype(np.uint16)
     #         self.tiles[i].offset = offsets[i] * self.voxel_size / scale_factor[::-1]
 
+    def get_centroids(self):
+        # Returns a list of centroids as an array of XYZ coordinates. It can take a while. As this function internally
+        # calls `produce_output_volume()` it is recommended to scale down the tiles first
 
+        print("Produce output volume")
+        vol = self.produce_output_volume()
+        # Find centers, removing ID #0, which would be the centroind for the black pixels
+        print("produce bincount")
+        a = np.bincount(vol.flatten())
 
+        print("calculate centroids")
+        centers = ndimage.measurements.center_of_mass(vol, vol, np.nonzero(a))
+        centers = np.array(centers)[:, 0, :]
+        return centers[1:,[2,1,0]]
 
     def create_blank_h5bdv(self, target_file, tile_size=None, dtype=np.int16, noise_scale=200.0):
         """
@@ -371,7 +383,8 @@ class Tileset:
         if down_sample == "auto":
             # Finding downsampling factors to have a max dim of ~1500
             down_sample = max(int(np.max(newpic.shape)/1500), 1)
-        return np.clip(newpic[::down_sample, ::down_sample], 0, 255).astype(np.uint8)
+        # return np.clip(newpic[::down_sample, ::down_sample], 0, 255).astype(np.uint8)
+        return newpic[::down_sample, ::down_sample].astype(int)
 
     def update_offsets(self, xml_file, scale_factor=None):
         """
@@ -380,12 +393,9 @@ class Tileset:
         :param xml_file str: the file to read new offsets from
         :param scale_factor: the vector by which to multiply offsets if necessary. Defaults to None. Usually unnecessary
         """
-        print(xml_file)
         if scale_factor is None:
             scale_factor = np.array(self.original_xyz_size) / np.array(self.tiles[0].img.shape)[[2,1,0]]
-        print(scale_factor)
         offsets = np.array(stitching.get_offsets(xml_file))*(self.voxel_size*np.array(scale_factor))
-        print(len(offsets))
         for t,o in zip(self, offsets):
             t.offset=o
 
@@ -397,7 +407,7 @@ class Tileset:
             [t.img for t in self.tiles]
         )
 
-    def dedup_segmentation_ids_lut(self):
+    def dedup_segmentation_ids(self, progress=False):
         # If the tileset is a set of segmented FOVs, this function replaces the tiles IDs by identifiers that are
         # unique accross the dataset
         #
@@ -406,17 +416,16 @@ class Tileset:
 
         scale = np.array(self.voxel_size) * np.array(self.original_xyz_size) / np.array(self.tiles[0].img.shape)[[2, 1, 0]]
         new_ids = stitching.deduplicate_blob_ids([t.img for t in self.tiles],
-                                                       [t.offset/scale for t in self.tiles])
+                                                 [t.offset/scale for t in self.tiles],
+                                                 progress)
         luts = list()
         lut_max = np.max(np.array(list([k[1] for k in new_ids.keys()])))
-        print(f"lut_max = {lut_max}")
         for i in range(len(self.tiles)):
             luts.append(np.zeros(lut_max+1, np.uint16))
         for k,v in new_ids.items():
             luts[k[0]][k[1]]=v
         for i in range(len(self.tiles)):
             luts[i][0] = 0
-        print(f"Finished producing LUTs")
         for i, tile in enumerate(self.tiles):
             print(i)
             self.tiles[i].img = luts[i][tile.img]

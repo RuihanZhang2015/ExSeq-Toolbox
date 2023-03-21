@@ -121,12 +121,13 @@ def get_tiles_overlaps(transforms, tile_size):
 
 # returns a list of overlapping blobs. Each is described as a list of 5 elements:
 #               [tile_index1, blob_index1, tile_index2, blob_index2, overlap_area]
-def find_overlapping_blobs(tiles, offsets):
+def find_overlapping_blobs(tiles, offsets, progress=False):
     overlaps = get_tiles_overlaps(offsets, tiles[0].shape)
 
     overlap_blobs = list()
     for i, (i1, i2) in enumerate(overlaps):
-        print(f"Processing overlap {i}/{len(overlaps)}     ", end="\r")
+        if progress:
+            print(f"Processing overlap {i}/{len(overlaps)}     ", end="\r")
         inter = blend2([offsets[i1], offsets[i2]], [tiles[i1], tiles[i2]])
         values, counts = np.unique(inter, return_counts=True)
         for i, count in zip(values.tolist(), counts.tolist()):
@@ -150,7 +151,7 @@ def apply_new_ids(img, new_ids, tile_id):
     return new_img
 
 
-def deduplicate_blob_ids(tiles, offsets):
+def deduplicate_blob_ids(tiles, offsets, progress=False):
     # Produces a map of a tile_id, blob_id pair into a new ID, unique over the dataset,
     # merging overlapping blobs from different tiles
 
@@ -159,7 +160,7 @@ def deduplicate_blob_ids(tiles, offsets):
     merge_candidate_per_tile = defaultdict(lambda: defaultdict(lambda: (-1, 0)))
 
     all_blobs = get_all_blobs(tiles)
-    overlap_blobs = find_overlapping_blobs(tiles, offsets)
+    overlap_blobs = find_overlapping_blobs(tiles, offsets, progress)
 
     for k in range(8):
         for tile1, ind1, tile2, ind2, v in overlap_blobs:
@@ -205,7 +206,6 @@ def deduplicate_blob_ids(tiles, offsets):
             new_id[(tileind, blobind)] = newi
             #         new_id3[(tileind, blobind)]=0
             newi += 1
-    print(f"Max id = {newi-1}")
     return new_id
 
 
