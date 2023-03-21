@@ -78,7 +78,8 @@ def consolidate_channels_function(args,fov,code):
     with open(args.work_path +'/fov{}/result_code{}.pkl'.format(fov,code), 'wb') as f:
         pickle.dump(reference,f)
 
-    chmod(os.path.join(args.work_path,'fov{}/result_code{}.pkl'.format(fov,code)))
+    if args.permission:
+        chmod(os.path.join(args.work_path,'fov{}/result_code{}.pkl'.format(fov,code)))
 
 
 def consolidate_channels(args,code_fov_pairs,num_cpu=None):
@@ -191,7 +192,8 @@ def consolidate_codes_function(args,fov):
     with open(args.work_path + '/fov{}/result.pkl'.format(fov), 'wb') as f:
         pickle.dump(reference,f)
 
-    chmod(os.path.join(args.work_path,'fov{}/result.pkl'.format(fov)))
+    if args.permission:
+        chmod(os.path.join(args.work_path,'fov{}/result.pkl'.format(fov)))
 
 
 def consolidate_codes(args,fov_list,num_cpu=None):

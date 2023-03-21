@@ -7,7 +7,7 @@ from PIL import Image
 
 def chmod(path):
     if os.name != "nt": #Skip for windows OS
-        os.system('chmod 755 {}'.format(path))
+        os.system('chmod 766 {}'.format(path))
 
 def retrieve_all_puncta(args,fov):
     with open(args.work_path + '/fov{}/result.pkl'.format(fov), 'rb') as f:
