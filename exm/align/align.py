@@ -114,13 +114,13 @@ def mutualInformation(im1, im2, bins=20):
     # compute marginal probabilities
     px = np.sum(pxy, axis=1)
     py = np.sum(pxy, axis=0)
-    px_py = px[:, None] * py[:, None]
+    px_py = px[:, None] * py[None, :]
     # consider only non-zeros for total sum
-    nzs = px_py > 0
+    nzs = pxy > 0
     return np.sum(pxy[nzs] * np.log(pxy[nzs] / px_py[nzs]))
 
 
-def computeMaxMI(fix, move, min_array, z_min=0, num_minima=5):
+def computeMaxMI(fix, mov, min_array, z_min=0, num_minima=10):
     r"""For a given (fixed) z-slice, a moving volume and an array of minima, find the z-index having
     maximum mutual information.
     Args:
@@ -132,11 +132,11 @@ def computeMaxMI(fix, move, min_array, z_min=0, num_minima=5):
     """
     min_sorted = np.sort(min_array)
     mi_result = dict()
-
     for row, min_val in enumerate(min_sorted[:num_minima]):
         z_ind = np.argwhere(min_array == min_val)[0][0] + z_min
-        move_slice = move[z_ind, :, :]
-        mi = mutualInformation(fix, move_slice)
+        mov_slice = mov[z_ind, :, :]
+
+        mi = mutualInformation(fix, mov_slice)
         mi_result[z_ind] = mi
 
     max_mi_ind = max(mi_result, key=mi_result.get)
@@ -172,12 +172,11 @@ def computeOffset(args, code_fov_pairs=None, path=None):
             args.nd2_path.format(args.ref_code, "405", 4), fov, "405 SD"
         )
         mov_vol = nd2ToVol(args.nd2_path.format(code, "405", 4), fov, "405 SD")
-
         fix_slice = fixed_vol[0, :, :]
-        dists = []
+        dists = list()
 
         for z in mov_vol[
-            30:180,
+            40:160,
             :,
         ]:
             try:
@@ -186,11 +185,11 @@ def computeOffset(args, code_fov_pairs=None, path=None):
             except:
                 continue  # takes care of no matching keypoints
 
-        _, max_ind = computeMaxMI(fix_slice, mov_vol, dists, z_min=30)
+        _, max_ind = computeMaxMI(fix_slice, mov_vol, dists, z_min=40)
         # log in offset dictionary
         # note that the keys are strings instead of tuples (JSON rquires this)
         last = int(np.min([mov_vol.shape[0] - max_ind, fixed_vol.shape[0], 200]))
-        offset_dict.update({str(f"(code{code}, fov{fov})"): [0, max_ind, last]})
+        offset_dict.update({str(f"(code{code}, fov{fov})"): [0, int(max_ind), last]})
 
     # write offset dictionary to path
     with open(f"{path}/z_offset.json", "w") as f:
