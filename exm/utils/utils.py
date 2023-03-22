@@ -102,9 +102,9 @@ def retrieve_vol(args, fov, code, c, ROI_min, ROI_max):
 # def retrieve_coordinate2(args):
 import xml.etree.ElementTree 
 def get_offsets(filename):
-    r"""Given the filename for ..., returns ... 
+    r"""Given the filename for the BDV/H5 XML file, returns the stitching offset as a (N,3) array in the ((X,Y,Z),...) order. Returned values are expressed in µm.
     Args:
-        filename (str): file name of ....
+        filename (str): the file name of the BDV/H5 XML file, produced by the Big Stitcher plugin of fiji. 
     """
     tree = xml.etree.ElementTree.parse(filename)
     root = tree.getroot()
