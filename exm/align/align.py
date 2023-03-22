@@ -220,10 +220,12 @@ def align_truncated(args, code_fov_pairs = None, perform_masking = False):
                 val = skimage.filters.threshold_otsu(mask)
                 out = mask>val
                 out = np.repeat(out[np.newaxis,:,:], H, axis=0)
-                return out
+                out_sitk = sitk.GetImageFromArray(out.astype('uint8'))
+                out_sitk.SetSpacing(args.spacing)
+                return out_sitk
             
-              fixed_mask = generate_mask(fix_vol)
-              elastixImageFilter.SetFixedMask(fixed_mask.astype('uint8'))
+              fix_mask = generate_mask(fix_vol)
+              elastixImageFilter.SetFixedMask(fix_mask)
         
         elastixImageFilter.Execute()
 
