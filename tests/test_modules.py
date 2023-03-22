@@ -4,7 +4,7 @@ from exm.align import transform_ref_code, transform_other_code, computeOffset
 from exm.puncta.extract import extract
 from exm.puncta.consolidate import consolidate_channels, consolidate_codes
 
-"""
+
 def test_args_module():
     project_path = "/mp/nas3/ruihan/20221218_zebrafish/"
     align_z_init = "/home/mansour/ExSeq-Toolbox/examples/align_z_init.pkl"
@@ -13,7 +13,6 @@ def test_args_module():
     args_path = os.path.join(project_path, "args.pkl")
 
     assert os.path.exists(args_path) == True
-"""
 
 
 def test_align_module_transform_ref_code():
