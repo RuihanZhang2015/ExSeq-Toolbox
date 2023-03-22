@@ -1,3 +1,5 @@
+"""Consolidates puncta across channels and codes.""" 
+
 import os
 import h5py
 import pickle 
@@ -9,7 +11,13 @@ from multiprocessing import current_process,Lock,Process,Queue
 from exm.utils import chmod
 
 
-def consolidate_channels_function(args,fov,code):
+def consolidate_channels_function(args, fov, code):
+    r"""Reads in the locations of the puncta from a specified fov and code, then uses distance thresholding to consolidate (remove duplicate puncta) across channels. 
+    Args:
+        args (args.Args): configuration options.
+        fov (int): field of view.
+        code (int): code.
+    """
 
     from scipy.spatial.distance import cdist
 
@@ -82,12 +90,13 @@ def consolidate_channels_function(args,fov,code):
         chmod(os.path.join(args.work_path,'fov{}/result_code{}.pkl'.format(fov,code)))
 
 
-def consolidate_channels(args,code_fov_pairs,num_cpu=None):
-    '''
-    exseq.consolidate_channels(
-                fov_code_pairs = [[code,fov]]
-                )
-    '''
+def consolidate_channels(args, code_fov_pairs, num_cpu=None):
+    r"""Wrapper around consolidate_channels_function to enable parallel processing. 
+    Args:
+        args (args.Args): configuration options.
+        code_fov_pairs (list): a list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
+        num_cpu (int): number of CPUs to use for processing. Default: ``None``
+    """
     def run(tasks_queue,q_lock):
     
         while True: # Check for remaining task in the Queue
@@ -130,8 +139,12 @@ def consolidate_channels(args,code_fov_pairs,num_cpu=None):
         p.join()
 
 
-
-def consolidate_codes_function(args,fov):
+def consolidate_codes_function(args, fov):
+    r"""Reads in the locations of the puncta from a specified fov, then uses distance thresholding to consolidate (remove duplicate puncta) across codes. 
+    Args:
+        args (args.Args): configuration options.
+        fov (int): field of view.
+    """
 
     from scipy.spatial.distance import cdist
 
@@ -196,12 +209,13 @@ def consolidate_codes_function(args,fov):
         chmod(os.path.join(args.work_path,'fov{}/result.pkl'.format(fov)))
 
 
-def consolidate_codes(args,fov_list,num_cpu=None):
-    '''
-    exseq.consolidate_channels(
-                fov_list = [fov,]
-                )
-    '''
+def consolidate_codes(args, fov_list, num_cpu=None):
+    r"""Wrapper around consolidate_codes_function to enable parallel processing. 
+    Args:
+        args (args.Args): configuration options.
+        fov_list (list): a list of integers, where each integer is a field of view to process.
+        num_cpu (int): number of CPUs to use for processing. Default: ``None``
+    """
     def run(tasks_queue,q_lock):
     
         while True: # Check for remaining task in the Queue
