@@ -10,7 +10,7 @@ import tifffile
 
 
 def get_offsets(filename):
-    # Extracts the offset from a HDV/H5 XML file and returns them as a (N,3) array in the ((X,Y,Z),...) order
+    # Extracts the offset from a BDV/H5 XML file and returns them as a (N,3) array in the ((X,Y,Z),...) order
     tree = xml.etree.ElementTree.parse(filename)
     root = tree.getroot()
     vtrans = list()
@@ -18,7 +18,7 @@ def get_offsets(filename):
         tot_mat = np.eye(4, 4)
         for view_transform in registration_tag.findall('ViewTransform'):
             affine_transform = view_transform.find('affine')
-            mat = np.array([float(a) for a in affine_transform.text.split(" ")] + [0, 0, 0, 1]).reshape((4, 4))
+            mat = np.array([float(a) for a in affine_transform.text.split(" ") if a is not ""] + [0, 0, 0, 1]).reshape((4, 4))
             tot_mat = np.matmul(tot_mat, mat)
         vtrans.append(tot_mat)
 
