@@ -1,3 +1,7 @@
+"""
+Manually check identification and consolidation of puncta.
+"""
+
 import os
 import h5py
 import pickle
@@ -101,7 +105,7 @@ def inspect_localmaximum_matplotlib(args, fov, code, ROI_min, ROI_max, vmax=500)
 
 # Local maximum plotly
 def inspect_localmaximum_plotly(args, fov, code, channel, ROI_min, ROI_max, export_file_name=None):
-    """Plots identified puncta for a specific fov/code/channel using Plotly.
+    """Plots identified puncta for a specific fov/code/channel using Plotly. 
     Args:
         args (args.Args): configuration options.
         fov (int): the field of fiew of the volume chunk to be returned. 
@@ -175,6 +179,14 @@ def inspect_localmaximum_plotly(args, fov, code, channel, ROI_min, ROI_max, expo
 
 # puncta in ROIs
 def inspect_puncta_ROI_matplotlib(args, fov, code, position, center_dist=40):
+    """Plots identified puncta for a specific fov/code using Matplotlib. Assumes the puncta have already been consolidated accross channels. 
+    Args:
+        args (args.Args): configuration options.
+        fov (int): the field of fiew of the volume chunk to be returned. 
+        code (int): the code of the volume chunk to be returned. 
+        position (list): the center point of the region that should be visualized. Expects position in the format of [z, y, x]. 
+        center_dist (int): distance from the center that should be viewable. Default: ``40``
+    """
 
     reference = retrieve_all_puncta(args,fov)
         
@@ -204,8 +216,17 @@ def inspect_puncta_ROI_matplotlib(args, fov, code, position, center_dist=40):
     plt.show()
         
 
-def inspect_puncta_ROI_plotly(args, fov, position, c_list = [0,1,2,3],center_dist=40,spacer=40,export_file_name=False):
-
+def inspect_puncta_ROI_plotly(args, fov, position, c_list = [0,1,2,3], center_dist=40, spacer=40, export_file_name=False):
+    """Plots identified puncta for a specific fov/code using Plotly. Assumes the puncta have already been consolidated accross channels. 
+    Args:
+        args (args.Args): configuration options.
+        fov (int): the field of fiew of the volume chunk to be returned. 
+        position (list): the center point of the region that should be visualized. Expects position in the format of [z, y, x]. 
+        c_list (list): the codes to include in the viaulization.
+        center_dist (int): distance from the center that should be viewable. Default: ``40``
+        spacer (int): scaling factor to use for z-spacing. Default: ``40``
+        export_file_name (str): name of the file to be exported. Default: ``None``
+    """
     ROI_min = [position[0]-10,position[1]-center_dist,position[2]-center_dist]
     ROI_max = [position[0]+10,position[1]+center_dist,position[2]+center_dist]
     reference = retrieve_all_puncta(args,fov)
@@ -288,7 +309,14 @@ def inspect_puncta_ROI_plotly(args, fov, position, c_list = [0,1,2,3],center_dis
 
 
 # Individual puncta
-def inspect_puncta_individual_matplotlib(args, fov, puncta_index,center_dist = 40):
+def inspect_puncta_individual_matplotlib(args, fov, puncta_index, center_dist = 40):
+    """Plots specified puncta using Matplotlib. Assumes the puncta have already been consolidated accross channels.
+    Args:
+        args (args.Args): configuration options.
+        fov (int): the field of fiew of the volume chunk to be returned. 
+        puncta_index (int): the index of the puncta to visualize.
+        center_dist (int): distance from the center that should be viewable. Default: ``40``
+    """
 
     import matplotlib.pyplot as plt
     puncta = retrieve_one_puncta(args,fov,puncta_index) 
@@ -319,7 +347,16 @@ def inspect_puncta_individual_matplotlib(args, fov, puncta_index,center_dist = 4
     plt.show() 
     
         
-def inspect_puncta_individual_plotly(args, fov, puncta_index,center_dist=40,spacer = 40,export_file_name=None):
+def inspect_puncta_individual_plotly(args, fov, puncta_index, center_dist=40, spacer = 40, export_file_name=None):
+    """Plots specified puncta using Plotly. Assumes the puncta have already been consolidated accross channels.
+    Args:
+        args (args.Args): configuration options.
+        fov (int): the field of fiew of the volume chunk to be returned. 
+        puncta_index (int): the index of the puncta to visualize.
+        center_dist (int): distance from the center that should be viewable. Default: ``40``
+        spacer (int): scaling factor to use for z-spacing. Default: ``40``
+        export_file_name (str): name of the file to be exported. Default: ``None``
+    """
 
     reference = retrieve_all_puncta(args,fov)
     puncta = retrieve_one_puncta(args,fov, puncta_index)
@@ -421,7 +458,18 @@ def inspect_puncta_individual_plotly(args, fov, puncta_index,center_dist=40,spac
 
 
 # Puncta across rounds
-def inspect_between_rounds_plotly(args, fov, code1, code2, ROI_min, ROI_max,spacer = 40,export_file_name=None):
+def inspect_between_rounds_plotly(args, fov, code1, code2, ROI_min, ROI_max, spacer = 40, export_file_name=None):
+    """Plots puncta across rounds (for two specified codes) using Plotly.
+    Args:
+        args (args.Args): configuration options.
+        fov (int): the field of fiew of the volume chunk to be returned. 
+        code1 (str): name of the first code to include in comparison. 
+        code2 (str): name of the first code to include in comparison. 
+        ROI_min (list): minimum coordinates of the volume chunk to display. Expects coordinates in the format of [z, y, x]. 
+        ROI_max (list): maximum coordinates of the volume chunk to display. Expects coordinates in the format of [z, y, x]. 
+        spacer (int): scaling factor to use for z-spacing. Default: ``40``
+        export_file_name (str): name of the file to be exported. Default: ``None``
+    """
 
     if ROI_max[0]-ROI_min[0]>20:
         print('ROI_max[0]-ROI_min[0]should be smaller than 20')
@@ -593,8 +641,16 @@ def inspect_between_rounds_plotly(args, fov, code1, code2, ROI_min, ROI_max,spac
     fig.show()
 
 
-def inspect_across_rounds_plotly(args, fov, ROI_min, ROI_max,spacer = 20,export_file_name=None):
-
+def inspect_across_rounds_plotly(args, fov, ROI_min, ROI_max, spacer = 20, export_file_name=None):
+    """Plots puncta across rounds (for all codes) using Plotly.
+    Args:
+        args (args.Args): configuration options.
+        fov (int): the field of fiew of the volume chunk to be returned. 
+        ROI_min (list): minimum coordinates of the volume chunk to display. Expects coordinates in the format of [z, y, x]. 
+        ROI_max (list): maximum coordinates of the volume chunk to display. Expects coordinates in the format of [z, y, x]. 
+        spacer (int): scaling factor to use for z-spacing. Default: ``20``
+        export_file_name (str): name of the file to be exported. Default: ``None``
+    """
 
     reference = retrieve_all_puncta(args,fov)
     reference = [ x for x in reference if in_region(x['position'], ROI_min,ROI_max) ] 
