@@ -192,7 +192,7 @@ def calculate_coords_cpu(args, tasks_queue, queue_lock):
 
 def puncta_extraction_cpu(args, tasks_queue, num_cpu):
      r"""Wrapper around calculate_coords_cpu to enable parallel processing. 
-        Args:
+         Args:
             args (args.Args): configuration options.
             tasks_queue (list): a list of tuples, where each tuple is a (code, fov) pair.
             num_cpu (int): number of CPUs to use for processing.
