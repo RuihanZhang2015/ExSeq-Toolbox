@@ -10,10 +10,13 @@ import plotly.graph_objects as go
 import plotly.express as px
 
 
-def in_region(coord,ROI_min,ROI_max):
-        
-    """in_region(self,coord,ROI_min,ROI_max)"""
-
+def in_region(coord, ROI_min, ROI_max):
+     r"""Given a coordinate location and lower and upper bounds for a volume chunk (region), returns whether or not the coordinate is inside the chunk.
+         Args:
+            coord (list): coordinate list, in the format of [z, y, x].
+            ROI_min (list): minimum coordinates of the volume chunk. Expects coordinates in the format of [z, y, x]. 
+            ROI_max (list): maximum coordinates of the volume chunk. Expects coordinates in the format of [z, y, x]. 
+     """
     coord = np.asarray(coord)
     ROI_min = np.asarray(ROI_min)
     ROI_max = np.asarray(ROI_max)
@@ -24,7 +27,19 @@ def in_region(coord,ROI_min,ROI_max):
         return False
         
 # Raw plotly
-def inspect_raw_plotly(args,fov,code,channel,ROI_min,ROI_max,vmax=500,mode ='raw',export_file_name=False):
+def inspect_raw_plotly(args, fov, code, channel, ROI_min, ROI_max, vmax = 500, mode ='raw', export_file_name=False):
+    r"""Plots the middle slice of a specified volume chunk using Plotly. 
+    Args:
+        args (args.Args): configuration options.
+        fov (int): the field of fiew of the volume chunk to be returned. 
+        code (int): the code of the volume chunk to be returned. 
+        channel (int): the channel of the volume chunk to be returned. 
+        ROI_min (list): minimum coordinates of the volume chunk. Expects coordinates in the format of [z, y, x]. 
+        ROI_max (list): maximum coordinates of the volume chunk. Expects coordinates in the format of [z, y, x]. 
+        vmax (int): maximum pixel intensity to display. Default: ``500``
+        mode (str): expects 'raw' or 'blur'. 'raw' plots the images as-is, 'blur' applies Gaussian blurring before plotting. Default: ``'raw'``
+        export_file_name (str): name of the file to be exported. Default: ``False``
+    """
         
     img = retrieve_img(args,fov,code,channel,ROI_min,ROI_max)
     if mode == 'blur':
@@ -38,17 +53,18 @@ def inspect_raw_plotly(args,fov,code,channel,ROI_min,ROI_max,vmax=500,mode ='raw
     fig.show()
 
 # raw matplotlib
-def inspect_raw_matplotlib(args,fov,code,channel,ROI_min,ROI_max,vmax=500,mode = 'raw'):
-
-    '''
-        exseq.inspect_raw_matplotlib(
-                fov=
-                ,code=
-                ,channel=
-                ,ROI_min=
-                ,ROI_max=
-                ,vmax = 600)
-    '''
+def inspect_raw_matplotlib(args, fov, code, channel, ROI_min, ROI_max, vmax = 500, mode = 'raw'):
+    r"""Plots the middle slice of a specified volume chunk using Matplotlib. 
+    Args:
+        args (args.Args): configuration options.
+        fov (int): the field of fiew of the volume chunk to be returned. 
+        code (int): the code of the volume chunk to be returned. 
+        channel (int): the channel of the volume chunk to be returned. 
+        ROI_min (list): minimum coordinates of the volume chunk. Expects coordinates in the format of [z, y, x]. 
+        ROI_max (list): maximum coordinates of the volume chunk. Expects coordinates in the format of [z, y, x]. 
+        vmax (int): maximum pixel intensity to display. Default: ``500``
+        mode (str): expects 'raw' or 'blur'. 'raw' plots the images as-is, 'blur' applies Gaussian blurring before plotting. Default: ``'raw'``
+    """
 
     img = retrieve_img(args,fov,code,channel,ROI_min,ROI_max)
     if mode == 'blur':
@@ -63,7 +79,17 @@ def inspect_raw_matplotlib(args,fov,code,channel,ROI_min,ROI_max,vmax=500,mode =
         
 
 # Local maximum matplotlib
-def inspect_localmaximum_matplotlib(args,fov,code,ROI_min,ROI_max,vmax=500):
+def inspect_localmaximum_matplotlib(args, fov, code, ROI_min, ROI_max, vmax=500):
+    r"""Plots middle slice of each channel for a specific fov/code using Matplotlib. 
+    Args:
+        args (args.Args): configuration options.
+        fov (int): the field of fiew of the volume chunk to be returned. 
+        code (int): the code of the volume chunk to be returned. 
+        channel (int): the channel of the volume chunk to be returned. 
+        ROI_min (list): minimum coordinates of the volume chunk. Expects coordinates in the format of [z, y, x]. 
+        ROI_max (list): maximum coordinates of the volume chunk. Expects coordinates in the format of [z, y, x]. 
+        vmax (int): maximum pixel intensity to display. Default: ``500``
+    """
 
     fig,ax = plt.subplots(1,5,figsize = (20,5))
     for channel in range(5):
@@ -75,6 +101,16 @@ def inspect_localmaximum_matplotlib(args,fov,code,ROI_min,ROI_max,vmax=500):
 
 # Local maximum plotly
 def inspect_localmaximum_plotly(args, fov, code, channel, ROI_min, ROI_max, export_file_name=None):
+    """Plots identified puncta for a specific fov/code/channel using Plotly.
+    Args:
+        args (args.Args): configuration options.
+        fov (int): the field of fiew of the volume chunk to be returned. 
+        code (int): the code of the volume chunk to be returned. 
+        channel (int): the channel of the volume chunk to be returned. 
+        ROI_min (list): minimum coordinates of the volume chunk. Expects coordinates in the format of [z, y, x]. 
+        ROI_max (list): maximum coordinates of the volume chunk. Expects coordinates in the format of [z, y, x]. 
+        export_file_name (str): name of the file to be exported. Default: ``None``
+    """
         
     fig = go.Figure()
 
@@ -138,7 +174,7 @@ def inspect_localmaximum_plotly(args, fov, code, channel, ROI_min, ROI_max, expo
 
 
 # puncta in ROIs
-def inspect_puncta_ROI_matplotlib(args, fov, code, position,center_dist=40):
+def inspect_puncta_ROI_matplotlib(args, fov, code, position, center_dist=40):
 
     reference = retrieve_all_puncta(args,fov)
         
