@@ -8,4 +8,4 @@ pandas
 opencv-python
 nd2reader
 tifffile
-skimage
+scikit-image
