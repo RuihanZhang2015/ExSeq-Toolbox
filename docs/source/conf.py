@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.abspath("../.."))
 
 # -- Project information
 
-project = 'ExM Toolbox'
+project = 'ExSeq-Toolbox'
 
 release = '0.1'
 version = '0.1.0'
