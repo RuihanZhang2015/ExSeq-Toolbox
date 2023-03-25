@@ -37,7 +37,7 @@ intersphinx_mapping = {
 }
 intersphinx_disabled_domains = ['std']
 
-html_logo = 'exseq-logo'
+html_logo = 'exseq-logo.png'
 
 #templates_path = ['_templates']
 
