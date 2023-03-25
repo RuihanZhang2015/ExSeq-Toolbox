@@ -46,6 +46,13 @@ html_logo = 'exseq-logo.png'
 #html_theme = 'sphinx_rtd_theme'
 html_theme = 'furo'
 
+html_theme_options = {
+    'collapse_navigation': False,
+    'display_version': True,
+    'logo_only': True,
+    'navigation_with_keys': True,
+}
+
 # -- Options for EPUB output
 epub_show_urls = 'footnote'
 
