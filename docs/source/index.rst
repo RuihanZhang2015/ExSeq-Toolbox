@@ -1,4 +1,4 @@
-Welcome to the documentation of ExSeq Toolbox!
+ExSeq-Toolbox Documentation
 ===============================================
 
 Check out the :doc:`usage` section for further information, including
