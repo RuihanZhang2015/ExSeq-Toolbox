@@ -1,4 +1,6 @@
 API
 ============
 
-.. autofunction:: exm.align.transform_ref_code
+.. currentmodule:: exm.align
+
+.. autofunction:: transform_ref_code
