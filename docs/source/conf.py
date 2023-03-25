@@ -17,9 +17,12 @@ sys.path.insert(0, os.path.abspath("../.."))
 # -- Project information
 
 #project = 'ExSeq-Toolbox'
+project = ''
 
 #release = '0.1'
+release = ''
 #version = '0.1.0'
+version = ''
 
 # -- General configuration
 
