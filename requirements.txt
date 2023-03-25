@@ -9,3 +9,4 @@ tifffile
 scikit-image
 cucim
 open-cv
+cv2
