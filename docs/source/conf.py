@@ -40,6 +40,11 @@ intersphinx_mapping = {
 }
 intersphinx_disabled_domains = ['std']
 
+html_theme_options = {
+    'display_version': False,
+    'logo_only': True,
+}
+
 html_logo = '../../exseq-logo.png'
 
 #templates_path = ['_templates']
@@ -48,13 +53,6 @@ html_logo = '../../exseq-logo.png'
 
 #html_theme = 'sphinx_rtd_theme'
 html_theme = 'furo'
-
-html_theme_options = {
-    'collapse_navigation': False,
-    'display_version': False,
-    'logo_only': True,
-    'navigation_with_keys': True,
-}
 
 # -- Options for EPUB output
 epub_show_urls = 'footnote'
