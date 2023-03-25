@@ -6,3 +6,4 @@ scipy
 SimpleITK
 pandas
 opencv-python
+nd2reader
