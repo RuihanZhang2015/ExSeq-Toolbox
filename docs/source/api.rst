@@ -3,6 +3,7 @@ API
 
 .. autosummary::
    :toctree: generated
+   :recursive:
 
    exm.align.align
    exm.args.args
