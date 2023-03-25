@@ -48,7 +48,7 @@ html_theme = 'furo'
 
 html_theme_options = {
     'collapse_navigation': False,
-    'display_version': True,
+    'display_version': False,
     'logo_only': True,
     'navigation_with_keys': True,
 }
