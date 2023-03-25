@@ -7,3 +7,4 @@ SimpleITK
 pandas
 opencv-python
 nd2reader
+tifffile
