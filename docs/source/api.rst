@@ -1,6 +1,6 @@
 API
 ============
 
-.. automodule:: exm.align
+.. automodule:: exm.lumache
    :members:
    :undoc-members:
