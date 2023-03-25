@@ -17,12 +17,20 @@ from exm.utils import chmod
 
 ## TODO what does mode refers to:
 def transform_ref_code(args, code_fov_pairs=None, mode="all"):
-    r"""For each volume specified in code_fov_pairs, convert from an nd2 file to an array, then save into an .h5 file.
-    Args:
-        args (args.Args): configuration options.
-        code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
-        mode (str): channels to run, should be one of 'all' (all channels), '405' (just the reference channel) or '4' (all channels other than reference). Default: ``'all'``
     """
+    Return a list of random ingredients as strings.
+    :param kind: Optional "kind" of ingredients.
+    :type kind: list[str] or None
+    :raise lumache.InvalidKindError: If the kind is invalid.
+    :return: The ingredients list.
+    :rtype: list[str]
+    """
+    #r"""For each volume specified in code_fov_pairs, convert from an nd2 file to an array, then save into an .h5 file.
+    #Args:
+    #    args (args.Args): configuration options.
+    #    code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
+    #    mode (str): channels to run, should be one of 'all' (all channels), '405' (just the reference channel) or '4' (all channels other than reference). Default: ``'all'``
+    #"""
 
     if not code_fov_pairs:
         code_fov_pairs = [[args.ref_code, fov] for fov in args.fovs]
