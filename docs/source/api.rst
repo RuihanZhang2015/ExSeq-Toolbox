@@ -1,13 +1,4 @@
 API
 ============
 
-.. autosummary::
-   :toctree: generated
-   
-   exm.align
-   exm.args
-   exm.align
-   exm.io
-   exm.utils
-   
-   
+.. autofunction:: exm.align.transform_ref_code
