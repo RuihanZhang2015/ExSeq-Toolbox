@@ -4,4 +4,4 @@ API
 .. autosummary::
    :toctree: generated
 
-   exm.lumache
+   exm.lumache.lumache
