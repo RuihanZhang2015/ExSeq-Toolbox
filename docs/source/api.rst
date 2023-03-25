@@ -1,6 +1,7 @@
 API
 ============
 
-.. automodule:: lumache
-   :members:
-   :undoc-members:
+.. autosummary::
+   :toctree: generated
+
+   lumache
