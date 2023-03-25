@@ -9,3 +9,4 @@ opencv-python
 nd2reader
 tifffile
 scikit-image
+IPython
