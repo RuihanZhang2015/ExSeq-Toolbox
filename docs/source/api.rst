@@ -1,6 +1,6 @@
 API
 ============
 
-.. automodule:: exm.lumache
+.. automodule:: exm.lumache.lumache
    :members:
    :undoc-members:
