@@ -9,7 +9,9 @@ import numpy as np
 import cv2 as cv
 import os
 import queue
-import multiprocessing
+import multiprocessing 
+import skimage
+import scipy
 
 from exm.io.io import nd2ToVol, nd2ToSlice, nd2ToChunk
 from exm.utils import chmod
@@ -20,7 +22,7 @@ def transform_ref_code(args, code_fov_pairs=None, mode="all"):
     r"""For each volume specified in code_fov_pairs, convert from an nd2 file to an array, then save into an .h5 file.
     Args:
         args (args.Args): configuration options.
-        code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
+        code_fov_pairs (list): a list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
         mode (str): channels to run, should be one of 'all' (all channels), '405' (just the reference channel) or '4' (all channels other than reference). Default: ``'all'``
     """
 
@@ -201,8 +203,8 @@ def identify_matching_z(args, code_fov_pairs=None, path=None):
     r"""For each volume specified in code_fov_pairs, save a series of images that allow the user to match corresponding z-slices.
     Args:
         args (args.Args): configuration options.
-        code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
-        path (string): Path to save the images. Default: ``None``
+        code_fov_pairs (list): a list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
+        path (string): path to save the images. Default: ``None``
     """
     import matplotlib.pyplot as plt
 
@@ -252,7 +254,7 @@ def correlation_lags(args, code_fov_pairs=None, path=None):
     the move.
     Args:
         args (args.Args): configuration options.
-        code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
+        code_fov_pairs (list): a list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
         path (string): path to save the dictionary. Default: ``None``
     """
     from scipy import signal
@@ -325,11 +327,12 @@ def correlation_lags(args, code_fov_pairs=None, path=None):
         chmod(f"{path}/z_offset.pkl")
 
 
-def align_truncated(args, code_fov_pairs=None):
-    r"""For each volume in code_fov_pairs, find corresponding reference volume, truncate, then perform alignment.
+def align_truncated(args, code_fov_pairs = None, perform_masking = False):
+    r"""For each volume in code_fov_pairs, find corresponding reference volume, truncate, then perform alignment. 
     Args:
         args (args.Args): configuration options.
-        code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
+        code_fov_pairs (list): a list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
+        perform_masking (bool): whether or not to use a binary mask of the fixed volume to aid in registration. Works best on volumes that are sparse. Default: ``False`
     """
 
     import SimpleITK as sitk
@@ -394,6 +397,29 @@ def align_truncated(args, code_fov_pairs=None):
         ]  # FinalBSplineInterpolationOrder
         parameter_map["NumberOfResolutions"] = ["2"]
         elastixImageFilter.SetParameterMap(parameter_map)
+        
+        if perform_masking:
+            
+            def generate_mask(vol):
+                H,_,_ = vol.shape
+                vol = skimage.transform.resize(vol[int(H//2),:,:], (128, 128))
+                radius = 7
+                kernel = np.zeros((2*radius+1, 2*radius+1))
+                y,x = np.ogrid[-radius:radius+1, -radius:radius+1]
+                mask = x**2 + y**2 <= radius**2
+                kernel[mask] = 1
+                mask = scipy.ndimage.grey_dilation(vol, structure=kernel)
+                mask = skimage.transform.resize(mask, (2048, 2048))
+                val = skimage.filters.threshold_otsu(mask)
+                out = mask>val
+                out = np.repeat(out[np.newaxis,:,:], H, axis=0)
+                out_sitk = sitk.GetImageFromArray(out.astype('uint8'))
+                out_sitk.SetSpacing(args.spacing)
+                return out_sitk
+            
+            fix_mask = generate_mask(fix_vol)
+            elastixImageFilter.SetFixedMask(fix_mask)
+        
         elastixImageFilter.Execute()
 
         transform_map = elastixImageFilter.GetTransformParameterMap()
@@ -424,8 +450,8 @@ def inspect_align_truncated(args, fov_code_pairs=None, path=None):
     r"""For each volume in code_fov_pairs, save a series of images that allow the user to check the quality of alignmentt.
     Args:
         args (args.Args): configuration options.
-        code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
-        path (string): Path to save the images. Default: ``None``
+        code_fov_pairs (list): a list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
+        path (string): path to save the images. Default: ``None``
     """
 
     import matplotlib.pyplot as plt
@@ -514,8 +540,8 @@ def inspect_align_truncated(args, fov_code_pairs=None, path=None):
 def transform_other_function(args, tasks_queue=None, q_lock=None, mode="all"):
     r"""Takes the transform found from the reference round and applies it to the other channels.
     Args:
-        args (args.Args): configuration options.
-        tasks_queue (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
+        args (args.Args): configuration options. 
+        tasks_queue (list): a list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
         q_lock (multiporcessing.Lock): a multiporcessing.Lock instance to avoid race condition when processes accessing the task_queue. Default: ``None``
         mode (str): channels to run, should be one of 'all' (all channels), '405' (just the reference channel) or '4' (all channels other than reference). Default: ``'all'``
     """
@@ -604,7 +630,7 @@ def transform_other_code(args, code_fov_pairs=None, num_cpu=None, mode="all"):
     r"""Parallel processing support for transform_other_function.
     Args:
         args (args.Args): configuration options.
-        code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
+        code_fov_pairs (list): a list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
         num_cpu (int): the number of cpus to use for parallel processing. Default: ``8``
         mode (str): channels to run, should be one of 'all' (all channels), '405' (just the reference channel) or '4' (all channels other than reference). Default: ``'all'``
     """
