@@ -5,3 +5,8 @@ matplotlib
 scipy
 SimpleITK
 pandas
+opencv-python
+nd2reader
+tifffile
+scikit-image
+IPython

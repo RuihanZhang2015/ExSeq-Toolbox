@@ -8,3 +8,5 @@ h5py
 tifffile
 scikit-image
 cucim
+open-cv
+cv2

@@ -5,17 +5,41 @@ import numpy as np
 
 
 def chmod(path):
+    r"""Sets permissions so that users and the owner can read, write and execute files at the given path. 
+    Args:
+        path (str): path in which privileges should be granted.
+    """
     if os.name != "nt": #Skip for windows OS
         os.system('chmod 766 {}'.format(path))
 
-def retrieve_all_puncta(args,fov):
+def retrieve_all_puncta(args, fov):
+    r"""Returns all identified puncta for a given field of view. 
+    Args:
+        args (args.Args): configuration options.
+        fov (int): field of fiew to return. 
+    """
     with open(args.work_path + '/fov{}/result.pkl'.format(fov), 'rb') as f:
         return pickle.load(f)
 
-def retrieve_one_puncta(args,fov,puncta_index):
+def retrieve_one_puncta(args, fov, puncta_index):
+    r"""Returns information about a single puncta, given a specified field of view and index. 
+    Args:
+        args (args.Args): configuration options.
+        fov (int): field of fiew.
+        puncta_index (int): index of the puncta of interest. 
+    """
     return retrieve_all_puncta(args,fov)[puncta_index]
 
-def retrieve_img(args,fov,code,channel,ROI_min,ROI_max):
+def retrieve_img(args, fov, code, channel, ROI_min, ROI_max):
+    r"""Returns the middle slice of a specified volume chunk. 
+    Args:
+        args (args.Args): configuration options.
+        fov (int): the field of fiew of the volume slice to be returned. 
+        code (int): the code of the volume slice to be returned. 
+        channel (int): the channel of the volume slice to be returned. 
+        ROI_min (list): minimum coordinates of the volume chunk to take the middle slice of. Expects coordinates in the format of [z, y, x]. 
+        ROI_max (list): maximum coordinates of the volume chunk to take the middle slice of. Expects coordinates in the format of [z, y, x]. 
+    """
 
     if ROI_min != ROI_max:
         zz = int((ROI_min[0]+ROI_max[0])//2)
@@ -26,8 +50,16 @@ def retrieve_img(args,fov,code,channel,ROI_min,ROI_max):
 
     return im
     
-def retrieve_vol(args,fov,code,c,ROI_min,ROI_max):
-    
+def retrieve_vol(args, fov, code, c, ROI_min, ROI_max):
+    r"""Returns a specified volume chunk. 
+    Args:
+        args (args.Args): configuration options.
+        fov (int): the field of fiew of the volume chunk to be returned. 
+        code (int): the code of the volume chunk to be returned. 
+        channel (int): the channel of the volume chunk to be returned. 
+        ROI_min (list): minimum coordinates of the volume chunk. Expects coordinates in the format of [z, y, x]. 
+        ROI_max (list): maximum coordinates of the volume chunk. Expects coordinates in the format of [z, y, x]. 
+    """
     with h5py.File(args.h5_path.format(code,fov), "r") as f:
         vol = f[args.channel_names[c]][max(0,ROI_min[0]):ROI_max[0],max(0,ROI_min[1]):min(2048,ROI_max[1]),max(0,ROI_min[2]):min(2048,ROI_max[2])]    
     return vol
@@ -70,6 +102,10 @@ def retrieve_vol(args,fov,code,c,ROI_min,ROI_max):
 # def retrieve_coordinate2(args):
 import xml.etree.ElementTree 
 def get_offsets(filename):
+    r"""Given the filename for the BDV/H5 XML file, returns the stitching offset as a (N,3) array in the ((X,Y,Z),...) order. Returned values are expressed in µm.
+    Args:
+        filename (str): the file name of the BDV/H5 XML file, produced by the Big Stitcher plugin of fiji. 
+    """
     tree = xml.etree.ElementTree.parse(filename)
     root = tree.getroot()
     vtrans = list()
