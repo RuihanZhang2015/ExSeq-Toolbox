@@ -401,7 +401,9 @@ class Tileset:
             t.offset=o
 
     def produce_output_volume(self):
-        # Creates a stitched volume. Careful, if you never downsampled the tiles it easily fills up all memory.
+        """ Creates and returns a stitched volume. Careful, if you never downsampled the tiles it easily fills up all
+            memory.
+        """
         scale = np.array(self.original_xyz_size) / np.array(self.tiles[0].img.shape)[[2, 1, 0]]
         return stitching.blend(
             [t.offset/(np.array(self.voxel_size)*scale) for t in self.tiles],
@@ -409,6 +411,17 @@ class Tileset:
         )
 
     def local_to_global(self, coords):
+        """
+        (See the notebook Tileset 02)
+        Transforms an array of coordinates that are local to tilesets into an array of coordinates into the global
+        coorddinates system, that is, into the reconstructed volume.
+
+        :param coords (np.array): Array of the shape (n,4) describing n points. The rows are ordered in the i x y z
+                                  order, i being the index of the tile the point belongs to and x, y and z its coordinates
+                                  in µm within the tile.
+        :returns (np.array): Array of shape (n,3) containing the transformed coordinates in µm
+        """
+
         offsets = np.array([t.offset for t in self.tiles])
         origin = np.min(offsets, axis=0)
         results = coords[:, 1:] + offsets[coords[:, 0].astype(int)] - origin

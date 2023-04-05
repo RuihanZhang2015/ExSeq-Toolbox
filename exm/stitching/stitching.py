@@ -218,6 +218,7 @@ def get_all_blobs(tiles):
                 all_blobs.add((i, ind))
     return all_blobs
 
+
 def make_stitched_dedup_h5(target_file, tiles, trans, new_ids):
     new_tiles=list()
     unit_matrix = np.array(((1.0, 0.0, 0.0, 0.0), # change the 4. value for x_translation (px)
@@ -276,7 +277,7 @@ def make_stitched_h5(target_file, tiles, transforms):
     bdv_writer.close()
 
 
-# Calculates the surface where cells start being visibles
+# Calculates the surface where cells start being visibles, used in physical stitching experiments
 def get_contact_surface(img, direction=1, thresh=None):
     # direction=1  => from bottom
     # direction=-1  => from top
