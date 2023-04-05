@@ -114,6 +114,7 @@ class Tileset:
         file = h5py.File(h5bdv, 'r')
 
         tilesnum = len(file['t00000'].keys())
+        self.tiles.clear()
         for i in range(tilesnum):
             t = Tile(i)
             t.offset = offsets[i] * self.voxel_size
@@ -406,6 +407,12 @@ class Tileset:
             [t.offset/(np.array(self.voxel_size)*scale) for t in self.tiles],
             [t.img for t in self.tiles]
         )
+
+    def local_to_global(coords, self):
+        offsets = np.array([t.offset for t in self.tiles])
+        origin = np.min(offsets, axis=0)
+        results = coords[:, 1:] + offsets[coords[:, 0].astype(int)] - origin
+        return results
 
     def dedup_segmentation_ids(self, progress=False):
         # If the tileset is a set of segmented FOVs, this function replaces the tiles IDs by identifiers that are
