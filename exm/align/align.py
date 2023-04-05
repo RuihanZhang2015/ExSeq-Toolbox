@@ -382,62 +382,54 @@ def align_truncated(args, code_fov_pairs = None, perform_masking = False):
         mov_vol_sitk.SetSpacing(args.spacing)
         elastixImageFilter.SetMovingImage(mov_vol_sitk)
 
-        parameter_map = sitk.GetDefaultParameterMap("rigid")
-        parameter_map["NumberOfSamplesForExactGradient"] = [
-            "1000"
-        ]  # NumberOfSamplesForExactGradient
-        parameter_map["MaximumNumberOfIterations"] = [
-            "15000"
-        ]  # MaximumNumberOfIterations
-        parameter_map["MaximumNumberOfSamplingAttempts"] = [
-            "100"
-        ]  # MaximumNumberOfSamplingAttempts
-        parameter_map["FinalBSplineInterpolationOrder"] = [
-            "1"
-        ]  # FinalBSplineInterpolationOrder
-        parameter_map["NumberOfResolutions"] = ["2"]
+        # Translation across x, y, and z only
+        parameter_map = sitk.GetDefaultParameterMap("translation")
+        parameter_map["NumberOfSamplesForExactGradient"] = ["1000"]  # NumberOfSamplesForExactGradient
+        parameter_map["MaximumNumberOfIterations"] = ["25000"]  # MaximumNumberOfIterations
+        parameter_map["MaximumNumberOfSamplingAttempts"] = ["1000"]  # MaximumNumberOfSamplingAttempts
+        parameter_map["FinalBSplineInterpolationOrder"] = ["1"]  # FinalBSplineInterpolationOrder
+        parameter_map["FixedImagePyramid"] = ["FixedRecursiveImagePyramid"] 
+        parameter_map["MovingImagePyramid"] = ["MovingRecursiveImagePyramid"] 
+        parameter_map["NumberOfResolutions"] = ["5"]
+        parameter_map["FixedImagePyramidSchedule"] = ["10 10 10 8 8 8 4 4 4 2 2 2 1 1 1"]
+        parameter_map["MovingImagePyramidSchedule"] = ["10 10 10 8 8 8 4 4 4 2 2 2 1 1 1"]
         elastixImageFilter.SetParameterMap(parameter_map)
-        
-        if perform_masking:
-            
-            def generate_mask(vol):
-                H,_,_ = vol.shape
-                vol = skimage.transform.resize(vol[int(H//2),:,:], (128, 128))
-                radius = 7
-                kernel = np.zeros((2*radius+1, 2*radius+1))
-                y,x = np.ogrid[-radius:radius+1, -radius:radius+1]
-                mask = x**2 + y**2 <= radius**2
-                kernel[mask] = 1
-                mask = scipy.ndimage.grey_dilation(vol, structure=kernel)
-                mask = skimage.transform.resize(mask, (2048, 2048))
-                val = skimage.filters.threshold_otsu(mask)
-                out = mask>val
-                out = np.repeat(out[np.newaxis,:,:], H, axis=0)
-                out_sitk = sitk.GetImageFromArray(out.astype('uint8'))
-                out_sitk.SetSpacing(args.spacing)
-                return out_sitk
-            
-            fix_mask = generate_mask(fix_vol)
-            elastixImageFilter.SetFixedMask(fix_mask)
+
+        # Translation + rotation
+        parameter_map = sitk.GetDefaultParameterMap("rigid")
+        parameter_map["NumberOfSamplesForExactGradient"] = ["1000"]  # NumberOfSamplesForExactGradient
+        parameter_map["MaximumNumberOfIterations"] = ["25000"]  # MaximumNumberOfIterations
+        parameter_map["MaximumNumberOfSamplingAttempts"] = ["1000"]  # MaximumNumberOfSamplingAttempts
+        parameter_map["FinalBSplineInterpolationOrder"] = ["1"]  # FinalBSplineInterpolationOrder
+        parameter_map["FixedImagePyramid"] = ["FixedShrinkingImagePyramid"] 
+        parameter_map["MovingImagePyramid"] = ["MovingShrinkingImagePyramid"] 
+        parameter_map["NumberOfResolutions"] = ["1"]
+        parameter_map["FixedImagePyramidSchedule"] = ["1 1 1"]
+        parameter_map["MovingImagePyramidSchedule"] = ["1 1 1"]
+        elastixImageFilter.AddParameterMap(parameter_map)
+
+        # Translation, rotation, scaling and shearing
+        parameter_map = sitk.GetDefaultParameterMap("affine")
+        parameter_map["NumberOfSamplesForExactGradient"] = ["1000"]  # NumberOfSamplesForExactGradient
+        parameter_map["MaximumNumberOfIterations"] = ["25000"]  # MaximumNumberOfIterations
+        parameter_map["MaximumNumberOfSamplingAttempts"] = ["1000"]  # MaximumNumberOfSamplingAttempts
+        parameter_map["FinalBSplineInterpolationOrder"] = ["1"]  # FinalBSplineInterpolationOrder
+        parameter_map["FixedImagePyramid"] = ["FixedShrinkingImagePyramid"] 
+        parameter_map["MovingImagePyramid"] = ["MovingShrinkingImagePyramid"] 
+        parameter_map["NumberOfResolutions"] = ["1"]
+        parameter_map["FixedImagePyramidSchedule"] = ["1 1 1"]
+        parameter_map["MovingImagePyramidSchedule"] = ["1 1 1"]
+        elastixImageFilter.AddParameterMap(parameter_map)
         
         elastixImageFilter.Execute()
 
         transform_map = elastixImageFilter.GetTransformParameterMap()
-        sitk.WriteParameterFile(transform_map[0], args.tform_path.format(code, fov))
 
-        # Apply transform
-        transform_map = sitk.ReadParameterFile(args.tform_path.format(code, fov))
-        transformix = sitk.TransformixImageFilter()
-        transformix.SetLogToFile(False)
-        transformix.SetLogToConsole(False)
-        transformix.SetTransformParameterMap(transform_map)
+        sitk.WriteParameterFile(transform_map[0], args.tform_path.format(code, str(fov) + ".0"))
+        sitk.WriteParameterFile(transform_map[1], args.tform_path.format(code, str(fov) + ".1"))
+        sitk.WriteParameterFile(transform_map[2], args.tform_path.format(code, str(fov) + ".2"))
 
-        # Just visualize the first 100 slices
-        mov_vol_sitk = mov_vol_sitk[:, :, :100]
-
-        transformix.SetMovingImage(mov_vol_sitk)
-        transformix.Execute()
-        out = sitk.GetArrayFromImage(transformix.GetResultImage())
+        out = sitk.GetArrayFromImage(elastixImageFilter.GetResultImage())
 
         # Save the results
         with h5py.File(args.h5_path_cropped.format(code, fov), "w") as f:
