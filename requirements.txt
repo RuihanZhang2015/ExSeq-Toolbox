@@ -7,8 +7,9 @@ seaborn
 h5py
 tifffile
 scikit-image
-npy2bdv
 cucim
+open-cv
+cv2
 Pillow
 glymur
 natsort

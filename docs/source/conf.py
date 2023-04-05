@@ -16,10 +16,13 @@ sys.path.insert(0, os.path.abspath("../.."))
 
 # -- Project information
 
-project = 'ExM Toolbox'
+#project = 'ExSeq-Toolbox'
+project = ''
 
-release = '0.1'
-version = '0.1.0'
+#release = '0.1'
+release = ''
+#version = '0.1.0'
+version = ''
 
 # -- General configuration
 
@@ -37,7 +40,14 @@ intersphinx_mapping = {
 }
 intersphinx_disabled_domains = ['std']
 
-templates_path = ['_templates']
+html_theme_options = {
+    'display_version': False,
+    'logo_only': True,
+}
+
+html_logo = '../../exseq-logo.png'
+
+#templates_path = ['_templates']
 
 # -- Options for HTML output
 
@@ -46,3 +56,13 @@ html_theme = 'furo'
 
 # -- Options for EPUB output
 epub_show_urls = 'footnote'
+
+# --- autosummary config -----------------------------------------------------
+autosummary_generate = True
+
+# -- Type hints configs ------------------------------------------------------
+
+autodoc_inherit_docstrings = True
+autoclass_content = "both"
+autodoc_typehints = "description"
+napoleon_attr_annotations = True
