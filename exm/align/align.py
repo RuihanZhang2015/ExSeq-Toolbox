@@ -327,12 +327,11 @@ def correlation_lags(args, code_fov_pairs=None, path=None):
         chmod(f"{path}/z_offset.pkl")
 
 
-def align_truncated(args, code_fov_pairs = None, perform_masking = False):
-    r"""For each volume in code_fov_pairs, find corresponding reference volume, truncate, then perform alignment. 
+def align(args, code_fov_pairs = None):
+    r"""For each volume in code_fov_pairs, find corresponding reference volume, then perform alignment. 
     Args:
         args (args.Args): configuration options.
         code_fov_pairs (list): a list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
-        perform_masking (bool): whether or not to use a binary mask of the fixed volume to aid in registration. Works best on volumes that are sparse. Default: ``False`
     """
 
     import SimpleITK as sitk
@@ -348,20 +347,15 @@ def align_truncated(args, code_fov_pairs = None, perform_masking = False):
         if not os.path.exists(os.path.join(args.processed_path, "code{}".format(code))):
             os.makedirs(os.path.join(args.processed_path, "code{}".format(code)))
 
-        # Get the indexes in the matching slices in two dataset
-        fix_start, mov_start, last = args.align_init["code{},fov{}".format(code, fov)]
 
         # Fixed volume
-        fix_vol = nd2ToChunk(
-            args.nd2_path.format(args.ref_code, "405", 4),
-            fov,
-            fix_start,
-            fix_start + last,
+        fix_vol = nd2ToVol(
+            args.nd2_path.format(args.ref_code, "405", 4),fov
         )
 
         # Move volume
-        mov_vol = nd2ToChunk(
-            args.nd2_path.format(code, "405", 4), fov, mov_start, mov_start + last
+        mov_vol = nd2ToVol(
+            args.nd2_path.format(code, "405", 4), fov
         )
 
         # temp dicectory for the log files
@@ -432,7 +426,7 @@ def align_truncated(args, code_fov_pairs = None, perform_masking = False):
         out = sitk.GetArrayFromImage(elastixImageFilter.GetResultImage())
 
         # Save the results
-        with h5py.File(args.h5_path_cropped.format(code, fov), "w") as f:
+        with h5py.File(args.h5_path.format(code, fov), "w") as f:
             f.create_dataset("405", out.shape, dtype=out.dtype, data=out)
 
         tmpdir_obj.cleanup()
