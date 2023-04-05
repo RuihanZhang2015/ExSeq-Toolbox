@@ -408,7 +408,7 @@ class Tileset:
             [t.img for t in self.tiles]
         )
 
-    def local_to_global(coords, self):
+    def local_to_global(self, coords):
         offsets = np.array([t.offset for t in self.tiles])
         origin = np.min(offsets, axis=0)
         results = coords[:, 1:] + offsets[coords[:, 0].astype(int)] - origin
@@ -437,6 +437,7 @@ class Tileset:
             print(i)
             self.tiles[i].img = luts[i][tile.img]
         return luts, new_ids
+
 
 class Tile:
     """
