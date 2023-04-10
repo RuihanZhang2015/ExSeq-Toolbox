@@ -15,12 +15,12 @@ import plotly.express as px
 
 
 def in_region(coord, ROI_min, ROI_max):
-     r"""Given a coordinate location and lower and upper bounds for a volume chunk (region), returns whether or not the coordinate is inside the chunk.
+    r"""Given a coordinate location and lower and upper bounds for a volume chunk (region), returns whether or not the coordinate is inside the chunk.
          Args:
             coord (list): coordinate list, in the format of [z, y, x].
             ROI_min (list): minimum coordinates of the volume chunk. Expects coordinates in the format of [z, y, x]. 
             ROI_max (list): maximum coordinates of the volume chunk. Expects coordinates in the format of [z, y, x]. 
-     """
+    """
     coord = np.asarray(coord)
     ROI_min = np.asarray(ROI_min)
     ROI_max = np.asarray(ROI_max)

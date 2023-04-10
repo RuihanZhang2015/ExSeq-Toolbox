@@ -131,25 +131,6 @@ def get_offsets(filename):
     trans = [transform_to_translate(vt).astype(np.int64) for vt in vtrans]
     return np.stack(trans)
 
-# coordinate = get_offsets()
-# coordinate = np.asarray(coordinate)
-
-# coordinate[:,0] = max(coordinate[:,0]) - coordinate[:,0]
-# coordinate[:,1] -= min(coordinate[:,1])
-# coordinate[:,2] -= min(coordinate[:,2])
-# # coordinate[:,:2] = np.asarray(coordinate[:,:2]/0.1625)
-# # coordinate[:,2] = np.asarray(coordinate[:,2]/0.4)
-# return coordinate
-
-# ### Visualization
-# doc = Document(sheet_path)
-# sheets = doc.sheets()
-# tables = sheets[0].tables()
-# data = tables[0].rows(values_only=True)
-
-# df = pd.DataFrame(data[1:], columns=data[0])
-
-
 # args.map_gene = collections.defaultdict(list)
 # for i in range(len(df)):
 #     temp = df.loc[i,'Barcode']

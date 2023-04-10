@@ -130,7 +130,7 @@ def calculate_coords_cpu(args, tasks_queue, queue_lock):
             tasks_queue (list): a list of tuples, where each tuple is a (code, fov) pair.
             queue_lock (TO DO): TO DO
      """
-
+    
     from scipy.ndimage import gaussian_filter
     from skimage.feature import peak_local_max
     import collections
