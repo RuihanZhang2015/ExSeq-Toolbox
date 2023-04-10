@@ -10,3 +10,6 @@ scikit-image
 cucim
 open-cv
 cv2
+Pillow
+glymur
+natsort

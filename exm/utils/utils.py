@@ -2,7 +2,8 @@ import os
 import pickle
 import h5py
 import numpy as np
-
+from IPython.display import display
+from PIL import Image
 
 def chmod(path):
     r"""Sets permissions so that users and the owner can read, write and execute files at the given path. 
@@ -64,7 +65,12 @@ def retrieve_vol(args, fov, code, c, ROI_min, ROI_max):
         vol = f[args.channel_names[c]][max(0,ROI_min[0]):ROI_max[0],max(0,ROI_min[1]):min(2048,ROI_max[1]),max(0,ROI_min[2]):min(2048,ROI_max[2])]    
     return vol
 
-
+# Convenient short hand for a visualization function
+def display_img(img):
+    if img.dtype is np.dtype(bool):
+        display(Image.fromarray((img*255).astype(np.uint8)))
+    else:
+        display(Image.fromarray(img.astype(np.uint8)))
 
 
 # TODO clean refactor utils function
