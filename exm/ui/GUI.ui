@@ -1,0 +1,560 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1044</width>
+    <height>788</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Stitch explorer</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QHBoxLayout" name="horizontalLayout">
+    <item>
+     <layout class="QVBoxLayout" name="verticalLayout_6">
+      <item>
+       <widget class="QLabel" name="LblImage">
+        <property name="focusPolicy">
+         <enum>Qt::StrongFocus</enum>
+        </property>
+        <property name="text">
+         <string>a</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="LblImageSide">
+        <property name="focusPolicy">
+         <enum>Qt::StrongFocus</enum>
+        </property>
+        <property name="text">
+         <string>b</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_4">
+        <item>
+         <widget class="QPushButton" name="showGrids">
+          <property name="text">
+           <string>Grids</string>
+          </property>
+          <property name="checkable">
+           <bool>true</bool>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="showOrigP1">
+          <property name="text">
+           <string>P1</string>
+          </property>
+          <property name="checkable">
+           <bool>true</bool>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="showOrigP2">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="text">
+           <string>P2</string>
+          </property>
+          <property name="checkable">
+           <bool>true</bool>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="showDefPoints">
+          <property name="text">
+           <string>DeformedPoints</string>
+          </property>
+          <property name="checkable">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="showRaw">
+          <property name="text">
+           <string>Raw</string>
+          </property>
+          <property name="checkable">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QPlainTextEdit" name="logText">
+        <property name="centerOnScroll">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="clearButton">
+        <property name="text">
+         <string>Clear</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <widget class="QTabWidget" name="codeLog">
+      <property name="currentIndex">
+       <number>0</number>
+      </property>
+      <widget class="QWidget" name="tab">
+       <attribute name="title">
+        <string>Auto run</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_7">
+        <item>
+         <widget class="QLabel" name="label">
+          <property name="text">
+           <string>Takes pt1 and pt2 as inputs, must output a RGB image as self.outImg</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPlainTextEdit" name="codeAutorun">
+          <property name="font">
+           <font>
+            <family>Ubuntu Mono</family>
+           </font>
+          </property>
+          <property name="verticalScrollBarPolicy">
+           <enum>Qt::ScrollBarAlwaysOn</enum>
+          </property>
+          <property name="lineWrapMode">
+           <enum>QPlainTextEdit::NoWrap</enum>
+          </property>
+          <property name="plainText">
+           <string>def plot_points(pts, dest=None):
+    p=pts.astype(np.int64)
+    if dest is None:
+        dest = np.zeros((np.max(p, axis=0)+1).astype(np.uint))
+    dest[p[:,0], p[:,1], p[:,2]]=255
+    return dest
+
+def transform(p, trans, rot, scale=0.2, dest=None):
+    p = (scale*p)
+    r=Rotation.from_euler('z', rot, degrees=True)
+    p=np.matmul(r.as_matrix(), p.T).T
+    # p=p-np.min(p, axis=0)
+    p=p+np.array([200,200,0])
+    p=p+trans
+    im = plot_points(p)
+    return im
+
+print(pt1)
+
+rot = float(self.form.sliderR.value())
+trans = np.array((float(self.form.sliderX.value()),
+                  float(self.form.sliderY.value()),
+                  0))
+
+im1 = self.im1 = np.sum(transform(self.pt1, np.zeros(3), 0, scale=0.25)[:, :, :6], axis=2).astype(np.uint8)
+im2 = self.im2 = np.sum(transform(self.pt2, trans, rot, scale=0.25)[:, :, :10], axis=2).astype(np.uint8)
+
+dims = np.max(np.array((self.im1.shape, self.im2.shape)), axis=0)
+self.outimg = np.zeros((dims[0],dims[1],3), np.uint8)
+
+self.outimg[:im1.shape[0], :im1.shape[1], 0] = im1
+self.outimg[:im2.shape[0], :im2.shape[1], 1] = im2</string>
+          </property>
+          <property name="centerOnScroll">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="lineCurrent">
+          <property name="text">
+           <string>Line:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_3">
+          <item>
+           <widget class="QPushButton" name="runOnceButton">
+            <property name="text">
+             <string>Run once</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="runOnUpdatesButton">
+            <property name="text">
+             <string>Run on updates</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tab_5">
+       <attribute name="title">
+        <string>OnClick Code</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_11">
+        <item>
+         <widget class="QLabel" name="label_7">
+          <property name="text">
+           <string>Runs when the image is clicked. Coordinates in evt</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPlainTextEdit" name="codeOnClick">
+          <property name="font">
+           <font>
+            <family>Ubuntu Mono</family>
+           </font>
+          </property>
+          <property name="lineWrapMode">
+           <enum>QPlainTextEdit::NoWrap</enum>
+          </property>
+          <property name="plainText">
+           <string>x = int(evt.pos().x())
+y = int(evt.pos().y())
+self.last_click_x = x
+self.last_click_y = y
+self.update_images()</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tab_2">
+       <attribute name="title">
+        <string>Code</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_8">
+        <item>
+         <widget class="QLabel" name="label_5">
+          <property name="text">
+           <string>Has access to pt1, pt2, outImgand the context of auto-run</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPlainTextEdit" name="codeOnce">
+          <property name="font">
+           <font>
+            <family>Ubuntu Mono</family>
+           </font>
+          </property>
+          <property name="plainText">
+           <string>def transform(p, trans, rot, scale=0.2, dest=None):
+    p = (scale*p)
+    r=Rotation.from_euler('z', rot, degrees=True)
+    p=np.matmul(r.as_matrix(), p.T).T
+    # p=p-np.min(p, axis=0)
+    p=p+np.array([200,200,0])
+    p=p+trans
+    im = plot_points(p)
+    return im</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="pushButton_3">
+          <property name="text">
+           <string>Run once</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tab_3">
+       <attribute name="title">
+        <string>Watcher</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_10">
+        <item>
+         <widget class="QPlainTextEdit" name="codeWatcher">
+          <property name="font">
+           <font>
+            <family>Ubuntu Mono</family>
+           </font>
+          </property>
+          <property name="plainText">
+           <string>def transform(p, trans, rot, scale=0.2, dest=None):
+    p = (scale*p)
+    r=Rotation.from_euler('z', rot, degrees=True)
+    p=np.matmul(r.as_matrix(), p.T).T
+    # p=p-np.min(p, axis=0)
+    p=p+np.array([200,200,0])
+    p=p+trans
+    im = plot_points(p)
+    return im</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPlainTextEdit" name="watcherText"/>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tab_4">
+       <attribute name="title">
+        <string>Log</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_9">
+        <item>
+         <widget class="QLabel" name="label_6">
+          <property name="text">
+           <string>Runs on every update</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPlainTextEdit" name="codeEdit_4">
+          <property name="font">
+           <font>
+            <family>Ubuntu Mono</family>
+           </font>
+          </property>
+          <property name="plainText">
+           <string>def transform(p, trans, rot, scale=0.2, dest=None):
+    p = (scale*p)
+    r=Rotation.from_euler('z', rot, degrees=True)
+    p=np.matmul(r.as_matrix(), p.T).T
+    # p=p-np.min(p, axis=0)
+    p=p+np.array([200,200,0])
+    p=p+trans
+    im = plot_points(p)
+    return im</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </widget>
+    </item>
+    <item>
+     <layout class="QVBoxLayout" name="verticalLayout">
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_2">
+        <item>
+         <layout class="QVBoxLayout" name="verticalLayout_2">
+          <item>
+           <widget class="QSlider" name="sliderX">
+            <property name="minimum">
+             <number>-500</number>
+            </property>
+            <property name="maximum">
+             <number>500</number>
+            </property>
+            <property name="value">
+             <number>14</number>
+            </property>
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="Xvalue">
+            <property name="text">
+             <string>0</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="label_2">
+            <property name="text">
+             <string>X</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QVBoxLayout" name="verticalLayout_5">
+          <item>
+           <widget class="QSlider" name="sliderY">
+            <property name="minimum">
+             <number>-100</number>
+            </property>
+            <property name="maximum">
+             <number>100</number>
+            </property>
+            <property name="value">
+             <number>-27</number>
+            </property>
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="Yvalue">
+            <property name="text">
+             <string>0</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="label_4">
+            <property name="text">
+             <string>Y</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QVBoxLayout" name="verticalLayout_12">
+          <item>
+           <widget class="QSlider" name="sliderZ1">
+            <property name="value">
+             <number>30</number>
+            </property>
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="Z1value">
+            <property name="text">
+             <string>30</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="label_10">
+            <property name="text">
+             <string>Z1</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QVBoxLayout" name="verticalLayout_13">
+          <item>
+           <widget class="QSlider" name="sliderZ2">
+            <property name="value">
+             <number>20</number>
+            </property>
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="Z2value">
+            <property name="text">
+             <string>20</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="label_11">
+            <property name="text">
+             <string>Z2</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QVBoxLayout" name="verticalLayout_3">
+          <item>
+           <layout class="QVBoxLayout" name="verticalLayout_4">
+            <item>
+             <widget class="QSlider" name="sliderR">
+              <property name="minimum">
+               <number>-180</number>
+              </property>
+              <property name="maximum">
+               <number>180</number>
+              </property>
+              <property name="value">
+               <number>82</number>
+              </property>
+              <property name="orientation">
+               <enum>Qt::Vertical</enum>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="Rvalue">
+              <property name="text">
+               <string>0</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="label_3">
+              <property name="text">
+               <string>R</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QPushButton" name="loadButton">
+        <property name="text">
+         <string>Load</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1044</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
