@@ -85,7 +85,7 @@ def mask(img):
     return final_mask
 
 
-def align(args, code_fov_pairs = None, mask = False):
+def align(args, code_fov_pairs = None, using_mask = False, mode = '405'):
     r"""For each volume in code_fov_pairs, find corresponding reference volume, then perform alignment. 
     Args:
         args (args.Args): configuration options.
@@ -173,13 +173,13 @@ def align(args, code_fov_pairs = None, mask = False):
         parameter_map["MovingImagePyramidSchedule"] = ["1 1 1"]
         elastixImageFilter.AddParameterMap(parameter_map)
 
-        if mask == True: 
-            fix_mask = mask(vol_fixed)
+        if using_mask == True: 
+            fix_mask = mask(fix_vol)
             fix_mask = sitk.GetImageFromArray(fix_mask.astype('uint8'))
             fix_mask.CopyInformation(fix_vol_sitk)
             elastixImageFilter.SetFixedMask(fix_mask)
 
-            move_mask = mask(vol_move)
+            move_mask = mask(mov_vol)
             move_mask = sitk.GetImageFromArray(move_mask.astype('uint8'))
             move_mask.CopyInformation(mov_vol_sitk)
             elastixImageFilter.SetMovingMask(move_mask)
@@ -188,108 +188,42 @@ def align(args, code_fov_pairs = None, mask = False):
 
         transform_map = elastixImageFilter.GetTransformParameterMap()
 
-        sitk.WriteParameterFile(transform_map[0], args.tform_path.format(code, str(fov) + ".0"))
-        sitk.WriteParameterFile(transform_map[1], args.tform_path.format(code, str(fov) + ".1"))
-        sitk.WriteParameterFile(transform_map[2], args.tform_path.format(code, str(fov) + ".2"))
+        #sitk.WriteParameterFile(transform_map[0], args.tform_path.format(code, str(fov) + ".0"))
+        #sitk.WriteParameterFile(transform_map[1], args.tform_path.format(code, str(fov) + ".1"))
+        #sitk.WriteParameterFile(transform_map[2], args.tform_path.format(code, str(fov) + ".2"))
 
-        out = sitk.GetArrayFromImage(elastixImageFilter.GetResultImage())
+        if mode == '405':
+            out = sitk.GetArrayFromImage(transformixImageFilter.GetResultImage())
+            with h5py.File(args.h5_path.format(code, fov), "a") as f:
+                    if channel in ['405']:
+                        del f[channel]
+                    f.create_dataset(channel, out.shape, dtype=out.dtype, data=out)
+        
+        if mode == 'all':
+            for channel_ind, channel in enumerate(args.channel_names):
 
-        # Save the results
-        with h5py.File(args.h5_path.format(code, fov), "w") as f:
-            f.create_dataset("405", out.shape, dtype=out.dtype, data=out)
+                print(channel)
+                mov_vol = nd2ToVol(args.nd2_path.format(code, channel, channel_ind), fov, channel)
+                mov_vol_sitk = sitk.GetImageFromArray(mov_vol)
+                mov_vol_sitk.SetSpacing(args.spacing)
+
+                transformixImageFilter = sitk.TransformixImageFilter()
+                transformixImageFilter.SetMovingImage(mov_vol_sitk)  
+                transformixImageFilter.SetTransformParameterMap(elastixImageFilter.GetTransformParameterMap())
+                transformixImageFilter.LogToConsoleOn()
+                transformixImageFilter.Execute()
+
+                out = sitk.GetArrayFromImage(transformixImageFilter.GetResultImage())
+                with h5py.File(args.h5_path.format(code, fov), "a") as f:
+                    if channel in f.keys():
+                        del f[channel]
+                    f.create_dataset(channel, out.shape, dtype=out.dtype, data=out)
+                    
 
         tmpdir_obj.cleanup()
 
-
-def inspect_align_truncated(args, fov_code_pairs=None, path=None):
-    r"""For each volume in code_fov_pairs, save a series of images that allow the user to check the quality of alignmentt.
-    Args:
-        args (args.Args): configuration options.
-        code_fov_pairs (list): a list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
-        path (string): path to save the images. Default: ``None``
-    """
-
-    import matplotlib.pyplot as plt
-
-    for code, fov in fov_code_pairs:
-
-        if "code{},fov{}".format(code, fov) not in args.align_init:
-            continue
-        print(f"inspect_align_truncated: code{code},fov{fov}")
-
-        if not path:
-            path = os.path.join(args.processed_path, "/inspect_align_truncated/")
-            if not os.path.exists(path):
-                os.makedirs(path)
-
-        if not os.path.exists(f"{path}/code{code}"):
-            os.makedirs(f"{path}/code{code}")
-
-        fix_start, mov_start, last = args.align_init["code{},fov{}".format(code, fov)]
-        z_stacks = np.linspace(fix_start, fix_start + last - 1, 5)
-
-        # ---------- Full resolution -----------------
-        fig, axs = plt.subplots(2, 5, figsize=(20, 5))
-
-        for i, z in enumerate(z_stacks):
-            im = nd2ToSlice(
-                args.nd2_path.format(args.ref_code, "405", 4), fov, int(z), "405 SD"
-            )
-            axs[0, i].imshow(im, vmax=600)
-            axs[0, i].set_xlabel(z)
-            axs[0, i].set_ylabel("fix")
-
-        for i, z in enumerate(z_stacks):
-            with h5py.File(args.h5_path_cropped.format(code, fov), "r") as f:
-                im = f["405"][int(z), :, :]
-                im = np.squeeze(im)
-            axs[1, i].imshow(im, vmax=600)
-            axs[1, i].set_xlabel(z)
-            axs[1, i].set_ylabel("transformed")
-        plt.savefig(f"{path}/code{code}/fov{fov}_large.jpg")
-        plt.close()
-
-        # ------------ Top left corner-------------------
-        fig, axs = plt.subplots(2, 5, figsize=(20, 5))
-        for i, z in enumerate(z_stacks):
-            im = nd2ToSlice(
-                args.nd2_path.format(args.ref_code, "405", 4), fov, int(z), "405 SD"
-            )[:300, :300]
-            axs[0, i].imshow(im, vmax=600)
-            axs[0, i].set_xlabel(z)
-            axs[0, i].set_ylabel("fix")
-
-        for i, z in enumerate(z_stacks):
-            with h5py.File(args.h5_path_cropped.format(code, fov), "r") as f:
-                im = f["405"][int(z), :300, :300]
-                im = np.squeeze(im)
-            axs[1, i].imshow(im, vmax=600)
-            axs[1, i].set_xlabel(z)
-            axs[1, i].set_ylabel("transformed")
-        plt.savefig(f"{path}/code{code}/fov{fov}_topleft.jpg")
-        plt.close()
-
-        # ------------ Bottom right corner----------
-        fig, axs = plt.subplots(2, 5, figsize=(20, 5))
-        for i, z in enumerate(z_stacks):
-            im = nd2ToSlice(
-                args.nd2_path.format(args.ref_code, "405", 4), fov, int(z), "405 SD"
-            )[1700:, 1700:]
-            axs[0, i].imshow(im, vmax=600)
-            axs[0, i].set_xlabel(z)
-            axs[0, i].set_ylabel("fix")
-
-        for i, z in enumerate(z_stacks):
-            with h5py.File(args.h5_path_cropped.format(code, fov), "r") as f:
-                im = f["405"][int(z), 1700:, 1700:]
-                im = np.squeeze(im)
-            axs[1, i].imshow(im, vmax=600)
-            axs[1, i].set_xlabel(z)
-            axs[1, i].set_ylabel("transformed")
-        plt.savefig(f"{path}/code{code}/fov{fov}_bottomright.jpg")
-        plt.close()
-
-
+      
+'''
 # TODO limit itk multithreading
 # TODO add basic alignment approach
 def transform_other_function(args, tasks_queue=None, q_lock=None, mode="all"):
@@ -378,8 +312,9 @@ def transform_other_function(args, tasks_queue=None, q_lock=None, mode="all"):
 
                 with h5py.File(args.h5_path.format(code, fov), "a") as f:
                     f.create_dataset(channel_name, out.shape, dtype=out.dtype, data=out)
+'''
 
-
+'''
 def transform_other_code(args, code_fov_pairs=None, num_cpu=None, mode="all"):
 
     r"""Parallel processing support for transform_other_function.
@@ -424,3 +359,5 @@ def transform_other_code(args, code_fov_pairs=None, num_cpu=None, mode="all"):
 
     for p in child_processes:
         p.join()
+        
+'''
