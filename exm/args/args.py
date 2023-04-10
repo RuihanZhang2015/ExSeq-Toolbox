@@ -6,7 +6,7 @@ import json
 import pickle
 import pandas as pd
 pd.set_option('display.expand_frame_repr', False)
-
+from nd2reader import ND2Reader
 from exm.utils import chmod
 from exm.io import createFolderStruc
 
@@ -19,10 +19,9 @@ class Args():
     def set_params(self,
                 project_path = '',
                 codes = list(range(7)),
-                fovs = list(range(3)),
+                fovs = None,
                 ref_code = 0,
                 thresholds = [200,300,300,200],
-                align_z_init=None,
                 spacing = [1.625,1.625,4.0],
                 Create_directroy_Struc = False,
                 permission = False,
@@ -49,28 +48,21 @@ class Args():
 
         # Input ND2 path
         self.nd2_path = os.path.join(self.project_path,'code{}/Channel{} SD_Seq000{}.nd2')
+        if not fovs and 'fovs' not in dir(self):
+            self.fovs = list(ND2Reader(self.nd2_path.format(self.ref_code,'405',4)).metadata['fields_of_view'])
+        else:
+            self.fovs = fovs
 
         # Output h5 path
         self.processed_path =  os.path.join(self.project_path,'processed')
         self.h5_path = os.path.join(self.processed_path,'code{}/{}.h5')
         self.tform_path = os.path.join(self.processed_path,'code{}/tforms/{}.txt')
         
-        # Cropped temporary h5 path
-        self.h5_path_cropped = os.path.join(self.processed_path,'code{}/{}_cropped.h5')
-
         # Housekeeping
-
         self.code2num = {'a':'0','c':'1','g':'2','t':'3'}
         self.colors = ['red','yellow','green','blue']
         self.colorscales = ['Reds','Oranges','Greens','Blues']
         self.channel_names = ['640','594','561','488','405']
-
-        # # Initilization for alignment parameter 
-        if not align_z_init:
-            self.align_z_init = align_z_init
-        else:
-            with open(align_z_init) as f:
-                self.align_z_init = json.load(f)
 
         self.work_path = self.project_path + 'puncta/'
         
@@ -81,7 +73,7 @@ class Args():
             pickle.dump(self.__dict__,f)
 
         if permission:             
-            chmod(os.path.join(self.project_path,'args.pkl'))
+            chmod(self.project_path)
         
 
     # load parameters from a pre-set .pkl file
@@ -114,5 +106,43 @@ class Args():
             subindent = ' ' * 4 * (level + 1)
             for f in files:
                 print('{}{}'.format(subindent, f))
-      
-        
+
+
+    def progress(self):
+        """visualize_progress(self)"""
+        import seaborn as sns
+        import numpy as np
+        import h5py
+        import matplotlib.pyplot as plt
+            
+        result = np.zeros((len(self.fovs),len(self.codes)))
+        annot = np.asarray([['{},{}'.format(fov,code) for code in self.codes] for fov in self.fovs])
+        for fov in self.fovs:
+            for code_index,code in enumerate(self.codes):
+                    
+                if os.path.exists(self.h5_path.format(code,fov)):
+                    result[fov,code_index] = 1
+                else:
+                    continue
+                        
+                if os.path.exists(self.work_path + '/fov{}/result_code{}.pkl'.format(fov,code)):
+                    result[fov,code_index] = 4
+                    continue
+                        
+                if os.path.exists(self.work_path + '/fov{}/coords_total_code{}.pkl'.format(fov,code)):
+                        
+                    result[fov,code_index] = 3
+                    continue
+                        
+                try:
+                    with h5py.File(self.h5_path.format(code,fov), 'r+') as f:
+                        if set(f.keys()) == set(self.channel_names):
+                            result[fov,code_index] = 2          
+                except:
+                    pass
+
+        fig, ax = plt.subplots(figsize = (7,20))
+        ax = sns.heatmap(result, annot=annot, fmt="",vmin=0, vmax=4)
+        plt.show()
+        print('1: 405 done, 2: all channels done, 3:puncta extracted 4:channel consolidated')
+              
