@@ -1,3 +1,7 @@
+"""
+Manually check identification and consolidation of puncta.
+"""
+
 import os
 import h5py
 import pickle
@@ -10,10 +14,13 @@ import plotly.graph_objects as go
 import plotly.express as px
 
 
-def in_region(coord,ROI_min,ROI_max):
-        
-    """in_region(self,coord,ROI_min,ROI_max)"""
-
+def in_region(coord, ROI_min, ROI_max):
+     r"""Given a coordinate location and lower and upper bounds for a volume chunk (region), returns whether or not the coordinate is inside the chunk.
+         Args:
+            coord (list): coordinate list, in the format of [z, y, x].
+            ROI_min (list): minimum coordinates of the volume chunk. Expects coordinates in the format of [z, y, x]. 
+            ROI_max (list): maximum coordinates of the volume chunk. Expects coordinates in the format of [z, y, x]. 
+     """
     coord = np.asarray(coord)
     ROI_min = np.asarray(ROI_min)
     ROI_max = np.asarray(ROI_max)
@@ -24,7 +31,19 @@ def in_region(coord,ROI_min,ROI_max):
         return False
         
 # Raw plotly
-def inspect_raw_plotly(args,fov,code,channel,ROI_min,ROI_max,vmax=500,mode ='raw',export_file_name=False):
+def inspect_raw_plotly(args, fov, code, channel, ROI_min, ROI_max, vmax = 500, mode ='raw', export_file_name=False):
+    r"""Plots the middle slice of a specified volume chunk using Plotly. 
+        Args:
+            args (args.Args): configuration options.
+            fov (int): the field of fiew of the volume chunk to be returned. 
+            code (int): the code of the volume chunk to be returned. 
+            channel (int): the channel of the volume chunk to be returned. 
+            ROI_min (list): minimum coordinates of the volume chunk. Expects coordinates in the format of [z, y, x]. 
+            ROI_max (list): maximum coordinates of the volume chunk. Expects coordinates in the format of [z, y, x]. 
+            vmax (int): maximum pixel intensity to display. Default: ``500``
+            mode (str): expects 'raw' or 'blur'. 'raw' plots the images as-is, 'blur' applies Gaussian blurring before plotting. Default: ``'raw'``
+            export_file_name (str): name of the file to be exported. Default: ``False``
+    """
         
     img = retrieve_img(args,fov,code,channel,ROI_min,ROI_max)
     if mode == 'blur':
@@ -38,17 +57,18 @@ def inspect_raw_plotly(args,fov,code,channel,ROI_min,ROI_max,vmax=500,mode ='raw
     fig.show()
 
 # raw matplotlib
-def inspect_raw_matplotlib(args,fov,code,channel,ROI_min,ROI_max,vmax=500,mode = 'raw'):
-
-    '''
-        exseq.inspect_raw_matplotlib(
-                fov=
-                ,code=
-                ,channel=
-                ,ROI_min=
-                ,ROI_max=
-                ,vmax = 600)
-    '''
+def inspect_raw_matplotlib(args, fov, code, channel, ROI_min, ROI_max, vmax = 500, mode = 'raw'):
+    r"""Plots the middle slice of a specified volume chunk using Matplotlib. 
+        Args:
+            args (args.Args): configuration options.
+            fov (int): the field of fiew of the volume chunk to be returned. 
+            code (int): the code of the volume chunk to be returned. 
+            channel (int): the channel of the volume chunk to be returned. 
+            ROI_min (list): minimum coordinates of the volume chunk. Expects coordinates in the format of [z, y, x]. 
+            ROI_max (list): maximum coordinates of the volume chunk. Expects coordinates in the format of [z, y, x]. 
+            vmax (int): maximum pixel intensity to display. Default: ``500``
+            mode (str): expects 'raw' or 'blur'. 'raw' plots the images as-is, 'blur' applies Gaussian blurring before plotting. Default: ``'raw'``
+    """
 
     img = retrieve_img(args,fov,code,channel,ROI_min,ROI_max)
     if mode == 'blur':
@@ -63,7 +83,17 @@ def inspect_raw_matplotlib(args,fov,code,channel,ROI_min,ROI_max,vmax=500,mode =
         
 
 # Local maximum matplotlib
-def inspect_localmaximum_matplotlib(args,fov,code,ROI_min,ROI_max,vmax=500):
+def inspect_localmaximum_matplotlib(args, fov, code, ROI_min, ROI_max, vmax=500):
+    r"""Plots middle slice of each channel for a specific fov/code using Matplotlib. 
+        Args:
+            args (args.Args): configuration options.
+            fov (int): the field of fiew of the volume chunk to be returned. 
+            code (int): the code of the volume chunk to be returned. 
+            channel (int): the channel of the volume chunk to be returned. 
+            ROI_min (list): minimum coordinates of the volume chunk. Expects coordinates in the format of [z, y, x]. 
+            ROI_max (list): maximum coordinates of the volume chunk. Expects coordinates in the format of [z, y, x]. 
+            vmax (int): maximum pixel intensity to display. Default: ``500``
+    """
 
     fig,ax = plt.subplots(1,5,figsize = (20,5))
     for channel in range(5):
@@ -75,6 +105,16 @@ def inspect_localmaximum_matplotlib(args,fov,code,ROI_min,ROI_max,vmax=500):
 
 # Local maximum plotly
 def inspect_localmaximum_plotly(args, fov, code, channel, ROI_min, ROI_max, export_file_name=None):
+    """Plots identified puncta for a specific fov/code/channel using Plotly. 
+       Args:
+           args (args.Args): configuration options.
+           fov (int): the field of fiew of the volume chunk to be returned. 
+           code (int): the code of the volume chunk to be returned. 
+           channel (int): the channel of the volume chunk to be returned. 
+           ROI_min (list): minimum coordinates of the volume chunk. Expects coordinates in the format of [z, y, x]. 
+           ROI_max (list): maximum coordinates of the volume chunk. Expects coordinates in the format of [z, y, x]. 
+           export_file_name (str): name of the file to be exported. Default: ``None``
+    """
         
     fig = go.Figure()
 
@@ -138,7 +178,15 @@ def inspect_localmaximum_plotly(args, fov, code, channel, ROI_min, ROI_max, expo
 
 
 # puncta in ROIs
-def inspect_puncta_ROI_matplotlib(args, fov, code, position,center_dist=40):
+def inspect_puncta_ROI_matplotlib(args, fov, code, position, center_dist=40):
+    """Plots identified puncta for a specific fov/code using Matplotlib. Assumes the puncta have already been consolidated accross channels. 
+       Args:
+           args (args.Args): configuration options.
+           fov (int): the field of fiew of the volume chunk to be returned. 
+           code (int): the code of the volume chunk to be returned. 
+           position (list): the center point of the region that should be visualized. Expects position in the format of [z, y, x]. 
+           center_dist (int): distance from the center that should be viewable. Default: ``40``
+    """
 
     reference = retrieve_all_puncta(args,fov)
         
@@ -168,8 +216,17 @@ def inspect_puncta_ROI_matplotlib(args, fov, code, position,center_dist=40):
     plt.show()
         
 
-def inspect_puncta_ROI_plotly(args, fov, position, c_list = [0,1,2,3],center_dist=40,spacer=40,export_file_name=False):
-
+def inspect_puncta_ROI_plotly(args, fov, position, c_list = [0,1,2,3], center_dist=40, spacer=40, export_file_name=False):
+    """Plots identified puncta for a specific fov/code using Plotly. Assumes the puncta have already been consolidated accross channels. 
+       Args:
+           args (args.Args): configuration options.
+           fov (int): the field of fiew of the volume chunk to be returned. 
+           position (list): the center point of the region that should be visualized. Expects position in the format of [z, y, x]. 
+           c_list (list): the codes to include in the viaulization.
+           center_dist (int): distance from the center that should be viewable. Default: ``40``
+           spacer (int): scaling factor to use for z-spacing. Default: ``40``
+           export_file_name (str): name of the file to be exported. Default: ``None``
+    """
     ROI_min = [position[0]-10,position[1]-center_dist,position[2]-center_dist]
     ROI_max = [position[0]+10,position[1]+center_dist,position[2]+center_dist]
     reference = retrieve_all_puncta(args,fov)
@@ -252,7 +309,14 @@ def inspect_puncta_ROI_plotly(args, fov, position, c_list = [0,1,2,3],center_dis
 
 
 # Individual puncta
-def inspect_puncta_individual_matplotlib(args, fov, puncta_index,center_dist = 40):
+def inspect_puncta_individual_matplotlib(args, fov, puncta_index, center_dist = 40):
+    """Plots specified puncta using Matplotlib. Assumes the puncta have already been consolidated accross channels.
+       Args:
+           args (args.Args): configuration options.
+           fov (int): the field of fiew of the volume chunk to be returned. 
+           puncta_index (int): the index of the puncta to visualize.
+           center_dist (int): distance from the center that should be viewable. Default: ``40``
+    """
 
     import matplotlib.pyplot as plt
     puncta = retrieve_one_puncta(args,fov,puncta_index) 
@@ -283,7 +347,16 @@ def inspect_puncta_individual_matplotlib(args, fov, puncta_index,center_dist = 4
     plt.show() 
     
         
-def inspect_puncta_individual_plotly(args, fov, puncta_index,center_dist=40,spacer = 40,export_file_name=None):
+def inspect_puncta_individual_plotly(args, fov, puncta_index, center_dist=40, spacer = 40, export_file_name=None):
+    """Plots specified puncta using Plotly. Assumes the puncta have already been consolidated accross channels.
+       Args:
+           args (args.Args): configuration options.
+           fov (int): the field of fiew of the volume chunk to be returned. 
+           puncta_index (int): the index of the puncta to visualize.
+           center_dist (int): distance from the center that should be viewable. Default: ``40``
+           spacer (int): scaling factor to use for z-spacing. Default: ``40``
+           export_file_name (str): name of the file to be exported. Default: ``None``
+    """
 
     reference = retrieve_all_puncta(args,fov)
     puncta = retrieve_one_puncta(args,fov, puncta_index)
@@ -385,7 +458,18 @@ def inspect_puncta_individual_plotly(args, fov, puncta_index,center_dist=40,spac
 
 
 # Puncta across rounds
-def inspect_between_rounds_plotly(args, fov, code1, code2, ROI_min, ROI_max,spacer = 40,export_file_name=None):
+def inspect_between_rounds_plotly(args, fov, code1, code2, ROI_min, ROI_max, spacer = 40, export_file_name=None):
+    """Plots puncta across rounds (for two specified codes) using Plotly.
+       Args:
+           args (args.Args): configuration options.
+           fov (int): the field of fiew of the volume chunk to be returned. 
+           code1 (str): name of the first code to include in comparison. 
+           code2 (str): name of the first code to include in comparison. 
+           ROI_min (list): minimum coordinates of the volume chunk to display. Expects coordinates in the format of [z, y, x]. 
+           ROI_max (list): maximum coordinates of the volume chunk to display. Expects coordinates in the format of [z, y, x]. 
+           spacer (int): scaling factor to use for z-spacing. Default: ``40``
+           export_file_name (str): name of the file to be exported. Default: ``None``
+    """
 
     if ROI_max[0]-ROI_min[0]>20:
         print('ROI_max[0]-ROI_min[0]should be smaller than 20')
@@ -557,8 +641,16 @@ def inspect_between_rounds_plotly(args, fov, code1, code2, ROI_min, ROI_max,spac
     fig.show()
 
 
-def inspect_across_rounds_plotly(args, fov, ROI_min, ROI_max,spacer = 20,export_file_name=None):
-
+def inspect_across_rounds_plotly(args, fov, ROI_min, ROI_max, spacer = 20, export_file_name=None):
+    """Plots puncta across rounds (for all codes) using Plotly.
+       Args:
+           args (args.Args): configuration options.
+           fov (int): the field of fiew of the volume chunk to be returned. 
+           ROI_min (list): minimum coordinates of the volume chunk to display. Expects coordinates in the format of [z, y, x]. 
+           ROI_max (list): maximum coordinates of the volume chunk to display. Expects coordinates in the format of [z, y, x]. 
+           spacer (int): scaling factor to use for z-spacing. Default: ``20``
+           export_file_name (str): name of the file to be exported. Default: ``None``
+    """
 
     reference = retrieve_all_puncta(args,fov)
     reference = [ x for x in reference if in_region(x['position'], ROI_min,ROI_max) ] 

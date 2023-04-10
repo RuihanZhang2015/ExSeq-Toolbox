@@ -1,3 +1,5 @@
+"""Extracts puncta and saves coordinates into a .pkl file"""
+
 import os
 import h5py
 import pickle
@@ -8,8 +10,15 @@ from multiprocessing import current_process,Lock,Process,Queue
 
 from exm.utils import chmod
 
-# TODO document function
-def calculate_coords_gpu(args,tasks_queue,device,lock,queue_lock):
+def calculate_coords_gpu(args, tasks_queue, device, lock, queue_lock):
+    r"""Extracts puncta from volumes included in the task queue, then saves their locations to a .pkl file. GPU enabled.
+        Args:
+            args (args.Args): configuration options.
+            tasks_queue (list): a list of tuples, where each tuple is a (code, fov) pair.
+            device (TO DO): TO DO
+            lock (multiporcessing.Lock): a multiporcessing.Lock instance to avoid race condition when processes accessing the task_queue.
+            queue_lock (TO DO): TO DO
+     """
 
     import cupy as cp
     import queue # imported for using queue.Empty exception
@@ -80,7 +89,13 @@ def calculate_coords_gpu(args,tasks_queue,device,lock,queue_lock):
             print('------ Fov:{}, Code:{} Finished on {}\n'.format(fov,code, current_process().name))
 
 
-def puncta_extraction_gpu(args, tasks_queue, num_gpu):
+def puncta_extraction_gpu(args, tasks_queue, num_gpu):    
+    r"""Wrapper around calculate_coords_gpu to enable parallel processing. 
+        Args:
+            args (args.Args): configuration options.
+            tasks_queue (list): a list of tuples, where each tuple is a (code, fov) pair.
+            num_gpu (int): number of GPUs to use for processing.
+     """
             
     # List to hold the child processes.
     child_processes = [] 
@@ -108,7 +123,13 @@ def puncta_extraction_gpu(args, tasks_queue, num_gpu):
         p.join()
 
 
-def calculate_coords_cpu(args,tasks_queue,queue_lock):
+def calculate_coords_cpu(args, tasks_queue, queue_lock):
+     r"""Extracts puncta from volumes included in the task queue, then saves their locations to a .pkl file. Runs on CPU (GPU disabled). 
+        Args:
+            args (args.Args): configuration options.
+            tasks_queue (list): a list of tuples, where each tuple is a (code, fov) pair.
+            queue_lock (TO DO): TO DO
+     """
 
     from scipy.ndimage import gaussian_filter
     from skimage.feature import peak_local_max
@@ -169,7 +190,13 @@ def calculate_coords_cpu(args,tasks_queue,queue_lock):
         print('Extract Puncta: Fov{}, Code{} Finished on {}\n'.format(fov,code,current_process().name))
 
 
-def puncta_extraction_cpu(args,tasks_queue,num_cpu):
+def puncta_extraction_cpu(args, tasks_queue, num_cpu):
+     r"""Wrapper around calculate_coords_cpu to enable parallel processing. 
+         Args:
+            args (args.Args): configuration options.
+            tasks_queue (list): a list of tuples, where each tuple is a (code, fov) pair.
+            num_cpu (int): number of CPUs to use for processing.
+     """
 
     # List to hold the child processes.
     child_processes = [] 
@@ -189,7 +216,15 @@ def puncta_extraction_cpu(args,tasks_queue,num_cpu):
     for p in child_processes:
         p.join()
 
-def extract(args,code_fov_pairs,use_gpu=False,num_gpu = 3,num_cpu = 3):
+def extract(args, code_fov_pairs, use_gpu=False, num_gpu = 3, num_cpu = 3):
+    r"""Runs extraction process (calculate_coords_cpu or calculate_coords_gpu) for all codes and fovs specified in code_fov_pairs. 
+        Args:
+            args (args.Args): configuration options.
+            code_fov_pairs (list): a list of tuples, where each tuple is a (code, fov) pair.
+            use_gpu (bool): whether or not to enable GPU processing. Default: ``False``
+            num_gpu (int): number of GPUs to use for processing. Default: ``3``
+            num_cpu (int): number of CPUs to use for processing. Default: ``3``
+     """
 
     # Queue to hold all the puncta extraction tasks.
     tasks_queue = Queue() 
