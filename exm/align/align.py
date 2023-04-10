@@ -17,7 +17,6 @@ from exm.io.io import nd2ToVol, nd2ToSlice, nd2ToChunk
 from exm.utils import chmod
 
 
-## TODO what does mode refers to:
 def transform_ref_code(args, code_fov_pairs=None, mode="all"):
     r"""For each volume specified in code_fov_pairs, convert from an nd2 file to an array, then save into an .h5 file.
     Args:
@@ -47,292 +46,51 @@ def transform_ref_code(args, code_fov_pairs=None, mode="all"):
                 f.create_dataset(
                     channel_name, fix_vol.shape, dtype=fix_vol.dtype, data=fix_vol
                 )
+                
+def mask(img):
+    
+    from segment_anything import build_sam, SamAutomaticMaskGenerator
+    import cv2
+
+    final_mask = np.zeros(img.shape)
+
+    # Need to download "sam_vit_h_4b8939.pth" from here: https://github.com/facebookresearch/segment-anything#model-checkpoints
+    mask_generator = SamAutomaticMaskGenerator(model=build_sam(checkpoint="sam_vit_h_4b8939.pth"), 
+                                                   points_per_side = 32,
+                                                   points_per_batch = 64)
+
+    index = int(img.shape[0]/2)
+    sl = cv2.cvtColor(img[index], cv2.COLOR_GRAY2BGR).astype('uint8')
+    # Generate segmentation masks for middle slice of volume. 
+    masks = mask_generator.generate(sl)
+
+    # Remove large (background) and small (noise) masks. 
+    min_ = np.percentile([mask['area'] for mask in masks], 20)
+    max_ = np.percentile([mask['area'] for mask in masks], 80)
+
+    masks = [mask['segmentation'] for mask in masks if mask['area'] < max_ and mask['area'] > min_]
+    
+    # Add all masks to one image, then convert to binary mask. 
+    overlaid_masks = np.sum(np.stack(masks, axis=-1), axis = 2)
+    overlaid_masks[overlaid_masks  > 0] = 1  
+
+    # Find and fill boundary box around identified objects.  
+    coords = cv2.findNonZero(overlaid_masks)
+    x,y,w,h = cv2.boundingRect(coords)
+    padding = 250
+    bounding_box = cv2.rectangle(np.zeros(img[index].shape), (max(x-padding, 0), max(y-padding, 0)), (min(x+w+padding, 2048), min(y+h+padding, 2048)), (1,1,1), -1)
+
+    final_mask[:, :, :] = bounding_box
+            
+    return final_mask
 
 
-def computeMinFlann(
-    fix,
-    move,
-    k=1,
-    flann_idx_kdtree=0,
-    flann_trees=5,
-    checks=50,
-    sift_mask=None,
-    flann_mask=False,
-    ratio=0.75,
-):
-    r"""Compute the min distance and L2-norm of distance of nearest neighbors of the key points in a fixed volume and their matches
-    in a moving volume.
-    Args:
-        fix (np.ndarray): fixed image volume
-        move (np.ndarray): moving image volume
-        k (int): number of nearest neighbors, works only for 1 right now
-        flann_idx_kdtree (int): FLANN algorithm to be used
-        trees (int): number of FLANN trees
-        checks (int): number of checks to use in FLANN
-        sift_mask (bool): mask to be used for computing SIFT feature descriptors
-        flann_mask (bool): mask to be used for FLANN algorithm
-        ratio (float): ratio to be used for FLANN mask
-    """
-
-    sift = cv.SIFT_create()
-    index_params = dict(algorithm=flann_idx_kdtree, trees=flann_trees)
-    if checks is not None:
-        search_params = dict(checks=checks)  # or pass empty dictionary
-    else:
-        search_params = {}
-
-    flann = cv.FlannBasedMatcher(index_params, search_params)
-
-    _, desf = sift.detectAndCompute(fix.astype("uint8"), sift_mask)
-    _, desm = sift.detectAndCompute(move.astype("uint8"), sift_mask)
-
-    if desf is not None and desm is not None:
-        matches = flann.knnMatch(desf, desm, k=k)
-    else:
-        return None
-
-    dists = [pt[0].distance for pt in matches]
-    dists = np.asarray(dists)
-    if dists.size > 0:
-        norm = np.linalg.norm(dists)
-        min_dist = np.min(dists)
-    else:
-        return None
-
-    return norm, min_dist
-
-
-def mutualInformation(im1, im2, bins=20):
-    r"""Compute the mutual information for a joint histogram created using images im1 and im2.
-    Args:
-        im1 (np.ndarray): First image to be taken under consideration while creating histogram
-        im2 (np.ndarray): Second image to be taken under consideration while creating histogram
-        bins (int): number of sampling bins for the histogram
-    """
-    # create histogram
-    hgram, _, _ = np.histogram2d(im1.ravel(), im2.ravel(), bins=bins)
-    # convert bin counts to probability values
-    pxy = hgram / float(np.sum(hgram))
-    # compute marginal probabilities
-    px = np.sum(pxy, axis=1)
-    py = np.sum(pxy, axis=0)
-    px_py = px[:, None] * py[None, :]
-    # consider only non-zeros for total sum
-    nzs = pxy > 0
-    return np.sum(pxy[nzs] * np.log(pxy[nzs] / px_py[nzs]))
-
-
-def computeMaxMI(fix, mov, min_array, z_min=0, num_minima=10):
-    r"""For a given (fixed) z-slice, a moving volume and an array of minima, find the z-index having
-    maximum mutual information.
-    Args:
-        fix (np.ndarray): fixed volume slice
-        move (np.ndarray): entire moving volume (NOTE: this is not a z-slice!)
-        min_array (np.ndarray): an array of local minima
-        z_min (int): starting z-index in the moving volume
-        num_minima (int): number of local minima to consider while checking maximum mutual information
-    """
-    min_sorted = np.sort(min_array)
-    mi_result = dict()
-    for row, min_val in enumerate(min_sorted[:num_minima]):
-        z_ind = np.argwhere(min_array == min_val)[0][0] + z_min
-        mov_slice = mov[z_ind, :, :]
-
-        mi = mutualInformation(fix, mov_slice)
-        mi_result[z_ind] = mi
-
-    max_mi_ind = max(mi_result, key=mi_result.get)
-    max_mi = max(mi_result.values())
-
-    return max_mi, max_mi_ind
-
-
-def computeOffset(args, code_fov_pairs=None, path=None):
-    r"""Calculates the z-offset between the fixed and moving volume and writes it to a .pkl.
-    Args:
-        args (args.Args): configuration options.
-        code_fov_pairs (list): A list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
-        path (string): path to save the dictionary. Default: ``None``
-    """
-    if not code_fov_pairs:
-        code_fov_pairs = [
-            [code, fov]
-            for code in args.codes
-            if code != args.ref_code
-            for fov in args.fovs
-        ]
-
-    if not path:
-        path = os.path.join(args.project_path, "processed/compute_offset")
-        if not os.path.exists(path):
-            os.makedirs(path)
-
-    offset_dict = {}
-    for code, fov in code_fov_pairs:
-        # read image volumes
-        fixed_vol = nd2ToVol(
-            args.nd2_path.format(args.ref_code, "405", 4), fov, "405 SD"
-        )
-        mov_vol = nd2ToVol(args.nd2_path.format(code, "405", 4), fov, "405 SD")
-        fix_slice = fixed_vol[0, :, :]
-        dists = list()
-
-        for z in mov_vol[
-            40:160,
-            :,
-        ]:
-            try:
-                _, dist = computeMinFlann(fix_slice, z)
-                dists.append(dist)
-            except:
-                continue  # takes care of no matching keypoints
-
-        _, max_ind = computeMaxMI(fix_slice, mov_vol, dists, z_min=40)
-        # log in offset dictionary
-        # note that the keys are strings instead of tuples (JSON rquires this)
-        last = int(np.min([mov_vol.shape[0] - max_ind, fixed_vol.shape[0], 200]))
-        offset_dict.update({str(f"(code{code}, fov{fov})"): [0, int(max_ind), last]})
-
-    # write offset dictionary to path
-    with open(f"{path}/z_offset.json", "w") as f:
-        json_object = json.dumps(offset_dict, indent=4)
-        f.write(json_object)
-
-
-def identify_matching_z(args, code_fov_pairs=None, path=None):
-    r"""For each volume specified in code_fov_pairs, save a series of images that allow the user to match corresponding z-slices.
+def align(args, code_fov_pairs = None, using_mask = False, mode = '405'):
+    r"""For each volume in code_fov_pairs, find corresponding reference volume, then perform alignment. 
     Args:
         args (args.Args): configuration options.
         code_fov_pairs (list): a list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
-        path (string): path to save the images. Default: ``None``
-    """
-    import matplotlib.pyplot as plt
-
-    if not code_fov_pairs:
-        code_fov_pairs = [
-            [code, fov]
-            for code in args.codes
-            if code != args.ref_code
-            for fov in args.fovs
-        ]
-
-    if not path:
-        path = os.path.join(args.processed_path, "align_matching_z")
-
-    for code, fov in code_fov_pairs:
-
-        if not os.path.exists(f"{path}/code{code}"):
-            os.makedirs(f"{path}/code{code}")
-
-        fig, axs = plt.subplots(2, 5, figsize=(25, 10))
-
-        for i, z in enumerate(np.linspace(0, 200, 5)):
-
-            im = nd2ToSlice(
-                args.nd2_path.format(args.ref_code, "405", 4), fov, int(z), "405 SD"
-            )
-
-            axs[0, i].imshow(im, vmax=600)
-            axs[0, i].set_xlabel(z)
-            axs[0, i].set_title(f"Ref fov{fov} code{code}")
-
-        for i, z in enumerate(np.linspace(0, 200, 5)):
-
-            im = nd2ToSlice(args.nd2_path.format(code, "405", 4), fov, int(z), "405 SD")
-
-            axs[1, i].imshow(im, vmax=600)
-            axs[1, i].set_xlabel(z)
-            axs[1, i].set_title(f"fov{fov} code{code}")
-
-        plt.savefig(f"{path}/code{code}/fov{fov}.jpg")
-        plt.close()
-
-
-def correlation_lags(args, code_fov_pairs=None, path=None):
-    r"""Calculates the z-offset between the fixed and moving volume and writes it to a .pkl. A returned offset of -x means that the fixed volume
-    starts x slices before the move. A returned offset of x means that the fixed volume starts x slices after
-    the move.
-    Args:
-        args (args.Args): configuration options.
-        code_fov_pairs (list): a list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
-        path (string): path to save the dictionary. Default: ``None``
-    """
-    from scipy import signal
-
-    if not code_fov_pairs:
-        code_fov_pairs = [
-            [code, fov]
-            for code in args.codes
-            if code != args.ref_code
-            for fov in args.fovs
-        ]
-
-    if not path:
-        path = os.path.join(args.processed_path, "correlation_lags")
-        if not os.path.exists(path):
-            os.makedirs(path)
-
-    lag_dict = {}
-    for code, fov in code_fov_pairs:
-
-        fixed_vol = nd2ToVol(
-            args.nd2_path.format(args.ref_code, "405", 4), fov, "405 SD"
-        )
-        mov_vol = nd2ToVol(args.nd2_path.format(code, "405", 4), fov, "405 SD")
-
-        intensities_fixed = np.array([np.mean(im.flatten()) for im in fixed_vol])
-        intensities_mov = np.array([np.mean(im.flatten()) for im in mov_vol])
-
-        correlation = signal.correlate(intensities_fixed, intensities_mov, mode="full")
-        lags = signal.correlation_lags(
-            intensities_fixed.size, intensities_mov.size, mode="full"
-        )
-        lag = int(lags[np.argmax(correlation)])
-
-        if lag > 0:
-            # TODO
-            # threshold = np.percentile(intensities_fixed,0.2)
-            # start = int(np.argmax(intensities_fixed>threshold))
-            start = 50
-            last = int(
-                np.min(
-                    [mov_vol.shape[0] - start - lag, fixed_vol.shape[0] - start, 200]
-                )
-            )
-            lag_dict["code{},fov{}".format(code, fov)] = [start, start + lag, last]
-
-        else:
-            # TODO
-            # threshold = np.percentile(intensities_mov,0.2)
-            # start = int(np.argmax(intensities_mov>threshold))
-            start = 50
-            last = int(
-                np.min(
-                    [
-                        mov_vol.shape[0] - start,
-                        fixed_vol.shape[0] - start - abs(lag),
-                        200,
-                    ]
-                )
-            )
-            lag_dict["code{},fov{}".format(code, fov)] = [start + abs(lag), start, last]
-
-    args.align_z_init.update(lag_dict)
-
-    with open(f"{path}/z_offset.pkl", "wb") as f:
-        json_object = json.dumps(args.align_z_init, indent=4)
-        f.write(json_object)
-
-    if args.permission:
-        chmod(f"{path}/z_offset.pkl")
-
-
-def align_truncated(args, code_fov_pairs = None, perform_masking = False):
-    r"""For each volume in code_fov_pairs, find corresponding reference volume, truncate, then perform alignment. 
-    Args:
-        args (args.Args): configuration options.
-        code_fov_pairs (list): a list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
-        perform_masking (bool): whether or not to use a binary mask of the fixed volume to aid in registration. Works best on volumes that are sparse. Default: ``False`
+        mask (boolean): whether or not to run the alignment with masking; useful when volume is sparse. Default: ``False``
     """
 
     import SimpleITK as sitk
@@ -348,20 +106,15 @@ def align_truncated(args, code_fov_pairs = None, perform_masking = False):
         if not os.path.exists(os.path.join(args.processed_path, "code{}".format(code))):
             os.makedirs(os.path.join(args.processed_path, "code{}".format(code)))
 
-        # Get the indexes in the matching slices in two dataset
-        fix_start, mov_start, last = args.align_init["code{},fov{}".format(code, fov)]
 
         # Fixed volume
-        fix_vol = nd2ToChunk(
-            args.nd2_path.format(args.ref_code, "405", 4),
-            fov,
-            fix_start,
-            fix_start + last,
+        fix_vol = nd2ToVol(
+            args.nd2_path.format(args.ref_code, "405", 4),fov
         )
 
         # Move volume
-        mov_vol = nd2ToChunk(
-            args.nd2_path.format(code, "405", 4), fov, mov_start, mov_start + last
+        mov_vol = nd2ToVol(
+            args.nd2_path.format(code, "405", 4), fov
         )
 
         # temp dicectory for the log files
@@ -382,159 +135,95 @@ def align_truncated(args, code_fov_pairs = None, perform_masking = False):
         mov_vol_sitk.SetSpacing(args.spacing)
         elastixImageFilter.SetMovingImage(mov_vol_sitk)
 
-        parameter_map = sitk.GetDefaultParameterMap("rigid")
-        parameter_map["NumberOfSamplesForExactGradient"] = [
-            "1000"
-        ]  # NumberOfSamplesForExactGradient
-        parameter_map["MaximumNumberOfIterations"] = [
-            "15000"
-        ]  # MaximumNumberOfIterations
-        parameter_map["MaximumNumberOfSamplingAttempts"] = [
-            "100"
-        ]  # MaximumNumberOfSamplingAttempts
-        parameter_map["FinalBSplineInterpolationOrder"] = [
-            "1"
-        ]  # FinalBSplineInterpolationOrder
-        parameter_map["NumberOfResolutions"] = ["2"]
+        # Translation across x, y, and z only
+        parameter_map = sitk.GetDefaultParameterMap("translation")
+        parameter_map["NumberOfSamplesForExactGradient"] = ["1000"]  # NumberOfSamplesForExactGradient
+        parameter_map["MaximumNumberOfIterations"] = ["25000"]  # MaximumNumberOfIterations
+        parameter_map["MaximumNumberOfSamplingAttempts"] = ["2000"]  # MaximumNumberOfSamplingAttempts
+        parameter_map["FinalBSplineInterpolationOrder"] = ["1"]  # FinalBSplineInterpolationOrder
+        parameter_map["FixedImagePyramid"] = ["FixedRecursiveImagePyramid"] 
+        parameter_map["MovingImagePyramid"] = ["MovingRecursiveImagePyramid"] 
+        parameter_map["NumberOfResolutions"] = ["5"]
+        parameter_map["FixedImagePyramidSchedule"] = ["10 10 10 8 8 8 4 4 4 2 2 2 1 1 1"]
         elastixImageFilter.SetParameterMap(parameter_map)
-        
-        if perform_masking:
-            
-            def generate_mask(vol):
-                H,_,_ = vol.shape
-                vol = skimage.transform.resize(vol[int(H//2),:,:], (128, 128))
-                radius = 7
-                kernel = np.zeros((2*radius+1, 2*radius+1))
-                y,x = np.ogrid[-radius:radius+1, -radius:radius+1]
-                mask = x**2 + y**2 <= radius**2
-                kernel[mask] = 1
-                mask = scipy.ndimage.grey_dilation(vol, structure=kernel)
-                mask = skimage.transform.resize(mask, (2048, 2048))
-                val = skimage.filters.threshold_otsu(mask)
-                out = mask>val
-                out = np.repeat(out[np.newaxis,:,:], H, axis=0)
-                out_sitk = sitk.GetImageFromArray(out.astype('uint8'))
-                out_sitk.SetSpacing(args.spacing)
-                return out_sitk
-            
-            fix_mask = generate_mask(fix_vol)
+
+        # Translation + rotation
+        parameter_map = sitk.GetDefaultParameterMap("rigid")
+        parameter_map["NumberOfSamplesForExactGradient"] = ["1000"]  # NumberOfSamplesForExactGradient
+        parameter_map["MaximumNumberOfIterations"] = ["25000"]  # MaximumNumberOfIterations
+        parameter_map["MaximumNumberOfSamplingAttempts"] = ["2000"]  # MaximumNumberOfSamplingAttempts
+        parameter_map["FinalBSplineInterpolationOrder"] = ["1"]  # FinalBSplineInterpolationOrder
+        parameter_map["FixedImagePyramid"] = ["FixedShrinkingImagePyramid"] 
+        parameter_map["MovingImagePyramid"] = ["MovingShrinkingImagePyramid"] 
+        parameter_map["NumberOfResolutions"] = ["1"]
+        parameter_map["FixedImagePyramidSchedule"] = ["1 1 1"]
+        parameter_map["MovingImagePyramidSchedule"] = ["1 1 1"]
+        elastixImageFilter.AddParameterMap(parameter_map)
+
+        # Translation, rotation, scaling and shearing
+        parameter_map = sitk.GetDefaultParameterMap("affine")
+        parameter_map["NumberOfSamplesForExactGradient"] = ["1000"]  # NumberOfSamplesForExactGradient
+        parameter_map["MaximumNumberOfIterations"] = ["25000"]  # MaximumNumberOfIterations
+        parameter_map["MaximumNumberOfSamplingAttempts"] = ["2000"]  # MaximumNumberOfSamplingAttempts
+        parameter_map["FinalBSplineInterpolationOrder"] = ["1"]  # FinalBSplineInterpolationOrder
+        parameter_map["FixedImagePyramid"] = ["FixedShrinkingImagePyramid"] 
+        parameter_map["MovingImagePyramid"] = ["MovingShrinkingImagePyramid"] 
+        parameter_map["NumberOfResolutions"] = ["1"]
+        parameter_map["FixedImagePyramidSchedule"] = ["1 1 1"]
+        parameter_map["MovingImagePyramidSchedule"] = ["1 1 1"]
+        elastixImageFilter.AddParameterMap(parameter_map)
+
+        if using_mask == True: 
+            fix_mask = mask(fix_vol)
+            fix_mask = sitk.GetImageFromArray(fix_mask.astype('uint8'))
+            fix_mask.CopyInformation(fix_vol_sitk)
             elastixImageFilter.SetFixedMask(fix_mask)
+
+            move_mask = mask(mov_vol)
+            move_mask = sitk.GetImageFromArray(move_mask.astype('uint8'))
+            move_mask.CopyInformation(mov_vol_sitk)
+            elastixImageFilter.SetMovingMask(move_mask)
         
         elastixImageFilter.Execute()
 
         transform_map = elastixImageFilter.GetTransformParameterMap()
-        sitk.WriteParameterFile(transform_map[0], args.tform_path.format(code, fov))
 
-        # Apply transform
-        transform_map = sitk.ReadParameterFile(args.tform_path.format(code, fov))
-        transformix = sitk.TransformixImageFilter()
-        transformix.SetLogToFile(False)
-        transformix.SetLogToConsole(False)
-        transformix.SetTransformParameterMap(transform_map)
+        #sitk.WriteParameterFile(transform_map[0], args.tform_path.format(code, str(fov) + ".0"))
+        #sitk.WriteParameterFile(transform_map[1], args.tform_path.format(code, str(fov) + ".1"))
+        #sitk.WriteParameterFile(transform_map[2], args.tform_path.format(code, str(fov) + ".2"))
 
-        # Just visualize the first 100 slices
-        mov_vol_sitk = mov_vol_sitk[:, :, :100]
+        if mode == '405':
+            out = sitk.GetArrayFromImage(transformixImageFilter.GetResultImage())
+            with h5py.File(args.h5_path.format(code, fov), "a") as f:
+                    if channel in ['405']:
+                        del f[channel]
+                    f.create_dataset(channel, out.shape, dtype=out.dtype, data=out)
+        
+        if mode == 'all':
+            for channel_ind, channel in enumerate(args.channel_names):
 
-        transformix.SetMovingImage(mov_vol_sitk)
-        transformix.Execute()
-        out = sitk.GetArrayFromImage(transformix.GetResultImage())
+                print(channel)
+                mov_vol = nd2ToVol(args.nd2_path.format(code, channel, channel_ind), fov, channel)
+                mov_vol_sitk = sitk.GetImageFromArray(mov_vol)
+                mov_vol_sitk.SetSpacing(args.spacing)
 
-        # Save the results
-        with h5py.File(args.h5_path_cropped.format(code, fov), "w") as f:
-            f.create_dataset("405", out.shape, dtype=out.dtype, data=out)
+                transformixImageFilter = sitk.TransformixImageFilter()
+                transformixImageFilter.SetMovingImage(mov_vol_sitk)  
+                transformixImageFilter.SetTransformParameterMap(elastixImageFilter.GetTransformParameterMap())
+                transformixImageFilter.LogToConsoleOn()
+                transformixImageFilter.Execute()
+
+                out = sitk.GetArrayFromImage(transformixImageFilter.GetResultImage())
+                with h5py.File(args.h5_path.format(code, fov), "a") as f:
+                    if channel in f.keys():
+                        del f[channel]
+                    f.create_dataset(channel, out.shape, dtype=out.dtype, data=out)
+                    
 
         tmpdir_obj.cleanup()
 
-
-def inspect_align_truncated(args, fov_code_pairs=None, path=None):
-    r"""For each volume in code_fov_pairs, save a series of images that allow the user to check the quality of alignmentt.
-    Args:
-        args (args.Args): configuration options.
-        code_fov_pairs (list): a list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
-        path (string): path to save the images. Default: ``None``
-    """
-
-    import matplotlib.pyplot as plt
-
-    for code, fov in fov_code_pairs:
-
-        if "code{},fov{}".format(code, fov) not in args.align_init:
-            continue
-        print(f"inspect_align_truncated: code{code},fov{fov}")
-
-        if not path:
-            path = os.path.join(args.processed_path, "/inspect_align_truncated/")
-            if not os.path.exists(path):
-                os.makedirs(path)
-
-        if not os.path.exists(f"{path}/code{code}"):
-            os.makedirs(f"{path}/code{code}")
-
-        fix_start, mov_start, last = args.align_init["code{},fov{}".format(code, fov)]
-        z_stacks = np.linspace(fix_start, fix_start + last - 1, 5)
-
-        # ---------- Full resolution -----------------
-        fig, axs = plt.subplots(2, 5, figsize=(20, 5))
-
-        for i, z in enumerate(z_stacks):
-            im = nd2ToSlice(
-                args.nd2_path.format(args.ref_code, "405", 4), fov, int(z), "405 SD"
-            )
-            axs[0, i].imshow(im, vmax=600)
-            axs[0, i].set_xlabel(z)
-            axs[0, i].set_ylabel("fix")
-
-        for i, z in enumerate(z_stacks):
-            with h5py.File(args.h5_path_cropped.format(code, fov), "r") as f:
-                im = f["405"][int(z), :, :]
-                im = np.squeeze(im)
-            axs[1, i].imshow(im, vmax=600)
-            axs[1, i].set_xlabel(z)
-            axs[1, i].set_ylabel("transformed")
-        plt.savefig(f"{path}/code{code}/fov{fov}_large.jpg")
-        plt.close()
-
-        # ------------ Top left corner-------------------
-        fig, axs = plt.subplots(2, 5, figsize=(20, 5))
-        for i, z in enumerate(z_stacks):
-            im = nd2ToSlice(
-                args.nd2_path.format(args.ref_code, "405", 4), fov, int(z), "405 SD"
-            )[:300, :300]
-            axs[0, i].imshow(im, vmax=600)
-            axs[0, i].set_xlabel(z)
-            axs[0, i].set_ylabel("fix")
-
-        for i, z in enumerate(z_stacks):
-            with h5py.File(args.h5_path_cropped.format(code, fov), "r") as f:
-                im = f["405"][int(z), :300, :300]
-                im = np.squeeze(im)
-            axs[1, i].imshow(im, vmax=600)
-            axs[1, i].set_xlabel(z)
-            axs[1, i].set_ylabel("transformed")
-        plt.savefig(f"{path}/code{code}/fov{fov}_topleft.jpg")
-        plt.close()
-
-        # ------------ Bottom right corner----------
-        fig, axs = plt.subplots(2, 5, figsize=(20, 5))
-        for i, z in enumerate(z_stacks):
-            im = nd2ToSlice(
-                args.nd2_path.format(args.ref_code, "405", 4), fov, int(z), "405 SD"
-            )[1700:, 1700:]
-            axs[0, i].imshow(im, vmax=600)
-            axs[0, i].set_xlabel(z)
-            axs[0, i].set_ylabel("fix")
-
-        for i, z in enumerate(z_stacks):
-            with h5py.File(args.h5_path_cropped.format(code, fov), "r") as f:
-                im = f["405"][int(z), 1700:, 1700:]
-                im = np.squeeze(im)
-            axs[1, i].imshow(im, vmax=600)
-            axs[1, i].set_xlabel(z)
-            axs[1, i].set_ylabel("transformed")
-        plt.savefig(f"{path}/code{code}/fov{fov}_bottomright.jpg")
-        plt.close()
-
-
+      
+'''
 # TODO limit itk multithreading
 # TODO add basic alignment approach
 def transform_other_function(args, tasks_queue=None, q_lock=None, mode="all"):
@@ -623,8 +312,9 @@ def transform_other_function(args, tasks_queue=None, q_lock=None, mode="all"):
 
                 with h5py.File(args.h5_path.format(code, fov), "a") as f:
                     f.create_dataset(channel_name, out.shape, dtype=out.dtype, data=out)
+'''
 
-
+'''
 def transform_other_code(args, code_fov_pairs=None, num_cpu=None, mode="all"):
 
     r"""Parallel processing support for transform_other_function.
@@ -669,3 +359,5 @@ def transform_other_code(args, code_fov_pairs=None, num_cpu=None, mode="all"):
 
     for p in child_processes:
         p.join()
+        
+'''
