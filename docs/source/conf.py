@@ -58,7 +58,7 @@ html_theme_options = {
     "collapse_navigation": True,
 }
 
-html_logo = "../exseq-logo.png"
+html_logo = "../toolbox-logo.png"
 
 templates_path = ["_templates"]
 
