@@ -1,8 +1,12 @@
 import os
 import sys
 import datetime
+
+sys.path.insert(0, os.path.abspath("../.."))
+
 import exm
-import sphinx.domain.python
+
+# import sphinx.domain.python
 import sphinx.ext.autosummary
 from docutils import nodes
 from importlib import import_module
@@ -11,65 +15,66 @@ from docutils.statemachine import StringList
 from sphinx.ext.autosummary import Autosummary
 from inspect import getmembers, isclass, isfunction
 
-sys.path.insert(0, os.path.abspath("../.."))
 
 # -- Project information
 
-#project = 'ExSeq-Toolbox'
-project = ''
+# project = 'ExSeq-Toolbox'
+project = ""
 
-#release = '0.1'
-release = ''
-#version = '0.1.0'
-version = ''
+# release = '0.1'
+release = ""
+# version = '0.1.0'
+version = ""
 
 # -- General configuration
 
 extensions = [
-    'sphinx.ext.duration',
-    'sphinx.ext.viewcode',
-    'sphinx.ext.todo',
-    'sphinx.ext.doctest',
-    'sphinx.ext.autodoc',
-    'sphinx.ext.autosummary',
-    'sphinx.ext.intersphinx',
-    'sphinx.ext.autosectionlabel',
+    "sphinx.ext.duration",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.todo",
+    "sphinx.ext.doctest",
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.autosectionlabel",
 ]
 
 # katex for rendering LaTeX
 katex_prerenderer = True
 
 # suffixes of source file names
-source_suffix = '.rst'
+source_suffix = ".rst"
 
 intersphinx_mapping = {
-    'python': ('https://docs.python.org/3/', None),
-    'sphinx': ('https://www.sphinx-doc.org/en/master/', None),
+    "python": ("https://docs.python.org/3/", None),
+    "sphinx": ("https://www.sphinx-doc.org/en/master/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
 }
-intersphinx_disabled_domains = ['std']
+intersphinx_disabled_domains = ["std"]
 
 html_theme_options = {
-    'display_version': False,
-    'logo_only': True,
+    "display_version": False,
+    "logo_only": True,
+    "collapse_navigation": True,
 }
 
-html_logo = '../../exseq-logo.png'
+html_logo = "../exseq-logo.png"
 
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # name of syntax highlighting style to use
-pygments_style = 'sphinx'
+pygments_style = "sphinx"
 
 # -- Options for HTML output
 
-#html_theme = 'sphinx_rtd_theme'
-html_theme = 'furo'
+# html_theme = 'sphinx_rtd_theme'
+html_theme = "furo"
 
 html_theme_options = {
-    'collapse_navigation': False,
-    'display_version': True,
-    'logo_only': True,
-    'navigation_with_keys': True,
+    "collapse_navigation": False,
+    "display_version": True,
+    "logo_only": True,
+    "navigation_with_keys": True,
 }
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
@@ -83,11 +88,12 @@ autodoc_typehints = "description"
 napoleon_attr_annotations = True
 
 # -- Options for EPUB output
-epub_show_urls = 'footnote'
+epub_show_urls = "footnote"
 
 # replaces pending_xref node with desc_type for type annotations
-sphinx.domains.python.type_to_xref = lambda t, e=None: addnodes.desc_type(
-    "", nodes.Text(t))
+# sphinx.domains.python.type_to_xref = lambda t, e=None: addnodes.desc_type(
+#    "", nodes.Text(t)
+# )
 
 # -- Autosummary patch to get list of a classes, funcs automatically ----------
 
@@ -134,13 +140,15 @@ class BetterAutosummary(Autosummary):
                     cls_names = [
                         name[0]
                         for name in getmembers(module, isclass)
-                        if name[-1].__module__ == module_name and not (name[0].startswith("_"))
+                        if name[-1].__module__ == module_name
+                        and not (name[0].startswith("_"))
                     ]
                     # Get functions defined in the module
                     fn_names = [
                         name[0]
                         for name in getmembers(module, isfunction)
-                        if (name[-1].__module__ == module_name) and not (name[0].startswith("_"))
+                        if (name[-1].__module__ == module_name)
+                        and not (name[0].startswith("_"))
                     ]
                     names = cls_names + fn_names
                     # It may happen that module doesn't have any defined class or func
@@ -148,13 +156,19 @@ class BetterAutosummary(Autosummary):
                         names = [name[0] for name in getmembers(module)]
 
                 # Filter out members w/o doc strings
-                names = [name for name in names if getattr(
-                    module, name).__doc__ is not None]
+                names = [
+                    name for name in names if getattr(module, name).__doc__ is not None
+                ]
 
                 if auto == "autolist":
                     # Get list of all classes and functions inside module
                     names = [
-                        name for name in names if (isclass(getattr(module, name)) or isfunction(getattr(module, name)))
+                        name
+                        for name in names
+                        if (
+                            isclass(getattr(module, name))
+                            or isfunction(getattr(module, name))
+                        )
                     ]
                 else:
                     if auto == "autolist-classes":
@@ -166,8 +180,7 @@ class BetterAutosummary(Autosummary):
                     else:
                         raise NotImplementedError
 
-                    names = [name for name in names if check(
-                        getattr(module, name))]
+                    names = [name for name in names if check(getattr(module, name))]
 
                 # Update content
                 self.content = StringList(names)
@@ -178,7 +191,7 @@ class BetterAutosummary(Autosummary):
 sphinx.ext.autosummary.Autosummary = BetterAutosummary
 
 # --- autosummary config -----------------------------------------------------
-autosummary_generate = True
+autosummary_generate = False
 
 # -- Type hints configs ------------------------------------------------------
 

@@ -9,7 +9,7 @@ import numpy as np
 import cv2 as cv
 import os
 import queue
-import multiprocessing 
+import multiprocessing
 import skimage
 import scipy
 
@@ -19,10 +19,10 @@ from exm.utils import chmod
 
 def transform_ref_code(args, code_fov_pairs=None, mode="all"):
     r"""For each volume specified in code_fov_pairs, convert from an nd2 file to an array, then save into an .h5 file.
-    Args:
-        args (args.Args): configuration options.
-        code_fov_pairs (list): a list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
-        mode (str): channels to run, should be one of 'all' (all channels), '405' (just the reference channel) or '4' (all channels other than reference). Default: ``'all'``
+
+    :param args.Args args: configuration options.
+    :param list code_fov_pairs: a list of tuples where each tuple is a (code, fov) pair. Default: ``None``
+    :param str mode: channels to run, should be one of ``all`` (all channels), `405` (just the reference channel) or `4` (all channels other than reference). Default: ``'all'``
     """
 
     if not code_fov_pairs:
@@ -46,51 +46,64 @@ def transform_ref_code(args, code_fov_pairs=None, mode="all"):
                 f.create_dataset(
                     channel_name, fix_vol.shape, dtype=fix_vol.dtype, data=fix_vol
                 )
-                
+
+
 def mask(img):
-    
+
     from segment_anything import build_sam, SamAutomaticMaskGenerator
     import cv2
 
     final_mask = np.zeros(img.shape)
 
     # Need to download "sam_vit_h_4b8939.pth" from here: https://github.com/facebookresearch/segment-anything#model-checkpoints
-    mask_generator = SamAutomaticMaskGenerator(model=build_sam(checkpoint="sam_vit_h_4b8939.pth"), 
-                                                   points_per_side = 32,
-                                                   points_per_batch = 64)
+    mask_generator = SamAutomaticMaskGenerator(
+        model=build_sam(checkpoint="sam_vit_h_4b8939.pth"),
+        points_per_side=32,
+        points_per_batch=64,
+    )
 
-    index = int(img.shape[0]/2)
-    sl = cv2.cvtColor(img[index], cv2.COLOR_GRAY2BGR).astype('uint8')
-    # Generate segmentation masks for middle slice of volume. 
+    index = int(img.shape[0] / 2)
+    sl = cv2.cvtColor(img[index], cv2.COLOR_GRAY2BGR).astype("uint8")
+    # Generate segmentation masks for middle slice of volume.
     masks = mask_generator.generate(sl)
 
-    # Remove large (background) and small (noise) masks. 
-    min_ = np.percentile([mask['area'] for mask in masks], 20)
-    max_ = np.percentile([mask['area'] for mask in masks], 80)
+    # Remove large (background) and small (noise) masks.
+    min_ = np.percentile([mask["area"] for mask in masks], 20)
+    max_ = np.percentile([mask["area"] for mask in masks], 80)
 
-    masks = [mask['segmentation'] for mask in masks if mask['area'] < max_ and mask['area'] > min_]
-    
-    # Add all masks to one image, then convert to binary mask. 
-    overlaid_masks = np.sum(np.stack(masks, axis=-1), axis = 2)
-    overlaid_masks[overlaid_masks  > 0] = 1  
+    masks = [
+        mask["segmentation"]
+        for mask in masks
+        if mask["area"] < max_ and mask["area"] > min_
+    ]
 
-    # Find and fill boundary box around identified objects.  
+    # Add all masks to one image, then convert to binary mask.
+    overlaid_masks = np.sum(np.stack(masks, axis=-1), axis=2)
+    overlaid_masks[overlaid_masks > 0] = 1
+
+    # Find and fill boundary box around identified objects.
     coords = cv2.findNonZero(overlaid_masks)
-    x,y,w,h = cv2.boundingRect(coords)
+    x, y, w, h = cv2.boundingRect(coords)
     padding = 250
-    bounding_box = cv2.rectangle(np.zeros(img[index].shape), (max(x-padding, 0), max(y-padding, 0)), (min(x+w+padding, 2048), min(y+h+padding, 2048)), (1,1,1), -1)
+    bounding_box = cv2.rectangle(
+        np.zeros(img[index].shape),
+        (max(x - padding, 0), max(y - padding, 0)),
+        (min(x + w + padding, 2048), min(y + h + padding, 2048)),
+        (1, 1, 1),
+        -1,
+    )
 
     final_mask[:, :, :] = bounding_box
-            
+
     return final_mask
 
 
-def align(args, code_fov_pairs = None, using_mask = False, mode = '405'):
-    r"""For each volume in code_fov_pairs, find corresponding reference volume, then perform alignment. 
-    Args:
-        args (args.Args): configuration options.
-        code_fov_pairs (list): a list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
-        mask (boolean): whether or not to run the alignment with masking; useful when volume is sparse. Default: ``False``
+def align(args, code_fov_pairs=None, using_mask=False, mode="405"):
+    r"""For each volume in code_fov_pairs, find corresponding reference volume, then perform alignment.
+
+    :param args.Args args: configuration options.
+    :param list code_fov_pairs: a list of tuples, where each tuple is a ``(code, fov)`` pair. Default: ``None``
+    :param boolean mask: whether or not to run the alignment with masking; useful when volume is sparse. Default: ``False``
     """
 
     import SimpleITK as sitk
@@ -106,16 +119,11 @@ def align(args, code_fov_pairs = None, using_mask = False, mode = '405'):
         if not os.path.exists(os.path.join(args.processed_path, "code{}".format(code))):
             os.makedirs(os.path.join(args.processed_path, "code{}".format(code)))
 
-
         # Fixed volume
-        fix_vol = nd2ToVol(
-            args.nd2_path.format(args.ref_code, "405", 4),fov
-        )
+        fix_vol = nd2ToVol(args.nd2_path.format(args.ref_code, "405", 4), fov)
 
         # Move volume
-        mov_vol = nd2ToVol(
-            args.nd2_path.format(code, "405", 4), fov
-        )
+        mov_vol = nd2ToVol(args.nd2_path.format(code, "405", 4), fov)
 
         # temp dicectory for the log files
         tmpdir_obj = tempfile.TemporaryDirectory()
@@ -137,24 +145,42 @@ def align(args, code_fov_pairs = None, using_mask = False, mode = '405'):
 
         # Translation across x, y, and z only
         parameter_map = sitk.GetDefaultParameterMap("translation")
-        parameter_map["NumberOfSamplesForExactGradient"] = ["1000"]  # NumberOfSamplesForExactGradient
-        parameter_map["MaximumNumberOfIterations"] = ["25000"]  # MaximumNumberOfIterations
-        parameter_map["MaximumNumberOfSamplingAttempts"] = ["2000"]  # MaximumNumberOfSamplingAttempts
-        parameter_map["FinalBSplineInterpolationOrder"] = ["1"]  # FinalBSplineInterpolationOrder
-        parameter_map["FixedImagePyramid"] = ["FixedRecursiveImagePyramid"] 
-        parameter_map["MovingImagePyramid"] = ["MovingRecursiveImagePyramid"] 
+        parameter_map["NumberOfSamplesForExactGradient"] = [
+            "1000"
+        ]  # NumberOfSamplesForExactGradient
+        parameter_map["MaximumNumberOfIterations"] = [
+            "25000"
+        ]  # MaximumNumberOfIterations
+        parameter_map["MaximumNumberOfSamplingAttempts"] = [
+            "2000"
+        ]  # MaximumNumberOfSamplingAttempts
+        parameter_map["FinalBSplineInterpolationOrder"] = [
+            "1"
+        ]  # FinalBSplineInterpolationOrder
+        parameter_map["FixedImagePyramid"] = ["FixedRecursiveImagePyramid"]
+        parameter_map["MovingImagePyramid"] = ["MovingRecursiveImagePyramid"]
         parameter_map["NumberOfResolutions"] = ["5"]
-        parameter_map["FixedImagePyramidSchedule"] = ["10 10 10 8 8 8 4 4 4 2 2 2 1 1 1"]
+        parameter_map["FixedImagePyramidSchedule"] = [
+            "10 10 10 8 8 8 4 4 4 2 2 2 1 1 1"
+        ]
         elastixImageFilter.SetParameterMap(parameter_map)
 
         # Translation + rotation
         parameter_map = sitk.GetDefaultParameterMap("rigid")
-        parameter_map["NumberOfSamplesForExactGradient"] = ["1000"]  # NumberOfSamplesForExactGradient
-        parameter_map["MaximumNumberOfIterations"] = ["25000"]  # MaximumNumberOfIterations
-        parameter_map["MaximumNumberOfSamplingAttempts"] = ["2000"]  # MaximumNumberOfSamplingAttempts
-        parameter_map["FinalBSplineInterpolationOrder"] = ["1"]  # FinalBSplineInterpolationOrder
-        parameter_map["FixedImagePyramid"] = ["FixedShrinkingImagePyramid"] 
-        parameter_map["MovingImagePyramid"] = ["MovingShrinkingImagePyramid"] 
+        parameter_map["NumberOfSamplesForExactGradient"] = [
+            "1000"
+        ]  # NumberOfSamplesForExactGradient
+        parameter_map["MaximumNumberOfIterations"] = [
+            "25000"
+        ]  # MaximumNumberOfIterations
+        parameter_map["MaximumNumberOfSamplingAttempts"] = [
+            "2000"
+        ]  # MaximumNumberOfSamplingAttempts
+        parameter_map["FinalBSplineInterpolationOrder"] = [
+            "1"
+        ]  # FinalBSplineInterpolationOrder
+        parameter_map["FixedImagePyramid"] = ["FixedShrinkingImagePyramid"]
+        parameter_map["MovingImagePyramid"] = ["MovingShrinkingImagePyramid"]
         parameter_map["NumberOfResolutions"] = ["1"]
         parameter_map["FixedImagePyramidSchedule"] = ["1 1 1"]
         parameter_map["MovingImagePyramidSchedule"] = ["1 1 1"]
@@ -162,54 +188,66 @@ def align(args, code_fov_pairs = None, using_mask = False, mode = '405'):
 
         # Translation, rotation, scaling and shearing
         parameter_map = sitk.GetDefaultParameterMap("affine")
-        parameter_map["NumberOfSamplesForExactGradient"] = ["1000"]  # NumberOfSamplesForExactGradient
-        parameter_map["MaximumNumberOfIterations"] = ["25000"]  # MaximumNumberOfIterations
-        parameter_map["MaximumNumberOfSamplingAttempts"] = ["2000"]  # MaximumNumberOfSamplingAttempts
-        parameter_map["FinalBSplineInterpolationOrder"] = ["1"]  # FinalBSplineInterpolationOrder
-        parameter_map["FixedImagePyramid"] = ["FixedShrinkingImagePyramid"] 
-        parameter_map["MovingImagePyramid"] = ["MovingShrinkingImagePyramid"] 
+        parameter_map["NumberOfSamplesForExactGradient"] = [
+            "1000"
+        ]  # NumberOfSamplesForExactGradient
+        parameter_map["MaximumNumberOfIterations"] = [
+            "25000"
+        ]  # MaximumNumberOfIterations
+        parameter_map["MaximumNumberOfSamplingAttempts"] = [
+            "2000"
+        ]  # MaximumNumberOfSamplingAttempts
+        parameter_map["FinalBSplineInterpolationOrder"] = [
+            "1"
+        ]  # FinalBSplineInterpolationOrder
+        parameter_map["FixedImagePyramid"] = ["FixedShrinkingImagePyramid"]
+        parameter_map["MovingImagePyramid"] = ["MovingShrinkingImagePyramid"]
         parameter_map["NumberOfResolutions"] = ["1"]
         parameter_map["FixedImagePyramidSchedule"] = ["1 1 1"]
         parameter_map["MovingImagePyramidSchedule"] = ["1 1 1"]
         elastixImageFilter.AddParameterMap(parameter_map)
 
-        if using_mask == True: 
+        if using_mask == True:
             fix_mask = mask(fix_vol)
-            fix_mask = sitk.GetImageFromArray(fix_mask.astype('uint8'))
+            fix_mask = sitk.GetImageFromArray(fix_mask.astype("uint8"))
             fix_mask.CopyInformation(fix_vol_sitk)
             elastixImageFilter.SetFixedMask(fix_mask)
 
             move_mask = mask(mov_vol)
-            move_mask = sitk.GetImageFromArray(move_mask.astype('uint8'))
+            move_mask = sitk.GetImageFromArray(move_mask.astype("uint8"))
             move_mask.CopyInformation(mov_vol_sitk)
             elastixImageFilter.SetMovingMask(move_mask)
-        
+
         elastixImageFilter.Execute()
 
         transform_map = elastixImageFilter.GetTransformParameterMap()
 
-        #sitk.WriteParameterFile(transform_map[0], args.tform_path.format(code, str(fov) + ".0"))
-        #sitk.WriteParameterFile(transform_map[1], args.tform_path.format(code, str(fov) + ".1"))
-        #sitk.WriteParameterFile(transform_map[2], args.tform_path.format(code, str(fov) + ".2"))
+        # sitk.WriteParameterFile(transform_map[0], args.tform_path.format(code, str(fov) + ".0"))
+        # sitk.WriteParameterFile(transform_map[1], args.tform_path.format(code, str(fov) + ".1"))
+        # sitk.WriteParameterFile(transform_map[2], args.tform_path.format(code, str(fov) + ".2"))
 
-        if mode == '405':
+        if mode == "405":
             out = sitk.GetArrayFromImage(transformixImageFilter.GetResultImage())
             with h5py.File(args.h5_path.format(code, fov), "a") as f:
-                    if channel in ['405']:
-                        del f[channel]
-                    f.create_dataset(channel, out.shape, dtype=out.dtype, data=out)
-        
-        if mode == 'all':
+                if channel in ["405"]:
+                    del f[channel]
+                f.create_dataset(channel, out.shape, dtype=out.dtype, data=out)
+
+        if mode == "all":
             for channel_ind, channel in enumerate(args.channel_names):
 
                 print(channel)
-                mov_vol = nd2ToVol(args.nd2_path.format(code, channel, channel_ind), fov, channel)
+                mov_vol = nd2ToVol(
+                    args.nd2_path.format(code, channel, channel_ind), fov, channel
+                )
                 mov_vol_sitk = sitk.GetImageFromArray(mov_vol)
                 mov_vol_sitk.SetSpacing(args.spacing)
 
                 transformixImageFilter = sitk.TransformixImageFilter()
-                transformixImageFilter.SetMovingImage(mov_vol_sitk)  
-                transformixImageFilter.SetTransformParameterMap(elastixImageFilter.GetTransformParameterMap())
+                transformixImageFilter.SetMovingImage(mov_vol_sitk)
+                transformixImageFilter.SetTransformParameterMap(
+                    elastixImageFilter.GetTransformParameterMap()
+                )
                 transformixImageFilter.LogToConsoleOn()
                 transformixImageFilter.Execute()
 
@@ -218,11 +256,10 @@ def align(args, code_fov_pairs = None, using_mask = False, mode = '405'):
                     if channel in f.keys():
                         del f[channel]
                     f.create_dataset(channel, out.shape, dtype=out.dtype, data=out)
-                    
 
         tmpdir_obj.cleanup()
 
-      
+
 '''
 # TODO limit itk multithreading
 # TODO add basic alignment approach

@@ -12,6 +12,22 @@ Contents
 --------------------------------
 
 .. toctree::
+   :glob:
+   :maxdepth: 1
+   :caption: Get Started
 
    usage
-   api
+
+.. toctree::
+   :glob:
+   :maxdepth: 1
+   :caption: Package Reference
+
+   modules/align
+   modules/args
+   modules/io
+   modules/puncta
+   modules/segmentation
+   modules/stitching
+   modules/ui
+   modules/utils
