@@ -48,37 +48,47 @@ def transform_ref_code(args, code_fov_pairs=None, mode="all"):
                 )
 
 
-def mask(img):
+def mask(img, index = None):
+    r"""Given an image volume, returns a mask to use for registration. Mask is created by finding a bounding box around content and filling it with ones.
+    :param np.array img: image volume.
+    :param int index: index of the z-slice to use for content identification. 
+    """
 
     from segment_anything import build_sam, SamAutomaticMaskGenerator
     import cv2
 
     final_mask = np.zeros(img.shape)
-
+    
     # Need to download "sam_vit_h_4b8939.pth" from here: https://github.com/facebookresearch/segment-anything#model-checkpoints
     mask_generator = SamAutomaticMaskGenerator(
         model=build_sam(checkpoint="sam_vit_h_4b8939.pth"),
         points_per_side=32,
         points_per_batch=64,
     )
+    
+    # If no slice index is specified, use the middle. 
+    if not index:
+        index = int(img.shape[0]/2)
 
-    index = int(img.shape[0] / 2)
     sl = cv2.cvtColor(img[index], cv2.COLOR_GRAY2BGR).astype("uint8")
-    # Generate segmentation masks for middle slice of volume.
+    
+    # Generate segmentation masks for volume slice.
     masks = mask_generator.generate(sl)
 
-    # Remove large (background) and small (noise) masks.
     min_ = np.percentile([mask["area"] for mask in masks], 20)
     max_ = np.percentile([mask["area"] for mask in masks], 80)
 
+    # Discard masks with extremely small areas (noise) and masks with extremely large areas (background).
     masks = [
         mask["segmentation"]
         for mask in masks
         if mask["area"] < max_ and mask["area"] > min_
     ]
 
-    # Add all masks to one image, then convert to binary mask.
+    # Concatenate the masks into one image.
     overlaid_masks = np.sum(np.stack(masks, axis=-1), axis=2)
+    
+    # Remove instance segmentation (convert to binary)
     overlaid_masks[overlaid_masks > 0] = 1
 
     # Find and fill boundary box around identified objects.
@@ -103,7 +113,8 @@ def align(args, code_fov_pairs=None, using_mask=False, mode="405"):
 
     :param args.Args args: configuration options.
     :param list code_fov_pairs: a list of tuples, where each tuple is a ``(code, fov)`` pair. Default: ``None``
-    :param boolean mask: whether or not to run the alignment with masking; useful when volume is sparse. Default: ``False``
+    :param boolean using_mask: whether or not to run the alignment with masking; useful when volume is sparse. Default: ``False``
+    :param str mode: whether to align just the anchoring channel ("405") or all channels ("all"). Default: ``False``
     """
 
     import SimpleITK as sitk
