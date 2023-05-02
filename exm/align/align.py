@@ -107,7 +107,7 @@ def mask(img, index = None):
 
     return final_mask
 
-def mask_dynamic(img, padding = 250, chunks = 1):
+def mask_with_chunking(img, padding = 250, chunks = 1):
     
     r"""Given an image volume, returns a dynamic mask to use for registration. Mask is created by finding bounding boxes around content and filling them with ones.
     :param np.array img: image volume.
