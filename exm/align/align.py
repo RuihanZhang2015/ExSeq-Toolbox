@@ -88,13 +88,13 @@ def mask(img, index = None):
     # Concatenate the masks into one image.
     overlaid_masks = np.sum(np.stack(masks, axis=-1), axis=2)
     
-    # Remove instance segmentation (convert to binary)
+    # Remove instance segmentation (convert to binary).
     overlaid_masks[overlaid_masks > 0] = 1
 
     # Find and fill boundary box around identified objects.
     coords = cv2.findNonZero(overlaid_masks)
     x, y, w, h = cv2.boundingRect(coords)
-    padding = 250
+    padding = 250 # Amount of padding around the bounding box.
     bounding_box = cv2.rectangle(
         np.zeros(img[index].shape),
         (max(x - padding, 0), max(y - padding, 0)),
@@ -107,13 +107,72 @@ def mask(img, index = None):
 
     return final_mask
 
+def mask_dynamic(img, padding = 250, chunks = 1):
+    
+    r"""Given an image volume, returns a dynamic mask to use for registration. Mask is created by finding bounding boxes around content and filling them with ones.
+    :param np.array img: image volume.
+    :param int padding: amount of padding to add around the identified bounding box.
+    :param int chunks: number of slices to use for content. 
+    """
+    
+    from segment_anything import build_sam, SamAutomaticMaskGenerator
+    import cv2
 
-def align(args, code_fov_pairs=None, using_mask=False, mode="405"):
+    final_mask = np.zeros(img.shape)
+
+    mask_generator = SamAutomaticMaskGenerator(model=build_sam(checkpoint="sam_vit_h_4b8939.pth"), 
+                                                   points_per_side = 32,
+                                                   points_per_batch = 64)
+
+    assert chunks > 0
+    chunk_size = int(img.shape[0]/chunks)
+    
+    for i in range(chunks):
+        beginning_slice = int(i * chunk_size)
+    
+        if i == (chunks - 1):
+            end_slice = int(img.shape[0])
+        else:
+            end_slice = int((i + 1) * chunk_size)
+    
+     
+        sl = cv2.cvtColor(img[int((beginning_slice+end_slice)/2)], cv2.COLOR_GRAY2BGR).astype('uint8')
+        masks = mask_generator.generate(sl)
+
+        min_ = np.percentile([mask['area'] for mask in masks], 20)
+        max_ = np.percentile([mask['area'] for mask in masks], 80)
+
+        # Discard masks with extremely small areas (noise) and masks with extremely large areas (background)
+        masks = [mask['segmentation'] for mask in masks if mask['area'] < max_ and mask['area'] > min_]
+        
+        if len(masks) > 3:
+            
+            # Concatenate the masks into one image.
+            overlaid_masks = np.sum(np.stack(masks, axis=-1), axis = 2)
+            
+            # Remove instance segmentation (convert to binary).
+            overlaid_masks[overlaid_masks  > 0] = 1  
+            
+            # Find bounding box around identified objects
+            coords = cv2.findNonZero(overlaid_masks)
+            x,y,w,h = cv2.boundingRect(coords)
+    
+            padding = padding # Amount of padding around the bounding box.
+        
+            # Fill bounding box + paddings with ones. 
+            bounding_box = cv2.rectangle(np.zeros(img[int((beginning_slice+end_slice)/2)].shape), (max(x-padding, 0), max(y-padding, 0)), (min(x+w+padding, 2048), min(y+h+padding, 2048)), (1,1,1), -1)
+
+            final_mask[beginning_slice:end_slice, :, :] = bounding_box
+            
+    return final_mask
+
+
+def align(args, code_fov_pairs=None, masking_function=None, mode="405"):
     r"""For each volume in code_fov_pairs, find corresponding reference volume, then perform alignment.
 
     :param args.Args args: configuration options.
     :param list code_fov_pairs: a list of tuples, where each tuple is a ``(code, fov)`` pair. Default: ``None``
-    :param boolean using_mask: whether or not to run the alignment with masking; useful when volume is sparse. Default: ``False``
+    :param function masking_function: function for producing an image mask; useful when volume is sparse. Default: ``False``
     :param str mode: whether to align just the anchoring channel ("405") or all channels ("all"). Default: ``False``
     """
 
@@ -145,7 +204,6 @@ def align(args, code_fov_pairs=None, using_mask=False, mode="405"):
         elastixImageFilter.SetLogToConsole(False)
         elastixImageFilter.SetOutputDirectory(tmpdir_obj.name)
 
-        ## WE SHOULD MOVE SETTING THE PARAMETERS OUTSIDE OF THIS FUNCTION
         fix_vol_sitk = sitk.GetImageFromArray(fix_vol)
         fix_vol_sitk.SetSpacing(args.spacing)
         elastixImageFilter.SetFixedImage(fix_vol_sitk)
@@ -218,13 +276,13 @@ def align(args, code_fov_pairs=None, using_mask=False, mode="405"):
         parameter_map["MovingImagePyramidSchedule"] = ["1 1 1"]
         elastixImageFilter.AddParameterMap(parameter_map)
 
-        if using_mask == True:
-            fix_mask = mask(fix_vol)
+        if masking_function:
+            fix_mask = masking_function(fix_vol)
             fix_mask = sitk.GetImageFromArray(fix_mask.astype("uint8"))
             fix_mask.CopyInformation(fix_vol_sitk)
             elastixImageFilter.SetFixedMask(fix_mask)
 
-            move_mask = mask(mov_vol)
+            move_mask = masking_function(mov_vol)
             move_mask = sitk.GetImageFromArray(move_mask.astype("uint8"))
             move_mask.CopyInformation(mov_vol_sitk)
             elastixImageFilter.SetMovingMask(move_mask)
