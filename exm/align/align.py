@@ -48,71 +48,12 @@ def transform_ref_code(args, code_fov_pairs=None, mode="all"):
                 )
 
 
-def mask(img, index = None):
-    r"""Given an image volume, returns a mask to use for registration. Mask is created by finding a bounding box around content and filling it with ones.
-    :param np.array img: image volume.
-    :param int index: index of the z-slice to use for content identification. 
-    """
-
-    from segment_anything import build_sam, SamAutomaticMaskGenerator
-    import cv2
-
-    final_mask = np.zeros(img.shape)
-    
-    # Need to download "sam_vit_h_4b8939.pth" from here: https://github.com/facebookresearch/segment-anything#model-checkpoints
-    mask_generator = SamAutomaticMaskGenerator(
-        model=build_sam(checkpoint="sam_vit_h_4b8939.pth"),
-        points_per_side=32,
-        points_per_batch=64,
-    )
-    
-    # If no slice index is specified, use the middle. 
-    if not index:
-        index = int(img.shape[0]/2)
-
-    sl = cv2.cvtColor(img[index], cv2.COLOR_GRAY2BGR).astype("uint8")
-    
-    # Generate segmentation masks for volume slice.
-    masks = mask_generator.generate(sl)
-
-    min_ = np.percentile([mask["area"] for mask in masks], 20)
-    max_ = np.percentile([mask["area"] for mask in masks], 80)
-
-    # Discard masks with extremely small areas (noise) and masks with extremely large areas (background).
-    masks = [
-        mask["segmentation"]
-        for mask in masks
-        if mask["area"] < max_ and mask["area"] > min_
-    ]
-
-    # Concatenate the masks into one image.
-    overlaid_masks = np.sum(np.stack(masks, axis=-1), axis=2)
-    
-    # Remove instance segmentation (convert to binary).
-    overlaid_masks[overlaid_masks > 0] = 1
-
-    # Find and fill boundary box around identified objects.
-    coords = cv2.findNonZero(overlaid_masks)
-    x, y, w, h = cv2.boundingRect(coords)
-    padding = 250 # Amount of padding around the bounding box.
-    bounding_box = cv2.rectangle(
-        np.zeros(img[index].shape),
-        (max(x - padding, 0), max(y - padding, 0)),
-        (min(x + w + padding, 2048), min(y + h + padding, 2048)),
-        (1, 1, 1),
-        -1,
-    )
-
-    final_mask[:, :, :] = bounding_box
-
-    return final_mask
-
-def mask_with_chunking(img, padding = 250, chunks = 1):
-    
-    r"""Given an image volume, returns a dynamic mask to use for registration. Mask is created by finding bounding boxes around content and filling them with ones.
+def mask(img, padding = 250, chunks = 1, pos = None):
+    r"""Given an image volume, returns a mask to use for registration. Mask is created by finding and filling bounding boxes around content using every (#z-slices/chunks) slices.
     :param np.array img: image volume.
     :param int padding: amount of padding to add around the identified bounding box.
-    :param int chunks: number of slices to use for content. 
+    :param int chunks: the number of slices to use for masking. 
+    :param list pos: list of two elements (i.e. [start, end]), which contain the starting z-position of volume content and the end z-position of volume content.
     """
     
     from segment_anything import build_sam, SamAutomaticMaskGenerator
@@ -123,34 +64,38 @@ def mask_with_chunking(img, padding = 250, chunks = 1):
     mask_generator = SamAutomaticMaskGenerator(model=build_sam(checkpoint="sam_vit_h_4b8939.pth"), 
                                                    points_per_side = 32,
                                                    points_per_batch = 64)
-
+    
+    start, end = pos
+    if pos:
+        img = img[start:end, :, :]
+    
     assert chunks > 0
     chunk_size = int(img.shape[0]/chunks)
     
     for i in range(chunks):
-        beginning_slice = int(i * chunk_size)
+        beginning_chunk_slice = int(i * chunk_size)
     
         if i == (chunks - 1):
-            end_slice = int(img.shape[0])
+            end_chunk_slice = int(img.shape[0])
         else:
-            end_slice = int((i + 1) * chunk_size)
+            end_chunk_slice = int((i + 1) * chunk_size)
     
      
-        sl = cv2.cvtColor(img[int((beginning_slice+end_slice)/2)], cv2.COLOR_GRAY2BGR).astype('uint8')
+        sl = cv2.cvtColor(img[int((beginning_chunk_slice+end_chunk_slice)/2)], cv2.COLOR_GRAY2BGR).astype('uint8')
         masks = mask_generator.generate(sl)
 
-        min_ = np.percentile([mask['area'] for mask in masks], 20)
-        max_ = np.percentile([mask['area'] for mask in masks], 80)
+        min_ = np.percentile([mask['area'] for mask in masks], .2)
+        max_ = np.percentile([mask['area'] for mask in masks], .8)
 
         # Discard masks with extremely small areas (noise) and masks with extremely large areas (background)
         masks = [mask['segmentation'] for mask in masks if mask['area'] < max_ and mask['area'] > min_]
         
         if len(masks) > 3:
             
-            # Concatenate the masks into one image.
+            # Concatenate the masks into one image
             overlaid_masks = np.sum(np.stack(masks, axis=-1), axis = 2)
             
-            # Remove instance segmentation (convert to binary).
+            # Remove instance segmentation (convert to binary)
             overlaid_masks[overlaid_masks  > 0] = 1  
             
             # Find bounding box around identified objects
@@ -160,9 +105,13 @@ def mask_with_chunking(img, padding = 250, chunks = 1):
             padding = padding # Amount of padding around the bounding box.
         
             # Fill bounding box + paddings with ones. 
-            bounding_box = cv2.rectangle(np.zeros(img[int((beginning_slice+end_slice)/2)].shape), (max(x-padding, 0), max(y-padding, 0)), (min(x+w+padding, 2048), min(y+h+padding, 2048)), (1,1,1), -1)
+            bounding_box = cv2.rectangle(np.zeros(img[int((beginning_chunk_slice+end_chunk_slice)/2)].shape), (max(x-padding, 0), max(y-padding, 0)), (min(x+w+padding, 2048), min(y+h+padding, 2048)), (1,1,1), -1)
 
-            final_mask[beginning_slice:end_slice, :, :] = bounding_box
+            if pos: 
+                final_mask[start+beginning_chunk_slice:start+end_chunk_slice, :, :] = bounding_box
+                
+            else:
+                final_mask[beginning_chunk_slice:end_chunk_slice, :, :] = bounding_box
             
     return final_mask
 
