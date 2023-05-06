@@ -84,13 +84,15 @@ def mask(img, padding = 250, chunks = 1, pos = None):
         sl = cv2.cvtColor(img[int((beginning_chunk_slice+end_chunk_slice)/2)], cv2.COLOR_GRAY2BGR).astype('uint8')
         masks = mask_generator.generate(sl)
 
-        min_ = np.percentile([mask['area'] for mask in masks], .2)
-        max_ = np.percentile([mask['area'] for mask in masks], .8)
+        min_ = np.percentile([mask['area'] for mask in masks], 20)
+        max_ = np.percentile([mask['area'] for mask in masks], 80)
 
         # Discard masks with extremely small areas (noise) and masks with extremely large areas (background)
         masks = [mask['segmentation'] for mask in masks if mask['area'] < max_ and mask['area'] > min_]
         
-        if len(masks) > 3:
+        print(start+beginning_chunk_slice, start+end_chunk_slice)
+        print(len(masks))
+        if len(masks) > 1:
             
             # Concatenate the masks into one image
             overlaid_masks = np.sum(np.stack(masks, axis=-1), axis = 2)
