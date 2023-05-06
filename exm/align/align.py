@@ -13,6 +13,13 @@ import multiprocessing
 import skimage
 import scipy
 
+import cv2 as cv
+import numpy as np
+import matplotlib.pyplot as plt
+
+from tqdm import tqdm
+from scipy.signal import find_peaks
+
 from exm.io.io import nd2ToVol, nd2ToSlice, nd2ToChunk
 from exm.utils import chmod
 
@@ -278,6 +285,38 @@ def align(args, code_fov_pairs=None, masking_function=None, mode="405"):
                     f.create_dataset(channel, out.shape, dtype=out.dtype, data=out)
 
         tmpdir_obj.cleanup()
+
+def compute_gradient(img: np.ndarray):
+    means, std_devs = [], []
+    
+    for im_slice in tqdm(img, desc='Computing laplacians...'):
+        laplacian = cv.Laplacian(im_slice, cv.CV_64F)
+        mean, std_dev = cv.meanStdDev(laplacian)
+        means.append(mean)
+        std_devs.append(std_dev)
+        
+    return means, std_devs
+
+def plot_peaks(func_op: np.ndarray, height=28, distance=25):
+    slice_idx = np.arange(len(func_op))
+    reshape_op = np.array(func_op).reshape(-1,)
+    # find local extrema
+    peaks, _ = find_peaks(reshape_op, height=height, distance=distance)
+    # plot stuff
+    plt.plot(reshape_op)
+    plt.plot(peaks, reshape_op[peaks], 'x')
+    plt.plot(height*np.ones_like(reshape_op), "--", color="gray")
+    plt.show()
+
+def offset(std_dev: list, height: int, distance: int, debug_mode: bool):
+    reshape_op = np.array(std_dev).reshape(-1,)
+    peaks, _ = find_peaks(reshape_op, height=height, distance=distance)
+    if debug_mode:
+        plot_peaks(std_dev, height, distance)
+    
+    start_idx, last_idx = peaks[1], peaks[-2]
+    
+    return start_idx, last_idx
 
 
 '''
