@@ -287,6 +287,9 @@ def align(args, code_fov_pairs=None, masking_function=None, mode="405"):
         tmpdir_obj.cleanup()
 
 def compute_gradient(img: np.ndarray):
+    r"""Find the pixel gradient for each slice in the image volume. Return means and standard deviations.
+    :param np.array img: volumetric image.
+    """
     means, std_devs = [], []
     
     for im_slice in tqdm(img, desc='Computing laplacians...'):
@@ -298,6 +301,11 @@ def compute_gradient(img: np.ndarray):
     return means, std_devs
 
 def plot_peaks(func_op: np.ndarray, height=28, distance=25):
+    r"""Plot the pixel gradients.
+    :param np.array func_op: array of pixel gradients to plot.
+    :param int height: height of horizontal line across the plot.
+    :param int distance: distance to allow between peaks. 
+    """
     slice_idx = np.arange(len(func_op))
     reshape_op = np.array(func_op).reshape(-1,)
     # find local extrema
@@ -309,6 +317,12 @@ def plot_peaks(func_op: np.ndarray, height=28, distance=25):
     plt.show()
 
 def offset(std_dev: list, height: int, distance: int, debug_mode: bool):
+    r"""Returns the offset of the image volume. Requires manual tuning for sparse volumes.
+    :param np.array std_dev: array of standard deviations to plot.
+    :param int height: height of horizontal line across the plot.
+    :param int distance: distance to allow between peaks. 
+    :param bool debug_mode: if True, generates plot that allows for debugging parameters.
+    """
     reshape_op = np.array(std_dev).reshape(-1,)
     peaks, _ = find_peaks(reshape_op, height=height, distance=distance)
     if debug_mode:
