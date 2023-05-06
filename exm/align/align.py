@@ -125,12 +125,12 @@ def mask(img, padding = 250, chunks = 1, pos = None):
     return final_mask
 
 
-def align(args, code_fov_pairs=None, masking_function=None, mode="405"):
+def align(args, code_fov_pairs=None, masking_params=None, mode="405"):
     r"""For each volume in code_fov_pairs, find corresponding reference volume, then perform alignment.
 
     :param args.Args args: configuration options.
     :param list code_fov_pairs: a list of tuples, where each tuple is a ``(code, fov)`` pair. Default: ``None``
-    :param function masking_function: function for producing an image mask; useful when volume is sparse. Default: ``False``
+    :param list masking_params: list of params to use for masking ([[padding_fixed, chunks_fixed, [start_fixed, end_fixed]], [padding_mov, chunks_mov, [start_mov, end_mov]]]). If None, does not mask.  Default: ``None``
     :param str mode: whether to align just the anchoring channel ("405") or all channels ("all"). Default: ``False``
     """
 
@@ -234,13 +234,18 @@ def align(args, code_fov_pairs=None, masking_function=None, mode="405"):
         parameter_map["MovingImagePyramidSchedule"] = ["1 1 1"]
         elastixImageFilter.AddParameterMap(parameter_map)
 
-        if masking_function:
-            fix_mask = masking_function(fix_vol)
+        if masking_params:
+            
+            padding, chunks, pos = masking_params[0]
+        
+            fix_mask = mask(fix_vol, padding, chunks, pos)
             fix_mask = sitk.GetImageFromArray(fix_mask.astype("uint8"))
             fix_mask.CopyInformation(fix_vol_sitk)
             elastixImageFilter.SetFixedMask(fix_mask)
+            
+            padding, chunks, pos = masking_params[1]
 
-            move_mask = masking_function(mov_vol)
+            move_mask = mask(mov_vol, padding, chunks, pos)
             move_mask = sitk.GetImageFromArray(move_mask.astype("uint8"))
             move_mask.CopyInformation(mov_vol_sitk)
             elastixImageFilter.SetMovingMask(move_mask)
