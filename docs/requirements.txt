@@ -10,3 +10,6 @@ nd2reader
 tifffile
 scikit-image
 IPython
+matplotlib
+tqdm
+scipy
