@@ -314,7 +314,7 @@ def offset(std_dev: list, height: int, distance: int, debug_mode: bool):
     if debug_mode:
         plot_peaks(std_dev, height, distance)
     
-    start_idx, last_idx = peaks[1], peaks[-2]
+    start_idx, last_idx = peaks[1], peaks[-1]
     
     return start_idx, last_idx
 
