@@ -13,3 +13,6 @@ cv2
 Pillow
 glymur
 natsort
+matplotlib
+tqdm
+scipy
