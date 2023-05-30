@@ -55,73 +55,77 @@ def transform_ref_code(args, code_fov_pairs=None, mode="all"):
                 )
 
 
-def mask(img, padding = 250, chunks = 1, pos = None):
+def mask(img, padding=250, chunks=1, pos=None):
     r"""Given an image volume, returns a mask to use for registration. Mask is created by finding and filling bounding boxes around content using every (#z-slices/chunks) slices.
     :param np.array img: image volume.
     :param int padding: amount of padding to add around the identified bounding box.
     :param int chunks: the number of slices to use for masking. 
     :param list pos: list of two elements (i.e. [start, end]), which contain the starting z-position of volume content and the end z-position of volume content.
     """
-    
+
     from segment_anything import build_sam, SamAutomaticMaskGenerator
     import cv2
 
     final_mask = np.zeros(img.shape)
 
-    mask_generator = SamAutomaticMaskGenerator(model=build_sam(checkpoint="sam_vit_h_4b8939.pth"), 
-                                                   points_per_side = 32,
-                                                   points_per_batch = 64)
-    
+    mask_generator = SamAutomaticMaskGenerator(model=build_sam(checkpoint="sam_vit_h_4b8939.pth"),
+                                               points_per_side=32,
+                                               points_per_batch=64)
+
     start, end = pos
     if pos:
         img = img[start:end, :, :]
-    
+
     assert chunks > 0
     chunk_size = int(img.shape[0]/chunks)
-    
+
     for i in range(chunks):
         beginning_chunk_slice = int(i * chunk_size)
-    
+
         if i == (chunks - 1):
             end_chunk_slice = int(img.shape[0])
         else:
             end_chunk_slice = int((i + 1) * chunk_size)
-    
-     
-        sl = cv2.cvtColor(img[int((beginning_chunk_slice+end_chunk_slice)/2)], cv2.COLOR_GRAY2BGR).astype('uint8')
+
+        sl = cv2.cvtColor(img[int(
+            (beginning_chunk_slice+end_chunk_slice)/2)], cv2.COLOR_GRAY2BGR).astype('uint8')
         masks = mask_generator.generate(sl)
 
         min_ = np.percentile([mask['area'] for mask in masks], 20)
         max_ = np.percentile([mask['area'] for mask in masks], 80)
 
         # Discard masks with extremely small areas (noise) and masks with extremely large areas (background)
-        masks = [mask['segmentation'] for mask in masks if mask['area'] < max_ and mask['area'] > min_]
-        
+        masks = [mask['segmentation']
+                 for mask in masks if mask['area'] < max_ and mask['area'] > min_]
+
         print(start+beginning_chunk_slice, start+end_chunk_slice)
         print(len(masks))
         if len(masks) > 1:
-            
+
             # Concatenate the masks into one image
-            overlaid_masks = np.sum(np.stack(masks, axis=-1), axis = 2)
-            
+            overlaid_masks = np.sum(np.stack(masks, axis=-1), axis=2)
+
             # Remove instance segmentation (convert to binary)
-            overlaid_masks[overlaid_masks  > 0] = 1  
-            
+            overlaid_masks[overlaid_masks > 0] = 1
+
             # Find bounding box around identified objects
             coords = cv2.findNonZero(overlaid_masks)
-            x,y,w,h = cv2.boundingRect(coords)
-    
-            padding = padding # Amount of padding around the bounding box.
-        
-            # Fill bounding box + paddings with ones. 
-            bounding_box = cv2.rectangle(np.zeros(img[int((beginning_chunk_slice+end_chunk_slice)/2)].shape), (max(x-padding, 0), max(y-padding, 0)), (min(x+w+padding, 2048), min(y+h+padding, 2048)), (1,1,1), -1)
+            x, y, w, h = cv2.boundingRect(coords)
 
-            if pos: 
-                final_mask[start+beginning_chunk_slice:start+end_chunk_slice, :, :] = bounding_box
-                
+            padding = padding  # Amount of padding around the bounding box.
+
+            # Fill bounding box + paddings with ones.
+            bounding_box = cv2.rectangle(np.zeros(img[int((beginning_chunk_slice+end_chunk_slice)/2)].shape), (max(
+                x-padding, 0), max(y-padding, 0)), (min(x+w+padding, 2048), min(y+h+padding, 2048)), (1, 1, 1), -1)
+
+            if pos:
+                final_mask[start+beginning_chunk_slice:start +
+                           end_chunk_slice, :, :] = bounding_box
+
             else:
-                final_mask[beginning_chunk_slice:end_chunk_slice, :, :] = bounding_box
-            
+                final_mask[beginning_chunk_slice:end_chunk_slice,
+                           :, :] = bounding_box
+
     return final_mask
 
 
@@ -140,12 +144,11 @@ def align(args, code_fov_pairs=None, masking_params=None, mode="405"):
 
     for code, fov in code_fov_pairs:
 
-        if "code{},fov{}".format(code, fov) not in args.align_init:
-            continue
-        print(f"align_truncated: code{code},fov{fov}")
+        print(f"align: code{code},fov{fov}")
 
         if not os.path.exists(os.path.join(args.processed_path, "code{}".format(code))):
-            os.makedirs(os.path.join(args.processed_path, "code{}".format(code)))
+            os.makedirs(os.path.join(
+                args.processed_path, "code{}".format(code)))
 
         # Fixed volume
         fix_vol = nd2ToVol(args.nd2_path.format(args.ref_code, "405", 4), fov)
@@ -173,8 +176,7 @@ def align(args, code_fov_pairs=None, masking_params=None, mode="405"):
         # Translation across x, y, and z only
         parameter_map = sitk.GetDefaultParameterMap("translation")
         parameter_map["NumberOfSamplesForExactGradient"] = [
-            "1000"
-        ]  # NumberOfSamplesForExactGradient
+            "1000"]  # NumberOfSamplesForExactGradient
         parameter_map["MaximumNumberOfIterations"] = [
             "25000"
         ]  # MaximumNumberOfIterations
@@ -235,14 +237,14 @@ def align(args, code_fov_pairs=None, masking_params=None, mode="405"):
         elastixImageFilter.AddParameterMap(parameter_map)
 
         if masking_params:
-            
+
             padding, chunks, pos = masking_params[0]
-        
+
             fix_mask = mask(fix_vol, padding, chunks, pos)
             fix_mask = sitk.GetImageFromArray(fix_mask.astype("uint8"))
             fix_mask.CopyInformation(fix_vol_sitk)
             elastixImageFilter.SetFixedMask(fix_mask)
-            
+
             padding, chunks, pos = masking_params[1]
 
             move_mask = mask(mov_vol, padding, chunks, pos)
@@ -259,7 +261,8 @@ def align(args, code_fov_pairs=None, masking_params=None, mode="405"):
         # sitk.WriteParameterFile(transform_map[2], args.tform_path.format(code, str(fov) + ".2"))
 
         if mode == "405":
-            out = sitk.GetArrayFromImage(transformixImageFilter.GetResultImage())
+            out = sitk.GetArrayFromImage(
+                transformixImageFilter.GetResultImage())
             with h5py.File(args.h5_path.format(code, fov), "a") as f:
                 if channel in ["405"]:
                     del f[channel]
@@ -270,7 +273,8 @@ def align(args, code_fov_pairs=None, masking_params=None, mode="405"):
 
                 print(channel)
                 mov_vol = nd2ToVol(
-                    args.nd2_path.format(code, channel, channel_ind), fov, channel
+                    args.nd2_path.format(
+                        code, channel, channel_ind), fov, channel
                 )
                 mov_vol_sitk = sitk.GetImageFromArray(mov_vol)
                 mov_vol_sitk.SetSpacing(args.spacing)
@@ -283,27 +287,31 @@ def align(args, code_fov_pairs=None, masking_params=None, mode="405"):
                 transformixImageFilter.LogToConsoleOn()
                 transformixImageFilter.Execute()
 
-                out = sitk.GetArrayFromImage(transformixImageFilter.GetResultImage())
+                out = sitk.GetArrayFromImage(
+                    transformixImageFilter.GetResultImage())
                 with h5py.File(args.h5_path.format(code, fov), "a") as f:
                     if channel in f.keys():
                         del f[channel]
-                    f.create_dataset(channel, out.shape, dtype=out.dtype, data=out)
+                    f.create_dataset(channel, out.shape,
+                                     dtype=out.dtype, data=out)
 
         tmpdir_obj.cleanup()
+
 
 def compute_gradient(img: np.ndarray):
     r"""Find the pixel gradient for each slice in the image volume. Return means and standard deviations.
     :param np.array img: volumetric image.
     """
     means, std_devs = [], []
-    
+
     for im_slice in tqdm(img, desc='Computing laplacians...'):
         laplacian = cv.Laplacian(im_slice, cv.CV_64F)
         mean, std_dev = cv.meanStdDev(laplacian)
         means.append(mean)
         std_devs.append(std_dev)
-        
+
     return means, std_devs
+
 
 def plot_peaks(func_op: np.ndarray, height=28, distance=25):
     r"""Plot the pixel gradients.
@@ -321,6 +329,7 @@ def plot_peaks(func_op: np.ndarray, height=28, distance=25):
     plt.plot(height*np.ones_like(reshape_op), "--", color="gray")
     plt.show()
 
+
 def offset(std_dev: list, height: int, distance: int, debug_mode: bool):
     r"""Returns the offset of the image volume. Requires manual tuning for sparse volumes.
     :param np.array std_dev: array of standard deviations to plot.
@@ -332,9 +341,9 @@ def offset(std_dev: list, height: int, distance: int, debug_mode: bool):
     peaks, _ = find_peaks(reshape_op, height=height, distance=distance)
     if debug_mode:
         plot_peaks(std_dev, height, distance)
-    
+
     start_idx, last_idx = peaks[1], peaks[-1]
-    
+
     return start_idx, last_idx
 
 

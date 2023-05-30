@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter
 from exm.utils import retrieve_img, retrieve_all_puncta, retrieve_one_puncta
+from exm.puncta.improve import puncta_all_nearest_points
 
 import plotly.graph_objects as go
 import plotly.express as px
@@ -474,142 +475,164 @@ def inspect_puncta_individual_matplotlib(args, fov, puncta_index, center_dist=40
     plt.show()
 
 
-def inspect_puncta_individual_plotly(
-    args, fov, puncta_index, center_dist=40, spacer=40, export_file_name=None
-):
-    """Plots specified puncta using Plotly. Assumes the puncta have already been consolidated accross channels.
+def inspect_puncta_individual_plotly(args, fov, puncta, center_dist=40, spacer=40, save=False):
+    r"""Visualizes specified puncta in a 3D space using Plotly. Assumes the puncta have already been consolidated across channels.
 
-    :param args.Args args: configuration options.
-    :param int fov: the field of fiew of the volume chunk to be returned.
-    :param int puncta_index: the index of the puncta to visualize.
-    :param int center_dist: distance from the center that should be viewable. Default: ``40``
-    :param int spacer: scaling factor to use for z-spacing. Default: ``40``
-    :param str export_file_name: name of the file to be exported. Default: ``None``
+    :param args.Args args: configuration options. 
+    :param int fov: Identifier of the specific region in the image dataset, the field of view of the volume chunk to be returned.
+    :param dict puncta: The puncta to visualize. Should contain information about the puncta's position in the 3D space and its index.
+    :param int center_dist: Distance from the center of the puncta that should be viewable in the plot. Default: ``40``
+    :param int spacer: Scaling factor used for z-spacing to separate different rounds of imaging in the 3D plot. Default: ``40``
+    :param bool save: If True, the plot will be saved as an HTML file in the directory specified by args.work_path. Default: ``False``
+    
+    This function generates an interactive 3D scatter plot using Plotly, where each puncta is represented as a point in the 3D space. 
+    The plot also includes slices of images from different rounds of imaging, providing a contextual understanding of puncta positioning.
+
+    Note:
+    The function assumes that the puncta have already been consolidated across different channels and rounds of imaging.
     """
 
-    reference = retrieve_all_puncta(args, fov)
-    puncta = retrieve_one_puncta(args, fov, puncta_index)
+    # Information about the puncta
+    reference = retrieve_all_puncta(args,fov)
+    # pprint.pprint(puncta)
 
+    # Definition of ROI
+    d0, d1, d2 = puncta['position']
+    ROI_min = [d0-10, d1-center_dist, d2-center_dist]
+    ROI_max = [d0+10, d1+center_dist, d2+center_dist]
+   
+    N = 5
     fig = go.Figure()
     for i, code in enumerate(args.codes):
+ 
+        # Scatter all puncta -----------------
+        puncta_lists = [puncta['code{}'.format(code)] for puncta in reference if 'code{}'.format(code) in puncta and in_region(puncta['code{}'.format(code)]['position'], ROI_min,ROI_max) ] 
+        if not puncta_lists:
+            continue
+        
+        for channel in range(4):
+            position_list = np.asarray([puncta['c{}'.format(channel)]['position'] for puncta in puncta_lists if 'c{}'.format(channel) in puncta])
+            text_list = [puncta['index'] for puncta in puncta_lists if 'c{}'.format(channel) in puncta]
+            if len(position_list) == 0:
+                continue
+            
+            # Plot all puncta
+            fig.add_trace(
+                go.Scatter3d(
+                    z = position_list[:,0] + i * spacer,
+                    y = position_list[:,1],
+                    x = position_list[:,2],
+                    text = text_list,
+                    mode = 'markers',
+                    marker = dict(
+                        color = args.colors[channel],
+                        size = 4,
+                    ),
+                    hoverinfo = 'text'
+                ) 
+            )
 
-        if "code{}".format(code) in puncta:
+            # Visualize the image -------------
+            for zz in np.linspace(ROI_min[0], ROI_max[0], N):
 
-            print("code{}".format(code))
-            puncta = puncta["code{}".format(code)]
-            d0, d1, d2 = puncta["position"]
-            ROI_min = [d0 - 10, d1 - center_dist, d2 - center_dist]
-            ROI_max = [d0 + 10, d1 + center_dist, d2 + center_dist]
-
-            print("ROI_min = [{},{},{}]".format(*ROI_min))
-            print("ROI_max = [{},{},{}]".format(*ROI_max))
-
-            c_candidates = []
-
-            ## Surface -------------
-            for c in range(4):
-
-                if "c{}".format(c) in puncta:
-
-                    c_candidates.append(c)
-
-                    for zz in np.linspace(ROI_min[0], ROI_max[0], 7):
-
-                        with h5py.File(args.h5_path.format(code, fov), "r") as f:
-                            im = f[args.channel_names[c]][
-                                int(zz),
-                                ROI_min[1] : ROI_max[1],
-                                ROI_min[2] : ROI_max[2],
-                            ]
-                            im = np.squeeze(im)
-                        y = list(range(ROI_min[1], ROI_max[1]))
-                        x = list(range(ROI_min[2], ROI_max[2]))
-                        z = np.ones(
-                            (ROI_max[1] - ROI_min[1], ROI_max[2] - ROI_min[2])
-                        ) * (int(zz) + 0.5 * c + i * spacer)
-                        fig.add_trace(
-                            go.Surface(
-                                x=x,
-                                y=y,
-                                z=z,
-                                surfacecolor=im,
-                                cmin=0,
-                                cmax=500,
-                                colorscale=args.colorscales[c],
-                                showscale=False,
-                                opacity=0.2,
-                            )
-                        )
-
-            ## Scatter --------------
-
-            temp = [
-                x["code{}".format(code)]
-                for x in reference
-                if "code{}".format(code) in x
-                and in_region(x["code{}".format(code)]["position"], ROI_min, ROI_max)
-            ]
-
-            for c in c_candidates:
-
+                # Retrive image
+                ROI_min_temp,ROI_max_temp = ROI_min[:],ROI_max[:]
+                ROI_min_temp[0] = zz
+                ROI_max_temp[0] = zz
+                im = retrieve_img(args,fov,code,channel,ROI_min,ROI_max)
+                
+                # Set up the image
+                y = list(range(ROI_min[1], ROI_max[1]))
+                x = list(range(ROI_min[2], ROI_max[2]))
+                z = np.ones(
+                        (ROI_max[1] - ROI_min[1], ROI_max[2] - ROI_min[2])
+                    ) * (int(zz) + 0.5 * channel + i * spacer)
                 fig.add_trace(
+                    go.Surface(
+                        x=x,
+                        y=y,
+                        z=z,
+                        surfacecolor=im,
+                        cmin=0,
+                        cmax=500,
+                        colorscale=args.colorscales[channel],
+                        showscale=False,
+                        opacity=0.2,
+                    )
+                )
+            
+            # Plot this puncta
+            if 'code{}'.format(code) not in puncta:
+                continue
+            if "c{}".format(channel) not in puncta['code{}'.format(code)]:
+                continue
+            fig.add_trace(
                     go.Scatter3d(
-                        z=[puncta["c{}".format(c)]["position"][0] + i * spacer],
-                        y=[puncta["c{}".format(c)]["position"][1]],
-                        x=[puncta["c{}".format(c)]["position"][2]],
-                        mode="markers",
+                        z=[puncta['code{}'.format(code)]["c{}".format(channel)]["position"][0] + i * spacer],
+                        y=[puncta['code{}'.format(code)]["c{}".format(channel)]["position"][1]],
+                        x=[puncta['code{}'.format(code)]["c{}".format(channel)]["position"][2]],
+                        text = puncta['index'],
+                        mode = "markers",
                         marker=dict(color="gray", size=8, symbol="circle-open"),
+                        hoverinfo = 'text'
                     )
                 )
+    
+    nearest_puncta_list = puncta_all_nearest_points(args, puncta)
+    # pprint.pprint(nearest_puncta_list)
 
-                temp2 = np.asarray(
-                    [
-                        x["c{}".format(c)]["position"]
-                        for x in temp
-                        if "c{}".format(c) in x
-                    ]
-                )
 
-                if len(temp2) == 0:
-                    continue
+    for code in range(7):
 
-                fig.add_trace(
+        if 'code{}'.format(code) not in nearest_puncta_list:
+            continue
+        nearest_puncta = nearest_puncta_list['code{}'.format(code)]
+
+        for c in range(4):
+            if 'c{}'.format(c) not in nearest_puncta:
+                continue
+            local_maximum = nearest_puncta['c{}'.format(c)]
+            z,y,x = local_maximum['position']
+            fig.add_trace(
                     go.Scatter3d(
-                        z=temp2[:, 0] + i * spacer,
-                        y=temp2[:, 1],
-                        x=temp2[:, 2],
-                        mode="markers",
-                        marker=dict(
-                            color=args.colors[c],
-                            size=4,
-                        ),
+                        z=[z + code * spacer],
+                        y=[y],
+                        x=[x],
+                        text = 'intensity {0:0.2f} Distance {1:0.2f}'.format(local_maximum['intensity'],local_maximum['distance']),
+                        mode = "markers",
+                        marker = dict(color= args.colors[c], size=12, symbol="square-open"),
+                        hoverinfo = 'text'
                     )
                 )
-
-    # ---------------------
-    fig.update_layout(
-        title="Puncta Fov{} index {}".format(fov, puncta_index),
-        width=800,
-        height=800,
-        scene=dict(
-            aspectmode="data",
-            xaxis_visible=True,
-            yaxis_visible=True,
-            zaxis_visible=True,
-            xaxis_title="X",
-            yaxis_title="Y",
-            zaxis_title="Z",
-        ),
+  
+    
+    # Global visualization
+    camera = dict(
+        eye = dict( x=2, y=2, z=2 )
     )
-
-    if export_file_name != None:
+    fig.update_layout(
+        title = "Puncta Fov{} index {} {}".format(fov, puncta['index'], puncta['barcode']),
+        width = 800,
+        height = 800,
+        scene_camera = camera,
+        scene = dict(
+            aspectmode = 'data',
+            xaxis_visible = True,
+            yaxis_visible = True, 
+            zaxis_visible = True, 
+            xaxis_title = "X",
+            yaxis_title = "Y",
+            zaxis_title = "Z" ,
+        )
+    )
+   
+    if save:
         fig.write_html(
             os.path.join(
                 args.work_path,
-                "inspect_puncta/{}".format(str(export_file_name) + ".html"),
+                'inspect_puncta_individual_plotly_fov_{}_puncta_{}.html'.format(fov, puncta['index']))
             )
-        )
-
+        
     fig.show()
 
 
@@ -979,3 +1002,292 @@ def inspect_across_rounds_plotly(
         )
 
     fig.show()
+
+
+# TODO fix labels, add legend and handle multi-missing codes. 
+def inspect_puncta_improvement_matplotlib(args, fov, puncta_index, option = 'final', center_dist=40, save = False,missing_code=0):
+    r"""Visualizes puncta improvement using Matplotlib. The function generates a detailed plot of the region 
+    of interest (ROI) around a given puncta and shows changes in the puncta position over different 
+    rounds of image acquisition. The function supports visualization of missing code if provided.
+    :param args: Configuration options, including methods for retrieving puncta and images.
+    :param int fov: The field of view (fov) to consider.
+    :param int puncta_index: The index of the puncta to start the search from.
+    :param option: Option for puncta visualization, default is 'final'.
+    :param int center_dist: The distance to the center of the ROI, default:40.
+    :param bool save: Whether to save the generated plot or not. If set to False, the plot will be displayed, , default:False.
+    :param int missing_code: The missing code to consider in the visualization, default:0.
+    :return: None
+    """
+    from exm.puncta.improve import puncta_nearest_points
+
+    # Get the FOV all puncta information 
+    reference = retrieve_all_puncta(args,fov)
+
+    # Get individual puncta information based on puncta_indexn
+    puncta = retrieve_one_puncta(args,fov, puncta_index)
+    print('fov',fov,'index',puncta_index)
+
+    # Get postion of the puncta
+    d0, d1, d2 = puncta['position']
+    print('puncta position',d0,d1,d2)
+
+    # Define the Region of Interest (ROI) based on the puncta position
+    ROI_min = [max(0,d0 - 10),max(0,d1 - center_dist), max(d2 - center_dist,0)]
+    ROI_max = [d0 + 10,d1 + center_dist, d2 + center_dist]    
+    print('ROI_min,ROI_max = {},{}'.format(ROI_min,ROI_max))
+
+    # Define the z-stack step size
+    delta_z = (ROI_max[0] - ROI_min[0])/10
+
+    ## Clean old plots
+    plt.close()
+    
+    # If missing code is present, find its new and closest positions
+    if missing_code > 0:
+        arr = np.array(list(puncta['barcode']))
+        missed_code = np.where(arr == '_')[0]
+        ref_code, new_position, closest_position = puncta_nearest_points(args,puncta['fov'],puncta['index'],missed_code[0])  
+        if new_position:
+            print('new_position', new_position)
+        if closest_position:
+            print('closest_position', closest_position)
+
+    fontsize = 40
+
+    # Initialize Matplotlib figure and subplot grids
+    import matplotlib.gridspec as gridspec
+    plt.figure(figsize=(20, 45), dpi=100)
+    outer = gridspec.GridSpec(7, 1, height_ratios = [1]*7, hspace = .05)
+
+    # For each of the 7 rounds
+    for code in range(7):
+        # Initialize inner grid for each code
+        inner = gridspec.GridSpecFromSubplotSpec(4, 10, subplot_spec = outer[code], hspace = 0)
+        
+        # For each of the four channel 
+        for channel in range(4):
+
+            # For each z-slice in the range of 10
+            for z_ind,z in enumerate(np.linspace(ROI_min[0],ROI_max[0],10)):
+
+                ax = plt.subplot(inner[channel,z_ind])
+                ax.set_xticks([])
+                ax.set_yticks([])
+                
+                temp_ROI_min, temp_ROI_max = ROI_min[:], ROI_max[:]
+                temp_ROI_min[0] = int(z)
+                temp_ROI_max[0] = int(z)
+
+                img = retrieve_img(args,fov,code,channel,temp_ROI_min,temp_ROI_max)
+
+                ax.imshow(img, cmap=plt.get_cmap(args.colorscales[channel]),vmin = 0, vmax = 200)
+                
+                if code == 7 and channel == 3:
+                    ax.set_xlabel('{0:0.0f}'.format(z))
+                
+                # display y-labels when channel is 2 (code{},Search Code,Ref Code) 
+                if z_ind == 0:
+                    ax.set_ylabel(args.channel_names[channel])
+                    if channel == 1:
+                        ax.text(-50,20,'code{}'.format(code),fontsize = fontsize)
+                    if missing_code >0 and channel == 2 and code == missed_code[0] :
+                        if not new_position:
+                            ax.text(-50,20,'Search code None',fontsize = fontsize)
+                        else:
+                            ax.text(-50,20,'Search Code',fontsize = fontsize)
+                    if missing_code >0 and channel == 2 and code == ref_code:
+                        if not closest_position:
+                            ax.text(-50,20,'Ref code None',fontsize = fontsize)
+                        else:
+                            ax.text(-50,20,'Ref Code',fontsize = fontsize)
+
+            # Closest postions puncta
+            if missing_code >0 and closest_position and code == closest_position['code']:
+
+                if channel == closest_position['color']:     
+                    temp = closest_position['position']
+                    ax = plt.subplot(inner[channel, int(np.floor((temp[0]-ROI_min[0])/delta_z))])
+                    ax.text(0,20,temp[2]-ROI_min[2],temp[1]-ROI_min[1],'closest',fontsize = 20)
+                    ax.scatter( temp[2]-ROI_min[2],temp[1]-ROI_min[1], marker = 'D', facecolors='none', edgecolors='violet', s = 270, linewidths=3)
+                
+            # New postions puncta           
+            elif missing_code >0 and new_position and code == new_position['code']:
+                if channel == new_position['color']:  
+                    temp = new_position['position']
+                    ax = plt.subplot(inner[channel, int(np.floor((temp[0]-ROI_min[0])/delta_z))]) 
+                    ax.scatter( temp[2]-ROI_min[2],temp[1]-ROI_min[1], marker = 'D', facecolors='none', edgecolors='violet', s = 270, linewidths=3)
+                    ax.text(temp[2]-ROI_min[2],temp[1]-ROI_min[1],'new',fontsize = 20)
+
+            # Ref code Puncta
+            if missing_code >0 and code == ref_code and channel == puncta['code{}'.format(code)]['color']:
+                temp = puncta['code{}'.format(code)]['position']
+                ax = plt.subplot(inner[channel, int(np.floor((temp[0]-ROI_min[0])/delta_z))])
+                ax.scatter( temp[2]-ROI_min[2],temp[1]-ROI_min[1], marker = 'D', facecolors='none', edgecolors='violet', s = 270, linewidths=3)
+                ax.text(temp[2]-ROI_min[2],temp[1]-ROI_min[1],'original',fontsize = 20)
+
+        
+        ## Show puncta
+        if option == 'final':
+            filter1 = [x['code{}'.format(code)] for x in reference if 'code{}'.format(code) in x and in_region( x['code{}'.format(code)]['position'], ROI_min,ROI_max) ] 
+            for channel in range(4):
+                filter2 = [x['c{}'.format(channel)]['position'] for x in filter1 if 'c{}'.format(channel) in x and in_region(x['c{}'.format(channel)]['position'],ROI_min,ROI_max)]
+                for temp in filter2:
+                    ax = plt.subplot(inner[channel, int(np.floor((temp[0]-ROI_min[0])/delta_z))])
+                    ax.scatter(temp[2]-ROI_min[2],temp[1]-ROI_min[1], marker = 'o', facecolors='none', edgecolors='white', s = 180, linewidths=3)
+
+            if 'code{}'.format(code) in puncta:
+                for channel in range(4):
+                    if 'c{}'.format(channel) in puncta['code{}'.format(code)]:
+                        temp = puncta['code{}'.format(code)]['c{}'.format(channel)]['position']
+                        if int(np.floor((temp[0]-ROI_min[0])/delta_z))>=10:
+                            continue
+                        ax = plt.subplot(inner[channel, int(np.floor((temp[0]-ROI_min[0])/delta_z))])
+                        ax.set_xticks([])
+                        ax.set_yticks([])
+                        if puncta['code{}'.format(code)]['color'] == channel:
+                            # chosen puncta in that round
+                            ax.scatter( temp[2]-ROI_min[2],temp[1]-ROI_min[1], marker = 'D', facecolors='none', edgecolors='cyan', s = 270, linewidths=3)
+                        else:
+                            # other puncta in that round
+                            ax.scatter( temp[2]-ROI_min[2],temp[1]-ROI_min[1], marker = 'D', facecolors='none', edgecolors='yellow', s = 270, linewidths=3)
+
+    if save:
+        plt.savefig(os.path.join(args.work_path,'inspect_puncta/puncta_improvement_fov{}_puncta{}.jpg'.format(fov,puncta_index)))
+        plt.close()
+    else:
+        plt.show()
+
+
+
+def inspect_improved_puncta_plotly(args, fov, puncta,center_dist=40,spacer=40):
+
+    # Information about the puncta
+    with open(args.work_path + '/fov{}/improved_puncta_results.pickle'.format(fov),'rb') as f:
+        reference = pickle.load(f)
+
+    # Definition of ROI
+    d0, d1, d2 = puncta['position']
+    ROI_min = [d0-10, d1-center_dist, d2-center_dist]
+    ROI_max = [d0+10, d1+center_dist, d2+center_dist]
+   
+    N = 5
+    fig = go.Figure()
+    for i, code in enumerate(args.codes):
+
+        # Plot all puncta ---------------
+        puncta_lists = [puncta for puncta in reference if 'code{}'.format(code) in puncta and in_region(puncta['code{}'.format(code)]['position'], ROI_min,ROI_max)] 
+        if not puncta_lists:
+            continue
+        for channel in range(4):
+            position_list = np.asarray([puncta['code{}'.format(code)]['c{}'.format(channel)]['position'] for puncta in puncta_lists if 'c{}'.format(channel) in puncta])
+            text_list = [puncta['index'] for puncta in puncta_lists if 'c{}'.format(channel) in puncta['code{}'.format(code)]]
+            if len(position_list) == 0:
+                continue
+            
+            fig.add_trace(
+                go.Scatter3d(
+                    z = position_list[:,0] + i * spacer,
+                    y = position_list[:,1],
+                    x = position_list[:,2],
+                    text = text_list,
+                    mode = 'markers',
+                    marker = dict(
+                        color = args.colors[channel],
+                        size = 4,
+                    ),
+                    hoverinfo = 'text'
+                ) 
+            )
+
+
+        # Visualize the image -------------
+        for channel in range(4):
+
+            for zz in np.linspace(ROI_min[0], ROI_max[0], N):
+
+                # Retrive image
+                ROI_min_temp,ROI_max_temp = ROI_min[:],ROI_max[:]
+                ROI_min_temp[0] = zz
+                ROI_max_temp[0] = zz
+                im = retrieve_img(args,fov,code,channel,ROI_min,ROI_max)
+                
+                # Set up the image
+                y = list(range(ROI_min[1], ROI_max[1]))
+                x = list(range(ROI_min[2], ROI_max[2]))
+                z = np.ones(
+                        (ROI_max[1] - ROI_min[1], ROI_max[2] - ROI_min[2])
+                    ) * (int(zz) + 0.5 * channel + code * spacer)
+                
+                fig.add_trace(
+                    go.Surface(
+                        x=x,
+                        y=y,
+                        z=z,
+                        surfacecolor=im,
+                        cmin=0,
+                        cmax=500,
+                        colorscale=args.colorscales[channel],
+                        showscale=False,
+                        opacity=0.2,
+                    )
+                )
+        
+
+        # Plot this puncta ----------------------------
+        if 'code{}'.format(code) not in puncta:
+            continue
+        
+        for channel in range(4):
+
+            if "c{}".format(channel) not in puncta['code{}'.format(code)]:
+                continue
+            
+            if 'ref_code' not in puncta['code{}'.format(code)]:
+                fig.add_trace(
+                    go.Scatter3d(
+                        z=[puncta['code{}'.format(code)]["c{}".format(channel)]["position"][0] + code * spacer],
+                        y=[puncta['code{}'.format(code)]["c{}".format(channel)]["position"][1]],
+                        x=[puncta['code{}'.format(code)]["c{}".format(channel)]["position"][2]],
+                        text = puncta['index'],
+                        mode = "markers",
+                        marker=dict(color="gray", size=8, symbol="circle-open"),
+                        hoverinfo = 'text'
+                    )
+                )
+            elif 'c{}'.format(channel) in puncta['code{}'.format(code)]:
+                local_maximum = puncta['code{}'.format(code)]['c{}'.format(channel)]
+                z,y,x = local_maximum['position']
+
+                fig.add_trace(
+                        go.Scatter3d(
+                            z=[z + code * spacer],
+                            y=[y],
+                            x=[x],
+                            text = 'intensity {0:0.2f} Distance {1:0.2f}'.format(local_maximum['intensity'],local_maximum['distance']),
+                            mode = "markers",
+                            marker = dict(color= args.colors[channel], size=12, symbol="square-open"),
+                            hoverinfo = 'text'
+                        )
+                    )
+    
+    # Global visualization
+    camera = dict(
+        eye = dict( x=2, y=2, z=2 )
+    )
+    fig.update_layout(
+        title = "Puncta Fov{} index {} {}".format(fov, puncta['index'], puncta['barcode']),
+        width = 800,
+        height = 800,
+        scene_camera = camera,
+        scene = dict(
+            aspectmode = 'data',
+            xaxis_visible = True,
+            yaxis_visible = True, 
+            zaxis_visible = True, 
+            xaxis_title = "X",
+            yaxis_title = "Y",
+            zaxis_title = "Z" ,
+        )
+    )
+    # fig.show()
+    fig.write_html(os.path.join(args.work_path,'inspect_puncta/inspect_improved_puncta_plotly_fov_{}_puncta_{}.html'.format(fov, puncta['index'])))

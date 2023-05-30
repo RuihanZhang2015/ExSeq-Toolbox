@@ -78,7 +78,7 @@ def calculate_coords_gpu(args, tasks_queue, device, lock, queue_lock):
 
                 # Remove duplicated puncta resulted from in the mautal regions between chunks. 
                 for c in range(4):
-                    coords_total['c{}'.format(c)] = np.unique(coords_total['c{}'.format(c)], axis=0)
+                    coords_total['c{}'.format(c)] = np.unique(coords_total['c{}'.format(c)].get(), axis=0)
 
                 with open(args.work_path + '/fov{}/coords_total_code{}.pkl'.format(fov,code), 'wb') as f:
                     pickle.dump(coords_total,f)
@@ -92,10 +92,10 @@ def calculate_coords_gpu(args, tasks_queue, device, lock, queue_lock):
 def puncta_extraction_gpu(args, tasks_queue, num_gpu):    
     r"""Wrapper around calculate_coords_gpu to enable parallel processing. 
 
-        :param args.Args args: configuration options.
-        :param list tasks_queue: a list of tuples, where each tuple is a (code, fov) pair.
-        :param int num_gpu: number of GPUs to use for processing.
-     """
+    :param args.Args args: configuration options.
+    :param list tasks_queue: a list of tuples, where each tuple is a (code, fov) pair.
+    :param int num_gpu: number of GPUs to use for processing.
+    """
             
     # List to hold the child processes.
     child_processes = [] 
@@ -191,7 +191,7 @@ def calculate_coords_cpu(args, tasks_queue, queue_lock):
 
 
 def puncta_extraction_cpu(args, tasks_queue, num_cpu):
-     r"""Wrapper around calculate_coords_cpu to enable parallel processing. 
+    r"""Wrapper around calculate_coords_cpu to enable parallel processing. 
 
         :param args.Args args: configuration options.
         :param list tasks_queue: a list of tuples, where each tuple is a (code, fov) pair.
