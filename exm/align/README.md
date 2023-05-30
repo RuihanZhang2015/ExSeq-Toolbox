@@ -11,6 +11,12 @@ The align module is used for image alignment (registration). During registration
 6. Intensity-based registration restricted to a rigid transformation (translation and rotation) is performed on the full-resolution image.
 7. Intensity-based registration restricted to an affine transformation (translation, rotation, scaling and shearing) is performed on the full-resolution image. 
 
+<p align="center">
+  <img src="multi-res.png" width="600"/>
+  <p align="center">
+  <em>Multi-resolution registration protocol</em>
+</p>
+
 ### Masking
 In some cases, this multiscale-framework fails. Thus, we adopted image masking. We often add this step when content is sparse (i.e. the volume is close to empty). With image masking, we limit the registration to specific regions of interest (ROIs). This is useful when we only care about certain features or structures, and want to optimize registration for those areas. To make the masks compatible with our registration sampling procedure (i.e. to make sure we have enough content to sample from), we take the inner-most slice of the volume, identify objects using Meta's Segment Anything Model, then create a bounding box around them. This bounding box is then filled with ones and the image is repeated along the z-axis to match the shape of the origin volume.
 
