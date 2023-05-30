@@ -20,5 +20,13 @@ The align module is used for image alignment (registration). During registration
 ### Masking
 In some cases, this multiscale-framework fails. Thus, we adopted image masking. We often add this step when content is sparse (i.e. the volume is close to empty). With image masking, we limit the registration to specific regions of interest (ROIs). This is useful when we only care about certain features or structures, and want to optimize registration for those areas. To make the masks compatible with our registration sampling procedure (i.e. to make sure we have enough content to sample from), we take the inner-most slice of the volume, identify objects using Meta's Segment Anything Model, then create a bounding box around them. This bounding box is then filled with ones and the image is repeated along the z-axis to match the shape of the origin volume.
 
+<p align="center">
+  <img src="failed.png" width="300"/>
+  <p align="center">
+  <em> Low staining intensity and little content cause issues  with
+registration. A mask (right) is added to the image (left) to limit search space.
+</em>
+</p>
+
 ### Other Failures
 There are usually one to two volume pairs per experiment that even with masking and the multi-level framework, fail to register correctly. We've found that this is often due to a dramatic loss of staining intensity coupled with the volume pair being from a field of view that is along the edge of the imaged structure. In these cases, we perform the same protocol as above, but remove any empty slices at the beginning and end of the volumes. The masking function can also take in 'start' and 'end' positions as parameters, which fills all slices before 'start' and after 'end' with zeros. This is equivalent to cropping.
