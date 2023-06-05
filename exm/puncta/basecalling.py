@@ -41,7 +41,7 @@ def assign_gene_fov(args, fov, option = 'original'):
     if option == 'original':
         result = retrieve_all_puncta(args,fov)
     elif option == 'improve':
-        with open('fov{}/improved_puncta_results.pickle'.format(fov),'rb') as f:
+        with open(args.work_path + 'fov{}/improved_puncta_results.pickle'.format(fov),'rb') as f:
             result = pickle.load(f)
   
     for puncta in result:
@@ -49,8 +49,8 @@ def assign_gene_fov(args, fov, option = 'original'):
         puncta_list.append(new_puncta)
         
     if option == 'original':
-        with open(args.work_path + '/fov{}/puncta_with_gene.pickle'.format(fov), 'wb') as f:
+        with open(args.work_path + 'fov{}/puncta_with_gene.pickle'.format(fov), 'wb') as f:
             pickle.dump(puncta_list,f)
     elif option == 'improve':
-        with open(args.work_path + '/fov{}/improved_puncta_with_gene.pickle'.format(fov), 'wb') as f:
+        with open(args.work_path + 'fov{}/improved_puncta_with_gene.pickle'.format(fov), 'wb') as f:
             pickle.dump(puncta_list,f)
