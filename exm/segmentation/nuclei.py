@@ -21,12 +21,13 @@ import cv2
 def get_predictor():
     import sys
     sys.path.append("..")
-    from segment_anything import sam_model_registry, SamPredictor
+    from segment_anything import sam_model_registry, SamPredictor,build_sam
 
     model_type = "vit_h"
     device = "cuda"
+    #TODO add model path 
+    sam_checkpoint = "sam_vit_h_4b8939.pth"
 
-    sam_checkpoint = "/home/ruihan/anaconda3/envs/exm-toolbox/lib/python3.8/site-packages/segment_anything/sam_vit_h_4b8939.pth"
     sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
     sam.to(device=device)
 
@@ -92,7 +93,7 @@ def predict_z(args, z,fov, predictor, code=0,channel=4):
     else:
         mask_list = np.array(mask_list)
 
-    with open(args.project_path + 'nuclei/mesh_fov_{}_z_{}.pickle'.format(fov,z),'wb') as f:
+    with open(args.project_path + 'nuclei/mask/mask_fov_{}_z_{}.pickle'.format(fov,z),'wb') as f:
         pickle.dump(mask_list, f)
         
     # Watershed algorithm
@@ -149,6 +150,7 @@ def generate_3d_mask(args, fov):
     for z in tqdm.tqdm(range(z_max)):
         with open(args.project_path + 'nuclei/mask/mask_fov_{}_z_{}.pickle'.format(fov,z),'rb') as f:
             mask_2d = pickle.load(f)
+        mask_2d = np.any(mask_2d, axis=0)
         mask_3d.append(mask_2d)
 
     with open(args.project_path + 'nuclei/mask/mask_fov_{}.pickle'.format(fov),'wb') as f:
@@ -167,8 +169,11 @@ def retrieve_nuclei_per_fov(args,fov,replace = False):
     # Load dataset
     with open(args.project_path + 'nuclei/mask/mask_fov_{}.pickle'.format(fov),'rb') as f:
         voxel_grid = pickle.load(f)
-    voxel_grid  = np.asarray(voxel_grid)  
 
+    for i, arr in enumerate(voxel_grid):
+        voxel_grid[i] = arr.astype(bool)
+
+    voxel_grid  = np.asarray(voxel_grid)  
     # Define structural element
     selem = np.asarray([[[1]],[[1]],[[1]],[[1]],[[1]]])
 
@@ -199,49 +204,48 @@ def generate_n_colors(n_colors,plot = False):
 
 
 # Plot Nuclei + Puncta
-def plot_nuclei_puncta(args, fov, modality = 'mesh', option = 'full' ):
+def plot_nuclei_puncta(args, fov, modality = 'mesh', option = 'full',valid_genes=False):
 
     print('Plot Nuclei + Puncta Fov {} Modality {} Option {}'.format(fov,modality,option))
     
     fig = go.Figure()
 
     # Load puncta ==============================
-    if option == 'full':
-        with open(args.project_path + '/puncta/puncta_with_gene_fov_{}.pickle'.format(fov), 'rb') as f:
+    if option == 'original':
+        with open(args.work_path + 'fov{}/puncta_with_gene.pickle'.format(fov), 'rb') as f:
             puncta_list= pickle.load(f)
-    
-    elif option == 'gene':
-        # Select only valid genes vs show all puncta
-        with open(args.project_path + '/puncta/puncta_with_gene_fov_{}.pickle'.format(fov), 'rb') as f:
-            puncta_list= pickle.load(f)
-        puncta_list = [x for x in puncta_list if x['gene'] != 'N/A']
+        if valid_genes:
+            puncta_list = [x for x in puncta_list if x['gene'] != 'N/A']
 
     elif option == 'improve':
         # Select only valid genes vs show all puncta
-        with open(args.project_path + '/puncta/new_puncta_with_gene_fov_{}.pickle'.format(fov), 'rb') as f:
+        with open(args.work_path + 'fov{}/improved_puncta_with_gene.pickle'.format(fov), 'rb') as f:
             puncta_list = pickle.load(f)
+        if valid_genes:
+            puncta_list = [x for x in puncta_list if x['gene'] != 'N/A']
+
 
     # ====================================
     # Plot puncta 
     position = [puncta['position'] for puncta in puncta_list]
     position = np.asarray(position)
     text = ['puncta {} barcode {} gene {}'.format(puncta['index'], puncta['barcode'], puncta['gene']) for puncta in puncta_list]
-
-    fig.add_trace(
-        go.Scatter3d(
-            x = position[:,0],
-            y = position[:,1],
-            z = position[:,2],
-            mode='markers',
-            marker=dict(
-                size=2, 
-                color='red',
-                opacity=0.3
-            ),
-            text = text,
-            hoverinfo = 'text'
+    if puncta_list:
+        fig.add_trace(
+            go.Scatter3d(
+                x = position[:,0],
+                y = position[:,1],
+                z = position[:,2],
+                mode='markers',
+                marker=dict(
+                    size=2, 
+                    color='red',
+                    opacity=0.3
+                ),
+                text = text,
+                hoverinfo = 'text'
+            )
         )
-    )
 
     # ====================================
     # show nuclei
@@ -294,13 +298,13 @@ def plot_nuclei_puncta(args, fov, modality = 'mesh', option = 'full' ):
 
         # Save the figure as an HTML file
         from plotly.offline import plot
-        plot(fig, filename='figures/plotly_nuclei_fov_{}_mesh_{}.html'.format(fov,option))
+        plot(fig, filename= os.path.join(args.work_path,'fov{}/plotly_nuclei_fov_{}_mesh_{}.html'.format(fov,fov,option)))
 
 
     # ====================================
     if modality == 'labels':
         
-        labels = retrieve_nuclei_per_fov(args,fov,replace = False)
+        labels = retrieve_nuclei_per_fov(args,fov,replace = True)
         # filename = args.project_path + 'nuclei/labels_fov_{}.pickle'.format(fov)
         # with open(filename,'rb') as f:
         #     labels = pickle.load(f)
@@ -350,5 +354,5 @@ def plot_nuclei_puncta(args, fov, modality = 'mesh', option = 'full' ):
         # Save the figure as an HTML file
         from plotly.offline import plot
         print('figures/plotly_nuclei_fov_{}_labels_{}.html'.format(fov,option))
-        plot(fig, filename='figures/plotly_nuclei_fov_{}_labels_{}.html'.format(fov,option))
+        plot(fig, filename=os.path.join(args.work_path,'fov{}/plotly_nuclei_fov_{}_labels_{}.html'.format(fov,fov,option)))
 

@@ -16,7 +16,7 @@ def consolidate_channels_function(args, fov, code):
 
     :param args.Args args: configuration options.
     :param int fov: field of view.
-    :param int code: code.
+    :param int code: the code of the volume chunk to be consildate.
     """
 
     from scipy.spatial.distance import cdist

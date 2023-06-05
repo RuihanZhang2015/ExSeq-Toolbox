@@ -9,15 +9,24 @@ from scipy.spatial.distance import cdist
 from exm.utils import retrieve_all_puncta,retrieve_one_puncta, retrieve_vol
 
 
-def find_nearest_puncta(args, position, fov, code, center_dist=15, distance_threshold=8):
-    r"""Reads in the locations of the puncta from a specified fov and code, then uses distance thresholding to consolidate (remove duplicate puncta) across channels.
-    :param args.Args args: configuration options.
-    :param int fov: field of view.
-    :param int code:
-    :param int center_dist:Determines the size of the ROI around the input position in the d1 and d2 directions. Default is 15.
+def find_nearest_puncta(args, position, fov, code, center_dist=15, distance_threshold=8,GPU= False):
+    r"""Reads in the locations of the puncta from a specified fov and code, then uses distance thresholding to consolidate (remove duplicate puncta) across channels. Can optionally utilize GPU acceleration.
+
+    :param args: Configuration options.
+    :param tuple position: (d0, d1, d2) coordinates of the position.
+    :param int fov: Field of view.
+    :param int code: the code of the volume chunk to be searched.
+    :param int center_dist: Determines the size of the ROI around the input position in the d1 and d2 directions. Default is 15.
     :param int distance_threshold: Maximum allowed Euclidean distance from the input position to a maximum point. Default is 8.
+    :param bool GPU: If True, GPU acceleration will be used. Default is False.
+
     :returns: A dictionary where the keys are channel names ('c0' to 'c3') and 'intensity', 'color', 'position'. Each channel key maps to another dictionary containing 'position', 'intensity', and 'distance' of the closest maximum point in this channel. 'intensity' key maps to a list of intensities for all channels. 'color' key maps to the channel with the maximum intensity. 'position' key maps to the position of the maximum point in the 'color' channel.If no maximum points were found in any channel, returns an empty dictionary.
     """
+    if GPU:
+        import cupy as cp
+        from cupyx.scipy.ndimage import gaussian_filter
+        from cucim.skimage.feature import peak_local_max 
+
     # Input positions
     d0, d1, d2 = position
     d0, d1, d2 = int(d0), int(d1), int(d2)
@@ -32,12 +41,17 @@ def find_nearest_puncta(args, position, fov, code, center_dist=15, distance_thre
 
         # Search for local maximum
         vol = retrieve_vol(args, fov, code, channel, ROI_min, ROI_max)
+        if GPU:
+            vol = cp.array(vol)
         blurred = gaussian_filter(vol, 1, mode='reflect', cval=0)
         coords = peak_local_max(blurred, min_distance=7,
                                 threshold_abs=110, exclude_border=False)
         if len(coords) == 0:
             continue
-        point_cloud2 = coords + ROI_min
+        if GPU:
+            point_cloud2 = coords.get() + ROI_min
+        else:
+            point_cloud2 = coords + ROI_min
 
         # Find the nearest point
         temp1 = np.copy(point_cloud1)
@@ -58,7 +72,7 @@ def find_nearest_puncta(args, position, fov, code, center_dist=15, distance_thre
         new_position = point_cloud2[index1]
         new_puncta['c{}'.format(channel)] = {
             'position': np.array([new_position[0], new_position[1], new_position[2]]),
-            'intensity': vol[new_position[0]-ROI_min[0], new_position[1]-ROI_min[1], new_position[2]-ROI_min[2]],
+            'intensity': float(vol[new_position[0]-ROI_min[0], new_position[1]-ROI_min[1], new_position[2]-ROI_min[2]]),
             'distance': distance[0, index1],
         }
 
