@@ -155,7 +155,23 @@ def align(args, code_fov_pairs=None, masking_params=None, mode="405"):
 
         # Move volume
         mov_vol = nd2ToVol(args.nd2_path.format(code, "405", 4), fov)
+        
+        fix_vol_sitk = sitk.GetImageFromArray(fix_vol)
+        fix_vol_sitk.SetSpacing(args.spacing)
 
+        mov_vol_sitk = sitk.GetImageFromArray(mov_vol)
+        mov_vol_sitk.SetSpacing(args.spacing)
+        # Initialize transform using Center of Gravity
+        initial_transform = sitk.CenteredTransformInitializer(
+            fix_vol_sitk, mov_vol_sitk, 
+            sitk.Euler3DTransform(), 
+            sitk.CenteredTransformInitializerFilter.GEOMETRY)
+
+        # Apply the transform to the moving image
+        mov_vol_sitk = sitk.Resample(
+            mov_vol_sitk, fix_vol_sitk, initial_transform, sitk.sitkLinear, 0.0, mov_vol_sitk.GetPixelID())
+        
+        
         # temp dicectory for the log files
         tmpdir_obj = tempfile.TemporaryDirectory()
 
@@ -164,13 +180,8 @@ def align(args, code_fov_pairs=None, masking_params=None, mode="405"):
         elastixImageFilter.SetLogToFile(False)
         elastixImageFilter.SetLogToConsole(False)
         elastixImageFilter.SetOutputDirectory(tmpdir_obj.name)
-
-        fix_vol_sitk = sitk.GetImageFromArray(fix_vol)
-        fix_vol_sitk.SetSpacing(args.spacing)
+        
         elastixImageFilter.SetFixedImage(fix_vol_sitk)
-
-        mov_vol_sitk = sitk.GetImageFromArray(mov_vol)
-        mov_vol_sitk.SetSpacing(args.spacing)
         elastixImageFilter.SetMovingImage(mov_vol_sitk)
 
         # Translation across x, y, and z only
