@@ -13,3 +13,6 @@ IPython
 matplotlib
 tqdm
 scipy
+cellpose
+npy2bdv
+glymur
