@@ -9,7 +9,7 @@ import pandas as pd
 pd.set_option("display.expand_frame_repr", False)
 from nd2reader import ND2Reader
 from exm.utils import chmod
-from exm.io import createFolderStruc
+from exm.io import createfolderstruc
 
 
 
@@ -26,21 +26,25 @@ class Args:
                 spacing = [1.625,1.625,4.0],
                 gene_digit_csv = 'gene_list.csv', #'/mp/nas3/ruihan/20230308_celegans/code0/gene_list.csv'
                 permission = False,
-                Create_directroy_Struc = False,
-                args_file_name = None,
-                ):
-        
-        r"""Sets parameters for running alignment code.
-        :param str project_path: path to project data.
-        :param list codes: a list of integers, where each integer represents a code.
-        :param list fovs: a list of integers, where each integer represents a field of view.
-        :param int ref_code: integer that specifies which code is the reference round.
-        :param list thresholds: list of integers, where each integer is a threshold for the code of the same index. Should be the same length as the codes parameter.
-        :param str align_z_init: path to ``.pkl`` file that has initial :math:`z`-alignment positions.
-        :param bool Create_directroy_Struc: If ``True``, Create the working folders stucture for the project path. Default: ``False``
-        :param bool permission: Give other users the permission to read and write on the generated files (linux and macOS only). Default: ``False``
-        :param str args_file_name: Pickle file name to store the project Args. Default: ``args.pkl``
+                create_directroy_Struc = False,
+                args_file_name = None):        
+        r"""
+        Sets parameters for running ExSeq ToolBox.
+
+        :param str project_path: The path to the project's data directory. Default: an empty string.
+        :param list codes: A list of integers, each representing a specific code. Default: integers 0-6.
+        :param list fovs: A list of integers, each representing a specific field of view. Default: ``None``.
+        :param int ref_code: Specifies which code to use as the reference round. Default: 0.
+        :param list thresholds: A list of integers specifying the threshold for each code. Should have the same length as 'codes'. Default: [200, 300, 300, 200].
+        :param list spacing: Spacing between pixels in [Z,Y,X]. Default: [1.625, 1.625, 4.0].
+        :param str gene_digit_csv: Name of the CSV file containing the gene list. Default: 'gene_list.csv'.
+        :param bool permission: If set to ``True``, gives other users permission to read and write on the generated files (for Linux and macOS only). Default: ``False``.
+        :param bool create_directory_struct: If set to ``True``, creates the directory structure in the specified project path. Default: ``False``.
+        :param str args_file_name: The name of the pickle file to store the project arguments. If ``None``, a file named 'args.pkl' will be created by default. Default: ``None``.
+
+        After parameters are set, this method performs initial setup including establishing necessary paths, creating directory structures if necessary, and saving the current state of the object to a pickle file.
         """
+
         self.project_path = project_path
         self.codes = codes
         self.thresholds = thresholds
@@ -82,8 +86,8 @@ class Args:
 
         self.gene_digit_csv = gene_digit_csv
 
-        if Create_directroy_Struc:
-            createFolderStruc(project_path, codes)
+        if create_directroy_Struc:
+            createfolderstruc(project_path, codes)
 
         if args_file_name == None:
             args_file_name = 'args.pkl'
@@ -125,7 +129,7 @@ class Args:
                 
 
     def progress(self):
-        """visualize_progress ``(self)``"""
+        r"""visualize_progress ``(self)``"""
         import seaborn as sns
         import numpy as np
         import h5py

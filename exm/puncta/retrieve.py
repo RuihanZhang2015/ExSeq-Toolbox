@@ -4,8 +4,6 @@ import numpy as np
 import pickle
 
 
-
-
 def retrieve_complete(self,fov):
     with open(self.args.work_path+'/fov{}/complete.pkl'.format(fov),'rb') as f:
         return pickle.load(f)

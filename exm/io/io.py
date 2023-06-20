@@ -197,7 +197,7 @@ def nd2ToSlice(filename: str, fov: int, z: int, channel_name: str = "405 SD"):
     return out
 
 
-def createFolderStruc(out_dir, codes):
+def createfolderstruc(out_dir, codes):
     r"""Creates a results folder for the specified code.
 
     :param str outdir: the directory where all results for the specified code should be stored.
