@@ -1007,18 +1007,23 @@ def inspect_across_rounds_plotly(
 
 # TODO fix labels, add legend and handle multi-missing codes. 
 def inspect_puncta_improvement_matplotlib(args, fov, puncta_index, option = 'final', center_dist=40, save = False,missing_code=0):
-    r"""Visualizes puncta improvement using Matplotlib. The function generates a detailed plot of the region 
+    r"""
+    Visualizes puncta improvement using Matplotlib. The function generates a detailed plot of the region 
     of interest (ROI) around a given puncta and shows changes in the puncta position over different 
     rounds of image acquisition. The function supports visualization of missing code if provided.
+
     :param args: Configuration options, including methods for retrieving puncta and images.
+    :type args: args.Args instance 
     :param int fov: The field of view (fov) to consider.
     :param int puncta_index: The index of the puncta to start the search from.
-    :param option: Option for puncta visualization, default is 'final'.
-    :param int center_dist: The distance to the center of the ROI, default:40.
-    :param bool save: Whether to save the generated plot or not. If set to False, the plot will be displayed, , default:False.
-    :param int missing_code: The missing code to consider in the visualization, default:0.
+    :param str option: Option for puncta visualization, should be either 'initial', 'intermediate', or 'final'. Default is 'final'.
+    :param int center_dist: The distance to the center of the ROI. Default is 40.
+    :param bool save: Whether to save the generated plot or not. If set to False, the plot will be displayed. Default is False.
+    :param int missing_code: The missing code to consider in the visualization. Default is 0.
+
     :return: None
     """
+
     from exm.puncta.improve import puncta_nearest_points
 
     # Get the FOV all puncta information 
