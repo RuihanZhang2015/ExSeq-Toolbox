@@ -7,8 +7,9 @@ import multiprocessing
 import numpy as np
 import queue
 from multiprocessing import current_process,Lock,Process,Queue
-
 from exm.utils import chmod
+from exm.utils import configure_logger
+logger = configure_logger('ExSeq-Toolbox')
 
 def calculate_coords_gpu(args, tasks_queue, device, lock, queue_lock):
     r"""Extracts puncta from volumes included in the task queue, then saves their locations to a .pkl file. GPU enabled.
@@ -35,13 +36,13 @@ def calculate_coords_gpu(args, tasks_queue, device, lock, queue_lock):
             try:
                 with queue_lock:
                     temp_args = tasks_queue.get_nowait()
-                    print('Remaining tasks to process : {}\n'.format(tasks_queue.qsize()))
+                    logger.info('Remaining tasks to process : {}'.format(tasks_queue.qsize()))
             except  queue.Empty:
-                print("No task left for {}\n".format(current_process().name))
+                logger.info("No task left for {}".format(current_process().name))
                 break
             else:
                 fov,code = temp_args
-                print('calculate_coords_gpu: code{}, fov{} on {}\n'.format(fov,code,current_process().name))   
+                logger.info('calculate_coords_gpu: code{}, fov{} on {}'.format(fov,code,current_process().name))   
 
                 coords_total = dict()
 
@@ -86,7 +87,7 @@ def calculate_coords_gpu(args, tasks_queue, device, lock, queue_lock):
   
                 if args.permission:
                     chmod(os.path.join(args.work_path,'fov{}/coords_total_code{}.pkl'.format(fov,code)))
-            print('------ Fov:{}, Code:{} Finished on {}\n'.format(fov,code, current_process().name))
+            logger.info('------ Fov:{}, Code:{} Finished on {}'.format(fov,code, current_process().name))
 
 
 def puncta_extraction_gpu(args, tasks_queue, num_gpu):    
@@ -102,7 +103,7 @@ def puncta_extraction_gpu(args, tasks_queue, num_gpu):
     # Queue locks to avoid race condition.
     q_lock = Lock()
 
-    print('Total tasks to process : {}\n'.format(tasks_queue.qsize()))
+    logger.info('Total tasks to process : {}'.format(tasks_queue.qsize()))
     # Excute the extraction tasks on GPU
     gpu_locks=[]
     for gpu in range(num_gpu):
@@ -140,15 +141,15 @@ def calculate_coords_cpu(args, tasks_queue, queue_lock):
         try:
             with queue_lock:
                 temp_args = tasks_queue.get_nowait()
-                print('Remaining tasks to process : {}\n'.format(tasks_queue.qsize()))
+                logger.info('Remaining tasks to process : {}'.format(tasks_queue.qsize()))
         except queue.Empty:
-            print("No task left for {}\n".format(current_process().name))
+            logger.info("No task left for {}".format(current_process().name))
             break
 
         else:
 
             fov,code = temp_args
-            print('calculate_coords_cpu: code{}, fov{} on {}\n'.format(fov,code,current_process().name)) 
+            logger.info('calculate_coords_cpu: code{}, fov{} on {}'.format(fov,code,current_process().name)) 
 
             #TODO why we using collections for dict here            
             coords_total = collections.defaultdict(list)
@@ -187,7 +188,7 @@ def calculate_coords_cpu(args, tasks_queue, queue_lock):
             if args.permission:
                 chmod(os.path.join(args.work_path,'fov{}/coords_total_code{}.pkl'.format(fov,code)))
 
-        print('Extract Puncta: Fov{}, Code{} Finished on {}\n'.format(fov,code,current_process().name))
+        logger.info('Extract Puncta: Fov{}, Code{} Finished on {}'.format(fov,code,current_process().name))
 
 
 def puncta_extraction_cpu(args, tasks_queue, num_cpu):
@@ -204,7 +205,7 @@ def puncta_extraction_cpu(args, tasks_queue, num_cpu):
     # Queue locks to avoid race condition.
     q_lock = Lock()
 
-    print('Total tasks to process : {}\n'.format(tasks_queue.qsize()))
+    logger.info('Total tasks to process : {}'.format(tasks_queue.qsize()))
     # Execute the extraction tasks on the CPU only.
     # Create and start a parallel execution processes based on the number of 'num_cpu'. 
     for w in range(int(num_cpu)):
