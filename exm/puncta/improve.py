@@ -7,6 +7,8 @@ from scipy.ndimage import gaussian_filter
 from skimage.feature import peak_local_max
 from scipy.spatial.distance import cdist
 from exm.utils import retrieve_all_puncta,retrieve_one_puncta, retrieve_vol
+from exm.utils import configure_logger
+logger = configure_logger('ExSeq-Toolbox')
 
 
 def find_nearest_puncta(args, position, fov, code, center_dist=15, distance_threshold=8,GPU= False):
@@ -212,7 +214,7 @@ def find_nearest_points(point_cloud1,point_cloud2,distance_threshold=14):
 
     # Filter closest puncta pairs based on a set threshold
     pairs = [{'point0':i,'point1':index1[i]} for i in range(len(index1)) if distance[i,index1[i]] < distance_threshold]
-    print('distance',distance[0,index1[0]])
+
     return pairs
 
 # TODO Merge with puncta_all_nearest_points remove mute
@@ -255,15 +257,14 @@ def puncta_nearest_points(args,fov,puncta_index,search_code, mute = True):
 
     ref_code = find_ref_code()
 
-    if not mute:
-        print('------------------------')
-        print('The oiginal point in code 0:')
-        pprint.pprint(puncta['code{}'.format(ref_code)])
+    if verbose:
+        logger.info('------------------------')
+        logger.info('The oiginal point in code 0:')
+        logger.info(pprint.pformat(puncta['code{}'.format(ref_code)]))
+        logger.info('------------------------')
+
     point_cloud1 = np.asarray([puncta['position']])
-
-
-    if not mute:
-        print('------------------------')
+      
     with open(args.work_path + '/fov{}/result_code{}.pkl'.format(fov,search_code), 'rb') as f:
         new = pickle.load(f)
 
@@ -271,18 +272,18 @@ def puncta_nearest_points(args,fov,puncta_index,search_code, mute = True):
 
     pairs = find_nearest_points(point_cloud1,point_cloud2,distance_threshold=20)
     if len(pairs) == 0:
-        if not mute:
-            print('no nearest point')
+        if verbose:
+            logger.info('no nearest point')
         return ref_code, None, None
     
-    if not mute:
-        print('the closest point to fov{}, puncta {} in code{} is:{}'.format(fov,puncta_index,search_code,pairs[0]['point1']))
-        pprint.pprint(new[pairs[0]['point1']])
+    if verbose:
+        logger.info('the closest point to fov{}, puncta {} in code{} is:{}'.format(fov,puncta_index,search_code,pairs[0]['point1']))
+        logger.info(pprint.pformat(new[pairs[0]['point1']]))
+        logger.info('------------------------')
     new[pairs[0]['point1']]['code'] = search_code
     new_position = new[pairs[0]['point1']]
 
-    if not mute:
-        print('------------------------')
+        
     point_cloud1 = np.asarray([new[pairs[0]['point1']]['position']])
     with open(args.work_path + '/fov{}/result_code{}.pkl'.format(fov,ref_code), 'rb') as f:
         new = pickle.load(f)
@@ -290,12 +291,12 @@ def puncta_nearest_points(args,fov,puncta_index,search_code, mute = True):
 
     pairs = find_nearest_points(point_cloud1,point_cloud2)
     if len(pairs) == 0:
-        if not mute:
-            print('no nearest point')
+        if verbose:
+            logger.info('no nearest point')
         return ref_code, new_position, None
-    if not mute:
-        print('the closest point of the new point in code{} is:{}'.format(ref_code, pairs[0]['point1']))
-        pprint.pprint(new[pairs[0]['point1']])
+    if verbose:
+        logger.info('the closest point of the new point in code{} is:{}'.format(ref_code, pairs[0]['point1']))
+        logger.info(pprint.pformat(new[pairs[0]['point1']]))
     closest_position = new[pairs[0]['point1']]
     new[pairs[0]['point1']]['code'] = ref_code
     return ref_code, new_position, closest_position

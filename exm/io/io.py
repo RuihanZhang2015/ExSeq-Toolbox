@@ -15,6 +15,9 @@ from PIL import Image
 import skimage.measure
 from IPython.display import Image as Img2
 
+from exm.utils import configure_logger
+logger = configure_logger('ExSeq-Toolbox')
+
 
 # TODO document the expected Xlsx structure
 def readXlsx(xlsx_file):
@@ -54,7 +57,7 @@ def readXlsx(xlsx_file):
     if (ii == 0).sum() != 1:
         loop_ind = np.hstack([np.where(ii == 0)[0], len(ii)])
         loop_len = loop_ind[1:] - loop_ind[:-1]
-        print("exist %d multipoint loops with length" % len(loop_len), loop_len)
+        logger.info("exist %d multipoint loops with length" % len(loop_len), loop_len)
         mid = np.argmax(loop_len)
         out = out[loop_ind[mid] : loop_ind[mid + 1]]
         # take the longest one
@@ -129,7 +132,7 @@ def nd2ToVol(filename: str, fov: int, channel_name: str = "405 SD", ratio=1):
 
     vol = ND2Reader(filename)
     channel_names = vol.metadata["channels"]
-    # print('Available channels:', channel_names)
+
     channel_id = [
         x for x in range(len(channel_names)) if channel_name in channel_names[x]
     ]
@@ -162,7 +165,6 @@ def nd2ToChunk(
 
     vol = ND2Reader(filename)
     channel_names = vol.metadata["channels"]
-    # print('Available channels:', channel_names)
     channel_id = [
         x for x in range(len(channel_names)) if channel_name in channel_names[x]
     ]

@@ -14,6 +14,9 @@ from exm.puncta.improve import puncta_all_nearest_points
 import plotly.graph_objects as go
 import plotly.express as px
 
+from exm.utils import configure_logger
+logger = configure_logger('ExSeq-Toolbox')
+
 
 def in_region(coord, ROI_min, ROI_max):
     r"""Given a coordinate location and lower and upper bounds for a volume chunk (region), returns whether or not the coordinate is inside the chunk.
@@ -494,7 +497,6 @@ def inspect_puncta_individual_plotly(args, fov, puncta, center_dist=40, spacer=4
 
     # Information about the puncta
     reference = retrieve_all_puncta(args,fov)
-    # pprint.pprint(puncta)
 
     # Definition of ROI
     d0, d1, d2 = puncta['position']
@@ -579,7 +581,6 @@ def inspect_puncta_individual_plotly(args, fov, puncta, center_dist=40, spacer=4
                 )
     
     nearest_puncta_list = puncta_all_nearest_points(args, puncta)
-    # pprint.pprint(nearest_puncta_list)
 
 
     for code in range(7):
@@ -653,14 +654,14 @@ def inspect_between_rounds_plotly(
     """
 
     if ROI_max[0] - ROI_min[0] > 20:
-        print("ROI_max[0]-ROI_min[0]should be smaller than 20")
+        logger.warning("ROI_max[0]-ROI_min[0]should be smaller than 20")
         return
 
     code1, code2 = "code{}".format(code1), "code{}".format(code2)
 
     reference = retrieve_all_puncta(args, fov)
     reference = [x for x in reference if in_region(x["position"], ROI_min, ROI_max)]
-    print("Only {} puncta remained".format(len(reference)))
+    logger.info("Only {} puncta remained".format(len(reference)))
 
     fig = go.Figure()
 
@@ -1030,16 +1031,16 @@ def inspect_puncta_improvement_matplotlib(args, fov, puncta_index, option = 'fin
 
     # Get individual puncta information based on puncta_indexn
     puncta = retrieve_one_puncta(args,fov, puncta_index)
-    print('fov',fov,'index',puncta_index)
+    logger.info('fov',fov,'index',puncta_index)
 
     # Get postion of the puncta
     d0, d1, d2 = puncta['position']
-    print('puncta position',d0,d1,d2)
+    logger.info('puncta position',d0,d1,d2)
 
     # Define the Region of Interest (ROI) based on the puncta position
     ROI_min = [max(0,d0 - 10),max(0,d1 - center_dist), max(d2 - center_dist,0)]
     ROI_max = [d0 + 10,d1 + center_dist, d2 + center_dist]    
-    print('ROI_min,ROI_max = {},{}'.format(ROI_min,ROI_max))
+    logger.info('ROI_min,ROI_max = {},{}'.format(ROI_min,ROI_max))
 
     # Define the z-stack step size
     delta_z = (ROI_max[0] - ROI_min[0])/10
@@ -1053,9 +1054,9 @@ def inspect_puncta_improvement_matplotlib(args, fov, puncta_index, option = 'fin
         missed_code = np.where(arr == '_')[0]
         ref_code, new_position, closest_position = puncta_nearest_points(args,puncta['fov'],puncta['index'],missed_code[0])  
         if new_position:
-            print('new_position', new_position)
+            logger.info('new_position', new_position)
         if closest_position:
-            print('closest_position', closest_position)
+            logger.info('closest_position', closest_position)
 
     fontsize = 40
 

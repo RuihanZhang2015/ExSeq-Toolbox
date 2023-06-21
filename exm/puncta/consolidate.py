@@ -7,8 +7,9 @@ import queue
 import numpy as np
 import multiprocessing
 from multiprocessing import current_process, Lock, Process, Queue
-
 from exm.utils import chmod
+from exm.utils import configure_logger
+logger = configure_logger('ExSeq-Toolbox')
 
 
 def consolidate_channels_function(args, fov, code):
@@ -45,7 +46,7 @@ def consolidate_channels_function(args, fov, code):
 
         return pairs
 
-    print("Consolidate channels: code{}, fov{}".format(fov, code))
+    logger.info("Consolidate channels: code{}, fov{}".format(fov, code))
 
     # Open the coord total .pkl for the particular code and FOV
     with open(
@@ -128,15 +129,15 @@ def consolidate_channels(args, code_fov_pairs, num_cpu=None):
             try:
                 with q_lock:
                     fov, code = tasks_queue.get_nowait()
-                    print(
-                        "Remaining tasks to process : {}\n".format(tasks_queue.qsize())
+                    logger.info(
+                        "Remaining tasks to process : {}".format(tasks_queue.qsize())
                     )
             except queue.Empty:
                 break
             else:
                 consolidate_channels_function(args, fov, code)
-                print(
-                    "Consolidate Channels: Fov{}, Code{} Finished\n".format(fov, code)
+                logger.info(
+                    "Consolidate Channels: Fov{}, Code{} Finished".format(fov, code)
                 )
 
     # Use a quarter of the available CPU resources to finish the tasks; you can increase this if the server is accessible for this task only.
@@ -274,14 +275,14 @@ def consolidate_codes(args, fov_list, num_cpu=None):
             try:
                 with q_lock:
                     fov = tasks_queue.get_nowait()
-                    print(
-                        "Remaining tasks to process : {}\n".format(tasks_queue.qsize())
+                    logger.info(
+                        "Remaining tasks to process : {}".format(tasks_queue.qsize())
                     )
             except queue.Empty:
                 break
             else:
                 consolidate_codes_function(args, fov)
-                print("Consolidate Codes: fov{} Finished".format(fov))
+                logger.info("Consolidate Codes: fov{} Finished".format(fov))
 
     # Use a quarter of the available CPU resources to finish the tasks; you can increase this if the server is accessible for this task only.
     if num_cpu == None:

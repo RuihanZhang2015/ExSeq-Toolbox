@@ -19,8 +19,6 @@ def retrieve_coordinate(self):
         coordinate = [[float(x) for x in line] for line in contents ]
         coordinate = np.asarray(coordinate)
 
-        # print('oooold',coordinate[:10])
-
         coordinate[:,0] = max(coordinate[:,0]) - coordinate[:,0]
         coordinate[:,1] -= min(coordinate[:,1])
         coordinate = np.round(np.asarray(coordinate/0.1625/(0.90*2048))).astype(int)

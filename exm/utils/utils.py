@@ -7,6 +7,9 @@ import numpy as np
 from IPython.display import display
 from PIL import Image
 
+from exm.utils import configure_logger
+logger = configure_logger('ExSeq-Toolbox')
+
 
 def chmod(path):
     r"""Sets permissions so that users and the owner can read, write and execute files at the given path.
@@ -203,18 +206,18 @@ def generate_debug_candidate(args, gene = None, fov = None, num_missing_code = 1
     puncta_lists = retrieve_gene(args, gene)
 
     if fov:
-        print('Studying gene {} in fov '.format(gene),fov)
+        logger.info('Studying gene {} in fov '.format(gene),fov)
         puncta_lists = [puncta for puncta in puncta_lists if puncta['fov'] == fov]
     else:
-        print('Studying gene {} in all fovs'.format(gene))
-    print('Total barcode that matches gene {} '.format(gene),len(puncta_lists))
+        logger.info('Studying gene {} in all fovs'.format(gene))
+    logger.info('Total barcode that matches gene {} '.format(gene),len(puncta_lists))
 
     puncta_lists = [puncta for puncta in puncta_lists if puncta['barcode'].count('_') == num_missing_code]
     if len(puncta_lists) == 0:
-        print('Total barcode with {} missing codes: {}'.format(num_missing_code,0))
+        logger.info('Total barcode with {} missing codes: {}'.format(num_missing_code,0))
         return generate_debug_candidate(args, gene = None, fov = None, num_missing_code = 1)
     else:
-        print('Total barcode with {} missing codes: {}'.format(num_missing_code,len(puncta_lists)))
+        logger.info('Total barcode with {} missing codes: {}'.format(num_missing_code,len(puncta_lists)))
 
     random_index = random.randint(0, len(puncta_lists)-1)
     return puncta_lists[random_index]
