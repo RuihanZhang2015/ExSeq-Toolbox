@@ -4,8 +4,6 @@ import numpy as np
 import pickle
 
 
-
-
 def retrieve_complete(self,fov):
     with open(self.args.work_path+'/fov{}/complete.pkl'.format(fov),'rb') as f:
         return pickle.load(f)
@@ -20,8 +18,6 @@ def retrieve_coordinate(self):
 
         coordinate = [[float(x) for x in line] for line in contents ]
         coordinate = np.asarray(coordinate)
-
-        # print('oooold',coordinate[:10])
 
         coordinate[:,0] = max(coordinate[:,0]) - coordinate[:,0]
         coordinate[:,1] -= min(coordinate[:,1])

@@ -23,6 +23,9 @@ from scipy.signal import find_peaks
 from exm.io.io import nd2ToVol, nd2ToSlice, nd2ToChunk
 from exm.utils import chmod
 
+from exm.utils import configure_logger
+logger = configure_logger('ExSeq-Toolbox')
+
 
 def transform_ref_code(args, code_fov_pairs=None, mode="all"):
     r"""For each volume specified in code_fov_pairs, convert from an nd2 file to an array, then save into an .h5 file.
@@ -36,7 +39,7 @@ def transform_ref_code(args, code_fov_pairs=None, mode="all"):
         code_fov_pairs = [[args.ref_code, fov] for fov in args.fovs]
 
     for code, fov in code_fov_pairs:
-        print("transform_ref_code: code = {}, fov={}".format(code, fov))
+        logger.info("transform_ref_code: code = {}, fov={}".format(code, fov))
         with h5py.File(args.h5_path.format(code, fov), "a") as f:
             for channel_name_ind, channel_name in enumerate(args.channel_names):
                 if mode == "405" and "405" not in channel_name:
@@ -98,8 +101,6 @@ def mask(img, padding=250, chunks=1, pos=None):
         masks = [mask['segmentation']
                  for mask in masks if mask['area'] < max_ and mask['area'] > min_]
 
-        print(start+beginning_chunk_slice, start+end_chunk_slice)
-        print(len(masks))
         if len(masks) > 1:
 
             # Concatenate the masks into one image
@@ -144,7 +145,7 @@ def align(args, code_fov_pairs=None, masking_params=None, mode="405"):
 
     for code, fov in code_fov_pairs:
 
-        print(f"align: code{code},fov{fov}")
+        logger.info(f"align: code{code},fov{fov}")
 
         if not os.path.exists(os.path.join(args.processed_path, "code{}".format(code))):
             os.makedirs(os.path.join(
@@ -282,7 +283,6 @@ def align(args, code_fov_pairs=None, masking_params=None, mode="405"):
         if mode == "all":
             for channel_ind, channel in enumerate(args.channel_names):
 
-                print(channel)
                 mov_vol = nd2ToVol(
                     args.nd2_path.format(
                         code, channel, channel_ind), fov, channel
@@ -377,9 +377,9 @@ def transform_other_function(args, tasks_queue=None, q_lock=None, mode="all"):
         try:
             with q_lock:
                 fov, code = tasks_queue.get_nowait()
-                print("Remaining tasks to process : {}".format(tasks_queue.qsize()))
+                logger.info("Remaining tasks to process : {}".format(tasks_queue.qsize()))
         except queue.Empty:
-            print("No task left for " + multiprocessing.current_process().name)
+            logger.info("No task left for " + multiprocessing.current_process().name)
             break
         else:
 

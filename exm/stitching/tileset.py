@@ -12,6 +12,9 @@ from scipy import ndimage
 
 import exm.stitching.stitching as stitching
 
+from exm.utils import configure_logger
+logger = configure_logger('ExSeq-Toolbox') 
+
 """# TODO: Write examples:
     - Load from ND2
     - Pre-stitch into H5BDV
@@ -71,7 +74,7 @@ class Tileset:
         offsets = offsets - np.min(offsets, axis=0)
 
         for i, off in enumerate(offsets):
-            print(f"{i + 1}/{len(offsets)} {' ' * 50}", end="\r")
+            logger.info(f"{i + 1}/{len(offsets)} {' ' * 50}", end="\r")
             t = Tile(i)
             t.offset = off
             t.from_jp2(files_list[i], downscale=downscale)
@@ -145,7 +148,7 @@ class Tileset:
         self.tiles = list()
         for i, k in enumerate(natsorted(keys)):
             if progress:
-                print(f"Tile #{i}")
+                logger.info(f"Tile #{i}")
             t = Tile(i)
             t.img = file[k].astype(np.uint16)[
                 :: downscale[2], :: downscale[1], :: downscale[0]
@@ -163,7 +166,7 @@ class Tileset:
         self.tiles = list()
         for i, fn in enumerate(filelist):
             if progress:
-                print(f"Tile #{i}")
+                logger.info(f"Tile #{i}")
             t = Tile(i)
             orig = tifffile.imread(fn)
             t.img = orig.astype(np.uint16)[
@@ -240,13 +243,13 @@ class Tileset:
         # Returns a list of centroids as an array of XYZ coordinates. It can take a while. As this function internally
         # calls `produce_output_volume()` it is recommended to scale down the tiles first
 
-        print("Produce output volume")
+        logger.info("Produce output volume")
         vol = self.produce_output_volume()
         # Find centers, removing ID #0, which would be the centroind for the black pixels
-        print("produce bincount")
+        logger.info("produce bincount")
         a = np.bincount(vol.flatten())
 
-        print("calculate centroids")
+        logger.info("calculate centroids")
         centers = ndimage.measurements.center_of_mass(vol, vol, np.nonzero(a))
         centers = np.array(centers)[:, 0, :]
         return centers[1:, [2, 1, 0]]
@@ -322,7 +325,7 @@ class Tileset:
         #
         # TODO: implement the "safe" method
         for i, t in enumerate(self.tiles):
-            print(
+            logger.info(
                 f"                   Loading tile {i+1}/{len(self.tiles)} {' '*50}",
                 end="\r",
             )
@@ -337,7 +340,7 @@ class Tileset:
         percentiles = list()
         for i, t in enumerate(ts):
             if progress:
-                print(f"{i + 1}/{len(ts)} {' ' * 50}", end="\r")
+                logger.info(f"{i + 1}/{len(ts)} {' ' * 50}", end="\r")
             percentiles.append(t.find_intensity_scale())
         return np.mean(percentiles, axis=0)
 
@@ -513,7 +516,7 @@ class Tileset:
         for i in range(len(self.tiles)):
             luts[i][0] = 0
         for i, tile in enumerate(self.tiles):
-            print(i)
+            logger.info(i)
             self.tiles[i].img = luts[i][tile.img]
         return luts, new_ids
 
@@ -612,7 +615,7 @@ class Tile:
             dtype=np.uint16,
         )
         for z in range(0, nd2.sizes["z"], downscale[0]):
-            print(f"Z = {z+1}/{nd2.sizes['z']}    ", end="\r")
+            logger.info(f"Z = {z+1}/{nd2.sizes['z']}    ", end="\r")
             image_group_number = nd2._parser._calculate_image_group_number(
                 0, self.fovnum, z
             )
