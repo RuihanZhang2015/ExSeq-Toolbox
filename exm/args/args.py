@@ -9,7 +9,7 @@ import pandas as pd
 pd.set_option("display.expand_frame_repr", False)
 from nd2reader import ND2Reader
 from exm.utils import chmod
-from exm.io import createFolderStruc
+from exm.io import createfolderstruc
 from exm.utils import configure_logger
 logger = configure_logger('ExSeq-Toolbox')
 
@@ -27,7 +27,7 @@ class Args:
                 spacing = [1.625,1.625,4.0],
                 gene_digit_csv = 'gene_list.csv', #'/mp/nas3/ruihan/20230308_celegans/code0/gene_list.csv'
                 permission = False,
-                Create_directroy_Struc = False,
+                create_directroy_struc = False,
                 args_file_name = None,
                 ):
         
@@ -41,7 +41,7 @@ class Args:
         :param list spacing: Spacing between pixels in [Z,Y,X]. Default: [1.625, 1.625, 4.0].
         :param str gene_digit_csv: Name of the CSV file containing gene list. Default: 'gene_list.csv'.
         :param bool permission: If set to ``True``, gives other users the permission to read and write on the generated files (for Linux and macOS only). Default: ``False``.
-        :param bool Create_directroy_Struc: If set to ``True``, creates the directory structure in the specified project path. Default: ``False``.
+        :param bool Create_directroy_struc: If set to ``True``, creates the directory structure in the specified project path. Default: ``False``.
         :param str args_file_name: The name of the pickle file to store the project arguments. If ``None``, a file named 'args.pkl' will be created by default. Default: ``None``.
 
         After parameters are set, this method does some initial setup including establishing necessary paths, creating directory structures if necessary, and saving the current state of the object to a pickle file.
@@ -88,7 +88,7 @@ class Args:
 
         self.gene_digit_csv = gene_digit_csv
 
-        if create_directroy_Struc:
+        if create_directroy_struc:
             createfolderstruc(project_path, codes)
 
         if args_file_name == None:
@@ -169,6 +169,6 @@ class Args:
         fig, ax = plt.subplots(figsize=(7, 20))
         ax = sns.heatmap(result, annot=annot, fmt="", vmin=0, vmax=4)
         plt.show()
-        print(
+        logger.info(
             "1: 405 done, 2: all channels done, 3:puncta extracted 4:channel consolidated"
         )

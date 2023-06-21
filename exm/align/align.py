@@ -368,16 +368,21 @@ def offset(std_dev: list, height: int, distance: int, debug_mode: bool):
     return start_idx, last_idx
 
 
-'''
-# TODO limit itk multithreading
-# TODO add basic alignment approach
-def transform_other_function(args, tasks_queue=None, q_lock=None, mode="all"):
-    r"""Takes the transform found from the reference round and applies it to the other channels.
-    Args:
-        args (args.Args): configuration options. 
-        tasks_queue (list): a list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
-        q_lock (multiporcessing.Lock): a multiporcessing.Lock instance to avoid race condition when processes accessing the task_queue. Default: ``None``
-        mode (str): channels to run, should be one of 'all' (all channels), '405' (just the reference channel) or '4' (all channels other than reference). Default: ``'all'``
+
+def align_accelerated_function(args,tasks_queue,q_lock, masking_params=None, mode="all"):
+    r"""
+    For each volume in code_fov_pairs, finds the corresponding reference volume and performs alignment.
+
+    :param args: Configuration options.
+    :type args: Args
+    :param tasks_queue: A multiprocessing queue containing tasks.
+    :type tasks_queue: multiprocessing.Queue
+    :param q_lock: A lock for synchronizing tasks queue access.
+    :type q_lock: multiprocessing.Lock
+    :param masking_params: List of params to use for masking. If None, does not mask.
+    :type masking_params: list, optional
+    :param mode: Whether to align just the anchoring channel ("405") or all channels ("all").
+    :type mode: str, optional
     """
 
     import SimpleITK as sitk
@@ -393,84 +398,186 @@ def transform_other_function(args, tasks_queue=None, q_lock=None, mode="all"):
             break
         else:
 
-            for channel_name_ind, channel_name in enumerate(args.channel_names):
+            sitk.ProcessObject_SetGlobalWarningDisplay(False)
 
+            logger.info(f"align: code{code},fov{fov}")
+
+            if not os.path.exists(os.path.join(args.processed_path, "code{}".format(code))):
+                os.makedirs(os.path.join(
+                    args.processed_path, "code{}".format(code)))
+
+            # Fixed volume
+            fix_vol = nd2ToVol(args.nd2_path.format(args.ref_code, "405", 4), fov)
+
+            # Move volume
+            mov_vol = nd2ToVol(args.nd2_path.format(code, "405", 4), fov)
+            
+            fix_vol_sitk = sitk.GetImageFromArray(fix_vol)
+            fix_vol_sitk.SetSpacing(args.spacing)
+
+            mov_vol_sitk = sitk.GetImageFromArray(mov_vol)
+            mov_vol_sitk.SetSpacing(args.spacing)
+            # Initialize transform using Center of Gravity
+            initial_transform = sitk.CenteredTransformInitializer(
+                fix_vol_sitk, mov_vol_sitk, 
+                sitk.Euler3DTransform(), 
+                sitk.CenteredTransformInitializerFilter.GEOMETRY)
+
+            # Apply the transform to the moving image
+            mov_vol_sitk = sitk.Resample(
+                mov_vol_sitk, fix_vol_sitk, initial_transform, sitk.sitkLinear, 0.0, mov_vol_sitk.GetPixelID())
+            
+            
+            # temp dicectory for the log files
+            tmpdir_obj = tempfile.TemporaryDirectory()
+
+            # Align
+            elastixImageFilter = sitk.ElastixImageFilter()
+            elastixImageFilter.SetLogToFile(False)
+            elastixImageFilter.SetLogToConsole(False)
+            elastixImageFilter.SetOutputDirectory(tmpdir_obj.name)
+            
+            elastixImageFilter.SetFixedImage(fix_vol_sitk)
+            elastixImageFilter.SetMovingImage(mov_vol_sitk)
+
+            # Translation across x, y, and z only
+            parameter_map = sitk.GetDefaultParameterMap("translation")
+            parameter_map["NumberOfSamplesForExactGradient"] = [
+                "1000"]  # NumberOfSamplesForExactGradient
+            parameter_map["MaximumNumberOfIterations"] = [
+                "25000"
+            ]  # MaximumNumberOfIterations
+            parameter_map["MaximumNumberOfSamplingAttempts"] = [
+                "2000"
+            ]  # MaximumNumberOfSamplingAttempts
+            parameter_map["FinalBSplineInterpolationOrder"] = [
+                "1"
+            ]  # FinalBSplineInterpolationOrder
+            parameter_map["FixedImagePyramid"] = ["FixedRecursiveImagePyramid"]
+            parameter_map["MovingImagePyramid"] = ["MovingRecursiveImagePyramid"]
+            parameter_map["NumberOfResolutions"] = ["5"]
+            parameter_map["FixedImagePyramidSchedule"] = [
+                "10 10 10 8 8 8 4 4 4 2 2 2 1 1 1"
+            ]
+            elastixImageFilter.SetParameterMap(parameter_map)
+
+            # Translation + rotation
+            parameter_map = sitk.GetDefaultParameterMap("rigid")
+            parameter_map["NumberOfSamplesForExactGradient"] = [
+                "1000"
+            ]  # NumberOfSamplesForExactGradient
+            parameter_map["MaximumNumberOfIterations"] = [
+                "25000"
+            ]  # MaximumNumberOfIterations
+            parameter_map["MaximumNumberOfSamplingAttempts"] = [
+                "2000"
+            ]  # MaximumNumberOfSamplingAttempts
+            parameter_map["FinalBSplineInterpolationOrder"] = [
+                "1"
+            ]  # FinalBSplineInterpolationOrder
+            parameter_map["FixedImagePyramid"] = ["FixedShrinkingImagePyramid"]
+            parameter_map["MovingImagePyramid"] = ["MovingShrinkingImagePyramid"]
+            parameter_map["NumberOfResolutions"] = ["1"]
+            parameter_map["FixedImagePyramidSchedule"] = ["1 1 1"]
+            parameter_map["MovingImagePyramidSchedule"] = ["1 1 1"]
+            elastixImageFilter.AddParameterMap(parameter_map)
+
+            # Translation, rotation, scaling and shearing
+            parameter_map = sitk.GetDefaultParameterMap("affine")
+            parameter_map["NumberOfSamplesForExactGradient"] = [
+                "1000"
+            ]  # NumberOfSamplesForExactGradient
+            parameter_map["MaximumNumberOfIterations"] = [
+                "25000"
+            ]  # MaximumNumberOfIterations
+            parameter_map["MaximumNumberOfSamplingAttempts"] = [
+                "2000"
+            ]  # MaximumNumberOfSamplingAttempts
+            parameter_map["FinalBSplineInterpolationOrder"] = [
+                "1"
+            ]  # FinalBSplineInterpolationOrder
+            parameter_map["FixedImagePyramid"] = ["FixedShrinkingImagePyramid"]
+            parameter_map["MovingImagePyramid"] = ["MovingShrinkingImagePyramid"]
+            parameter_map["NumberOfResolutions"] = ["1"]
+            parameter_map["FixedImagePyramidSchedule"] = ["1 1 1"]
+            parameter_map["MovingImagePyramidSchedule"] = ["1 1 1"]
+            elastixImageFilter.AddParameterMap(parameter_map)
+
+            if masking_params:
+
+                padding, chunks, pos = masking_params[0]
+
+                fix_mask = mask(fix_vol, padding, chunks, pos)
+                fix_mask = sitk.GetImageFromArray(fix_mask.astype("uint8"))
+                fix_mask.CopyInformation(fix_vol_sitk)
+                elastixImageFilter.SetFixedMask(fix_mask)
+
+                padding, chunks, pos = masking_params[1]
+
+                move_mask = mask(mov_vol, padding, chunks, pos)
+                move_mask = sitk.GetImageFromArray(move_mask.astype("uint8"))
+                move_mask.CopyInformation(mov_vol_sitk)
+                elastixImageFilter.SetMovingMask(move_mask)
+
+            elastixImageFilter.Execute()
+
+            transform_map = elastixImageFilter.GetTransformParameterMap()
+
+            if mode == "405":
+                out = sitk.GetArrayFromImage(
+                    transformixImageFilter.GetResultImage())
                 with h5py.File(args.h5_path.format(code, fov), "a") as f:
+                    if channel in ["405"]:
+                        del f[channel]
+                    f.create_dataset(channel, out.shape, dtype=out.dtype, data=out)
 
-                    if mode == "405":
-                        if channel_name != "405":
-                            continue
-                    elif mode == "four":
-                        if channel_name == "405":
-                            continue
-                    if channel_name in f.keys():
-                        continue
+            if mode == "all":
+                for channel_ind, channel in enumerate(args.channel_names):
 
-                # Load the moving volume
-                mov_vol = nd2ToVol(
-                    args.nd2_path.format(code, channel_name, channel_name_ind),
-                    fov,
-                    channel_name,
-                )
-                mov_vol_sitk = sitk.GetImageFromArray(mov_vol)
-                mov_vol_sitk.SetSpacing(args.spacing)
-
-                # Read the transform map
-                transform_map = sitk.ReadParameterFile(
-                    args.tform_path.format(code, fov)
-                )
-
-                if "code{},fov{}".format(code, fov) in args.align_z_init:
-
-                    fix_start, mov_start, last = args.align_init[
-                        "code{},fov{}".format(code, fov)
-                    ]
-                    # Change the size
-                    transform_map["Size"] = tuple([str(x) for x in mov_vol.shape[::-1]])
-
-                    # Shift the start
-                    trans_um = np.array(
-                        [float(x) for x in transform_map["TransformParameters"]]
+                    mov_vol = nd2ToVol(
+                        args.nd2_path.format(
+                            code, channel, channel_ind), fov, channel
                     )
-                    trans_um[-1] -= (fix_start - mov_start) * 4
-                    transform_map["TransformParameters"] = tuple(
-                        [str(x) for x in trans_um]
-                    )
+                    mov_vol_sitk = sitk.GetImageFromArray(mov_vol)
+                    mov_vol_sitk.SetSpacing(args.spacing)
 
-                    # Center of rotation
-                    cen_um = np.array(
-                        [float(x) for x in transform_map["CenterOfRotationPoint"]]
+                    transformixImageFilter = sitk.TransformixImageFilter()
+                    transformixImageFilter.SetMovingImage(mov_vol_sitk)
+                    transformixImageFilter.SetTransformParameterMap(
+                        elastixImageFilter.GetTransformParameterMap()
                     )
-                    cen_um[-1] += mov_start * 4
-                    transform_map["CenterOfRotationPoint"] = tuple(
-                        [str(x) for x in cen_um]
-                    )
+                    transformixImageFilter.LogToConsoleOn()
+                    transformixImageFilter.Execute()
 
-                # Apply the transform
-                transformix = sitk.TransformixImageFilter()
-                transformix.SetTransformParameterMap(transform_map)
-                transformix.SetMovingImage(mov_vol_sitk)
-                transformix.SetLogToFile(False)
-                transformix.SetLogToConsole(False)
-                transformix.Execute()
-                out = sitk.GetArrayFromImage(transformix.GetResultImage())
+                    out = sitk.GetArrayFromImage(
+                        transformixImageFilter.GetResultImage())
+                    with h5py.File(args.h5_path.format(code, fov), "a") as f:
+                        if channel in f.keys():
+                            del f[channel]
+                        f.create_dataset(channel, out.shape,
+                                        dtype=out.dtype, data=out)
 
-                with h5py.File(args.h5_path.format(code, fov), "a") as f:
-                    f.create_dataset(channel_name, out.shape, dtype=out.dtype, data=out)
-'''
+            tmpdir_obj.cleanup()
+
 
 '''
-def transform_other_code(args, code_fov_pairs=None, num_cpu=None, mode="all"):
+# TODO limit itk multithreading
+'''
+def align_accelerated(args, code_fov_pairs=None, num_cpu=None,masking_params=None, mode="all"):
+    r"""
+    Parallel processing support for alignment function.
 
-    r"""Parallel processing support for transform_other_function.
-    Args:
-        args (args.Args): configuration options.
-        code_fov_pairs (list): a list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
-        num_cpu (int): the number of cpus to use for parallel processing. Default: ``8``
-        mode (str): channels to run, should be one of 'all' (all channels), '405' (just the reference channel) or '4' (all channels other than reference). Default: ``'all'``
+    :param args: Configuration options.
+    :type args: Args
+    :param code_fov_pairs: A list of tuples, where each tuple is a (code, fov) pair. If None, uses all code and fov pairs.
+    :type code_fov_pairs: list, optional
+    :param num_cpu: The number of CPUs to use for parallel processing. If None, uses a quarter of available CPUs.
+    :type num_cpu: int, optional
+    :param masking_params: List of params to use for masking. If None, does not mask.
+    :type masking_params: list, optional
+    :param mode: Channels to run, should be one of 'all' (all channels), '405' (just the reference channel) or '4' (all channels other than reference). Default is 'all'.
+    :type mode: str, optional
     """
-
-    os.environ["OMP_NUM_THREADS"] = "1"
 
     # Use a quarter of the available CPU resources to finish the tasks; you can increase this if the server is accessible for this task only.
     if num_cpu == None:
@@ -480,29 +587,21 @@ def transform_other_code(args, code_fov_pairs=None, num_cpu=None, mode="all"):
             cpu_execution_core = multiprocessing.cpu_count() / 4
     else:
         cpu_execution_core = num_cpu
-    # List to hold the child processes.
+
     child_processes = []
-    # Queue to hold all the puncta extraction tasks.
     tasks_queue = multiprocessing.Queue()
-    # Queue lock to avoid race condition.
     q_lock = multiprocessing.Lock()
-    # Get the extraction tasks starting time.
 
-    # Clear the child processes list.
-    child_processes = []
-
-    # Add all the align405 to the queue.
     for code, fov in code_fov_pairs:
         tasks_queue.put((fov, code))
 
     for w in range(int(cpu_execution_core)):
         p = multiprocessing.Process(
-            target=transform_other_function, args=(args, tasks_queue, q_lock, mode)
+            target=align_accelerated_function, args=(args, tasks_queue, q_lock,masking_params, mode)
         )
         child_processes.append(p)
         p.start()
 
     for p in child_processes:
         p.join()
-        
-'''
+

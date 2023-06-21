@@ -7,7 +7,7 @@ import numpy as np
 from IPython.display import display
 from PIL import Image
 
-from exm.utils import configure_logger
+from exm.utils.log import configure_logger
 logger = configure_logger('ExSeq-Toolbox')
 
 

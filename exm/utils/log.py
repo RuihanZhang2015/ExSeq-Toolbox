@@ -14,8 +14,9 @@ def configure_logger(name,log_file_name='ExSeq-Toolbox_logs.log'):
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     handler.setFormatter(formatter)
     fhandler.setFormatter(formatter)
-
-    logger.addHandler(handler)
-    logger.addHandler(fhandler)
+    
+    if not logger.handlers:
+        logger.addHandler(handler)
+        logger.addHandler(fhandler)
 
     return logger
