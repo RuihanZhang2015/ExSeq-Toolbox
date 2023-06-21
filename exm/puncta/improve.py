@@ -12,18 +12,33 @@ logger = configure_logger('ExSeq-Toolbox')
 
 
 def find_nearest_puncta(args, position, fov, code, center_dist=15, distance_threshold=8,GPU= False):
-    r"""Reads in the locations of the puncta from a specified fov and code, then uses distance thresholding to consolidate (remove duplicate puncta) across channels. Can optionally utilize GPU acceleration.
+    r"""
+    Performs distance-thresholded puncta consolidation across channels. Optionally, it can utilize GPU acceleration.
 
     :param args: Configuration options.
-    :param tuple position: (d0, d1, d2) coordinates of the position.
-    :param int fov: Field of view.
-    :param int code: the code of the volume chunk to be searched.
-    :param int center_dist: Determines the size of the ROI around the input position in the d1 and d2 directions. Default is 15.
-    :param int distance_threshold: Maximum allowed Euclidean distance from the input position to a maximum point. Default is 8.
-    :param bool GPU: If True, GPU acceleration will be used. Default is False.
+    :type args.Args: args.Args instance
+    :param position: (d0, d1, d2) coordinates of the position.
+    :type position: tuple
+    :param fov: Field of view.
+    :type fov: int
+    :param code: The code of the volume chunk to be searched.
+    :type code: int
+    :param center_dist: Size of the ROI around the input position in the d1 and d2 directions. Defaults to 15.
+    :type center_dist: int, optional
+    :param distance_threshold: Maximum allowed Euclidean distance from the input position to a maximum point. Defaults to 8.
+    :type distance_threshold: int, optional
+    :param GPU: Whether to use GPU acceleration. Defaults to False.
+    :type GPU: bool, optional
 
-    :returns: A dictionary where the keys are channel names ('c0' to 'c3') and 'intensity', 'color', 'position'. Each channel key maps to another dictionary containing 'position', 'intensity', and 'distance' of the closest maximum point in this channel. 'intensity' key maps to a list of intensities for all channels. 'color' key maps to the channel with the maximum intensity. 'position' key maps to the position of the maximum point in the 'color' channel.If no maximum points were found in any channel, returns an empty dictionary.
+    :returns: A dictionary containing:
+        - 'c0' to 'c3': Map to another dictionary containing 'position', 'intensity', and 'distance' of the closest maximum point in this channel.
+        - 'intensity': A list of intensities for all channels.
+        - 'color': The channel with the maximum intensity.
+        - 'position': The position of the maximum point in the 'color' channel.
+
+    If no maximum points were found in any channel, an empty dictionary is returned.
     """
+
     if GPU:
         import cupy as cp
         from cupyx.scipy.ndimage import gaussian_filter
@@ -91,11 +106,17 @@ def find_nearest_puncta(args, position, fov, code, center_dist=15, distance_thre
 
 
 def puncta_all_nearest_points(args, puncta):
-    r"""This function is used to find the nearest puncta for all missing codes in the given puncta's barcode. It iteratively calls the 'find_nearest_puncta' function for each missing code to find the corresponding nearest puncta.
-    :param args.Args args: configuration options.
-    :param dict puncta: Dictionary containing information about a puncta, including its 'barcode', 'position', and 'fov' values after consolidate codes.
-    :returns: A dictionary where the keys are the names of the missing codes ('code0' to 'codeN'). Each key maps to another dictionary containing the information ('position', 'intensity', 'distance', and 'ref_code') of the nearest puncta found for that missing code. If no nearest puncta were found for any missing code, returns an empty dictionary.
+    r"""
+    This function finds the nearest puncta for all missing codes in a given puncta's barcode by iteratively calling the 'find_nearest_puncta' function for each missing code.
+
+    :param args: Configuration options.
+    :type args: args.Args instance 
+    :param puncta: A dictionary containing information about a puncta, including its 'barcode', 'position', and 'fov' values after consolidate codes.
+    :type puncta: dict
+
+    :returns: A dictionary where keys are the names of the missing codes ('code0' to 'codeN'). Each key maps to another dictionary containing 'position' (the position of the nearest puncta for the corresponding code), 'intensity' (the intensity of the nearest puncta), 'distance' (the distance to the nearest puncta), and 'ref_code' (the reference code of the nearest puncta). If no nearest puncta were found for any missing code, an empty dictionary is returned.
     """
+
     # Find the missing codes
     barcode = puncta['barcode']
     missing_code_list = np.where(np.array(list(barcode)) == '_')[0]
@@ -122,11 +143,17 @@ def puncta_all_nearest_points(args, puncta):
 
 
 def improve_nearest(args, fov, num_missing_code=4):
-    r"""This function retrieves all puncta within a specified field of view (fov), and then refines each puncta's information by adding the nearest puncta for all missing codes in the puncta's barcode. The refined puncta information is then saved to a pickle file in a subdirectory corresponding to the given fov.
-    :param args.Args args: configuration options.
-    :param int fov: Field of view.
-    :param int num_missing_code: Number of missing codes in the barcode to allow a puncta to be processed. Default is 4.
-    :returns: No return value. The function saves the improved puncta list to a pickle file named 'nearest_improved_puncta.pickle' in a subdirectory named 'fov{fov}' under the directory specified by args.work_path.
+    r"""
+    This function retrieves all puncta within a specified field of view (fov) and refines each puncta's information by adding the nearest puncta for all missing codes in the puncta's barcode. The refined puncta information is then saved to a pickle file in a subdirectory corresponding to the given fov.
+
+    :param args: Configuration options.
+    :type args.Args: args.Args instance
+    :param fov: Field of view.
+    :type fov: int
+    :param num_missing_code: Number of missing codes in the barcode to allow a puncta to be processed. Default is 4.
+    :type num_missing_code: int, optional
+
+    :returns: This function doesn't return any value. However, it does save the improved puncta list to a pickle file named 'nearest_improved_puncta.pickle' in a subdirectory named 'fov{fov}' under the directory specified by args.work_path.
     """
     puncta_list = retrieve_all_puncta(args, fov)
     new_puncta_list = []
@@ -158,13 +185,18 @@ def improve_nearest(args, fov, num_missing_code=4):
 
 # TODO Merge with find_nearest_puncta
 def find_nearest_points(point_cloud1,point_cloud2,distance_threshold=14):
-    r"""Finds the nearest points between two point clouds based on Euclidean distance.
-    This function computes the Euclidean distance between each point in `point_cloud1` and `point_cloud2`. 
-    It then finds the nearest point in `point_cloud2` for each point in `point_cloud1`, within the specified 
-    `distance_threshold`.
-    :param np.ndarray point_cloud1: An Nx3 numpy array representing the first point cloud. Each row is a point, and the columns represent the x, y, and z coordinates respectively.
-    :param np.ndarray point_cloud2: An Mx3 numpy array representing the second point cloud. Each row is a point, and the columns represent the x, y, and z coordinates respectively.
-    :param float distance_threshold: The maximum allowed distance for points to be considered as 'nearest'. Points in `point_cloud2` that are farther away from a point in `point_cloud1` than this threshold will not be considered as 'nearest'. Default is 14.
+    r"""
+    Finds the nearest points between two point clouds based on Euclidean distance.
+    This function computes the Euclidean distance between each point in `point_cloud1` and `point_cloud2`.
+    It then finds the nearest point in `point_cloud2` for each point in `point_cloud1`, within the specified `distance_threshold`.
+
+    :param point_cloud1: An Nx3 numpy array representing the first point cloud. Each row is a point, and the columns represent the x, y, and z coordinates respectively.
+    :type point_cloud1: np.ndarray
+    :param point_cloud2: An Mx3 numpy array representing the second point cloud. Each row is a point, and the columns represent the x, y, and z coordinates respectively.
+    :type point_cloud2: np.ndarray
+    :param distance_threshold: The maximum allowed distance for points to be considered as 'nearest'. Points in `point_cloud2` that are farther away from a point in `point_cloud1` than this threshold will not be considered as 'nearest'. Default is 14.
+    :type distance_threshold: float, optional
+
     :returns: A list of dictionaries. Each dictionary represents a pair of nearest points and contains two keys: 'point0' and 'point1'. 'point0' is the index of a point in `point_cloud1`, and 'point1' is the index of its nearest point in `point_cloud2` within the `distance_threshold`.
     """
     import numpy as np
@@ -186,22 +218,29 @@ def find_nearest_points(point_cloud1,point_cloud2,distance_threshold=14):
     return pairs
 
 # TODO Merge with puncta_all_nearest_points remove mute
-def puncta_nearest_points(args,fov,puncta_index,search_code, verbose = False):
-    r"""Identifies and retrieves the nearest puncta points based on the provided puncta index and search code. 
+def puncta_nearest_points(args,fov,puncta_index,search_code, mute = True):
+    r"""
+    Identifies and retrieves the nearest puncta points based on the provided puncta index and search code. 
     The function finds the reference code, generates two point clouds (one for the original puncta and 
     another for potential new puncta points), and identifies the closest pairs between these two point clouds. 
     This process is repeated to find the closest points to the newly identified puncta points. 
 
-    :param args: Configuration options, including methods for retrieving puncta and calculating nearest points.
-    :param int fov: The field of view (fov) to consider.
-    :param int puncta_index: The index of the puncta to start the search from.
-    :param  int search_code: The search code to use when finding new puncta points.
-    :param bool verbose: If set to True, the function will not print progress messages. 
-                 If set to False, the function will print progress messages.
-    :returns: A tuple containing the reference code, the closest new puncta point, and the closest point 
-              to the new puncta point.
+    :param args: Configuration options.
+    :type args.Args: args.Args instance
+    :param fov: The field of view (fov) to consider.
+    :type fov: int
+    :param puncta_index: The index of the puncta to start the search from.
+    :type puncta_index: int
+    :param search_code: The search code to use when finding new puncta points.
+    :type search_code: int
+    :param mute: If set to True, the function will not print progress messages. 
+                If set to False, the function will print progress messages.
+    :type mute: bool, optional
 
+    :returns: A tuple containing the reference code, the closest new puncta point, and the closest point 
+            to the new puncta point.
     """
+
     import numpy as np
     import pickle
     import pprint

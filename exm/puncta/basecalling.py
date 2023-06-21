@@ -3,12 +3,19 @@ import pickle
 
 
 def assign_gene_fov(args, fov, option = 'original'):
-    r"""This function assigns genes to the detected puncta for a specified field of view (fov) based on hamming distance from barcodes. The function first retrieves the barcode mappings for genes, then iterates over each puncta in the given fov, and assigns a gene to the puncta based on the closest hamming distance. The function can operate in two modes, 'original' and 'improved', determined by the 'option' parameter. In both cases, the function saves the updated puncta list with assigned genes to a pickle file.
+    r"""
+    This function assigns genes to the detected puncta for a specified field of view (fov) based on hamming distance from barcodes. The function first retrieves the barcode mappings for genes, then iterates over each puncta in the given fov, and assigns a gene to the puncta based on the closest hamming distance. The function can operate in two modes, 'original' and 'improved', determined by the 'option' parameter. In both cases, the function saves the updated puncta list with assigned genes to a pickle file.
+
     :param args: Configuration options.
+    :type args.Args: args.Args instance
     :param fov: Field of view.
+    :type fov: int
     :param option: Operation mode, either 'original' or 'improve'. If 'original', the function retrieves the `conslidation_codes` results and saves output to 'puncta_with_gene.pickle'. If 'improve', the function loads results from 'improved_puncta_results.pickle' and saves output to 'improved_puncta_with_gene.pickle'. Default is 'original'.
+    :type option: str, optional
+
     :returns: No return value. The function saves the puncta list with assigned genes to a pickle file in a subdirectory named 'fov{fov}' under the directory specified by args.work_path.
     """
+
     from exm.utils import gene_barcode_mapping,retrieve_all_puncta
 
     def within_hamming_distance(a,b):

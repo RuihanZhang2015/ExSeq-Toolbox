@@ -23,11 +23,12 @@ Contents
    :maxdepth: 1
    :caption: Package Reference
 
-   modules/align
    modules/args
-   modules/io
+   modules/align
    modules/puncta
    modules/segmentation
    modules/stitching
-   modules/ui
    modules/utils
+   modules/io
+   modules/ui 
+   

@@ -59,12 +59,22 @@ def transform_ref_code(args, code_fov_pairs=None, mode="all"):
 
 
 def mask(img, padding=250, chunks=1, pos=None):
-    r"""Given an image volume, returns a mask to use for registration. Mask is created by finding and filling bounding boxes around content using every (#z-slices/chunks) slices.
-    :param np.array img: image volume.
-    :param int padding: amount of padding to add around the identified bounding box.
-    :param int chunks: the number of slices to use for masking. 
-    :param list pos: list of two elements (i.e. [start, end]), which contain the starting z-position of volume content and the end z-position of volume content.
+    r"""
+    Given an image volume, this function returns a mask to use for registration. The mask is created by finding and filling bounding boxes around content using every (#z-slices/chunks) slices.
+
+    :param np.ndarray img: The image volume to create a mask for.
+    :type img: np.ndarray
+    :param int padding: The amount of padding to add around the identified bounding box.
+    :type padding: int
+    :param int chunks: The number of slices to use for masking.
+    :type chunks: int
+    :param list pos: A list of two elements ([start, end]), which specify the starting and ending z-positions of volume content.
+    :type pos: list
+
+    :return: A mask of the same size as the input volume, with areas of interest marked.
+    :rtype: np.ndarray
     """
+
 
     from segment_anything import build_sam, SamAutomaticMaskGenerator
     import cv2

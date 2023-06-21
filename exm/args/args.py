@@ -46,6 +46,7 @@ class Args:
 
         After parameters are set, this method does some initial setup including establishing necessary paths, creating directory structures if necessary, and saving the current state of the object to a pickle file.
         """
+
         self.project_path = project_path
         self.codes = codes
         self.thresholds = thresholds
@@ -87,8 +88,8 @@ class Args:
 
         self.gene_digit_csv = gene_digit_csv
 
-        if Create_directroy_Struc:
-            createFolderStruc(project_path, codes)
+        if create_directroy_Struc:
+            createfolderstruc(project_path, codes)
 
         if args_file_name == None:
             args_file_name = 'args.pkl'
@@ -130,7 +131,7 @@ class Args:
                 
 
     def progress(self):
-        """visualize_progress ``(self)``"""
+        r"""visualize_progress ``(self)``"""
         import seaborn as sns
         import numpy as np
         import h5py
