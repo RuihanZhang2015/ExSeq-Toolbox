@@ -7,8 +7,8 @@ import h5py
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.ndimage import gaussian_filter
-from exm.utils import retrieve_img, retrieve_all_puncta, retrieve_one_puncta
+from scipy.ndimage import gaussian_filter,zoom
+from exm.utils import retrieve_img, retrieve_all_puncta, retrieve_one_puncta, gene_barcode_mapping
 from exm.puncta.improve import puncta_all_nearest_points
 
 import plotly.graph_objects as go
@@ -1297,3 +1297,93 @@ def inspect_improved_puncta_plotly(args, fov, puncta,center_dist=40,spacer=40):
     )
     # fig.show()
     fig.write_html(os.path.join(args.work_path,'inspect_puncta/inspect_improved_puncta_plotly_fov_{}_puncta_{}.html'.format(fov, puncta['index'])))
+
+
+
+
+def plot_genes_global(args, tileset, zslice, gene_list,title="Global Genes", mask_path=None, improved=False, save=False):
+    r"""
+    Plots the global distribution of specified genes. Each gene is represented as a scatter plot on a 2D slice of the global space. Optionally, a mask can be applied, and only genes within the mask will be plotted.
+
+    :param args: Configuration options.
+    :type args: args.Args instance
+    :param tileset: The tileset object from which slices will be displayed.
+    :type tileset: exm.stitching.tileset.Tileset
+    :param zslice: The Z coordinate for the slice to be displayed.
+    :type zslice: int
+    :param gene_list: List of genes to be plotted.
+    :type gene_list: list
+    :param title: The title for the plot. Defaults to "Global Genes".
+    :type title: str, optional
+    :param mask_path: Path to the mask image file. If specified, only genes within the mask will be plotted. Defaults to None.
+    :type mask_path: str, optional
+    :param improved: Whether to use improved puncta with gene data or retrieve all puncta. Defaults to False.
+    :type improved: bool, optional
+    :param save: Whether to save the plot to a file instead of displaying it. If True, the plot will be saved as a .png file in the 'inspect_gene' subdirectory of args.work_path. Defaults to False.
+    :type save: bool, optional
+
+    :returns: This function doesn't return any value. It either displays the plot or saves it to a .png file depending on the 'save' parameter.
+    """
+    def within_hamming_distance(a, b, max_diff=2):
+        diff = sum(x != y for x, y in zip(a, b))
+        return diff < max_diff
+
+    def within_global_mask(mask,coord):
+        return int(mask[coord[1],coord[0]]) == 0
+
+    def get_puncta_results(args, fov, improved):
+        if improved:
+            filepath = f"{args.work_path}/fov{fov}/improved_puncta_with_gene.pickle"
+            with open(filepath, 'rb') as f:
+                results = pickle.load(f)
+        else:
+            results = retrieve_all_puncta(args, fov)
+        return results
+
+    
+    df, digit_to_gene, gene_to_digit = gene_barcode_mapping(args)
+    plt.close()
+    fig = plt.figure(figsize = (20,20))
+
+    for gene in gene_list:
+        digit = gene_to_digit[gene]
+        local_coords = []
+
+        for fov in args.fovs:
+            puncta_results = get_puncta_results(args, fov, improved)
+
+            for puncta in puncta_results:
+                if within_hamming_distance(puncta['barcode'],digit):
+                    z,y,x = puncta['position']
+                    local_coords.append([fov, x, y, z])
+
+        if len(local_coords) == 0:
+            return
+
+        local_coords = np.array(local_coords)
+        local_coords[:,1:] = local_coords[:,1:] * np.array(tileset.voxel_size)
+        global_coords = tileset.local_to_global(local_coords)
+        global_coords = (global_coords // np.array(tileset.voxel_size)).astype(int)
+        img = tileset.show_slice(zslice, down_sample=1)
+        
+        mask = None
+        if mask_path:
+            mask = plt.imread(mask_path)[:,:,0]
+            mask = zoom(mask, (img.shape[0]/mask.shape[0], img.shape[1]/mask.shape[1]), order=3)
+            mask = mask[::-1,:]
+            global_coords = np.array([coord for coord in global_coords if within_global_mask(mask, coord)])
+        
+        plt.scatter(global_coords[:,0], global_coords[:,1], s=10, marker='.', label=gene)
+
+    plt.imshow(img, vmax=400, origin='lower', cmap='gray')
+    legend = plt.legend(fontsize=14)
+    legend.set_title("Genes", prop={"size": 16})
+    plt.title(title, fontsize=34)
+
+    if save:
+        plt.savefig(os.path.join(args.work_path, 'inspect_gene', f'{title}.png'), dpi=300)
+        plt.close()
+    else:
+        plt.show()
+
+
