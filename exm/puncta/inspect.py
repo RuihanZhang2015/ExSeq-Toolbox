@@ -1300,10 +1300,10 @@ def inspect_improved_puncta_plotly(args, fov, puncta,center_dist=40,spacer=40):
 
 
 
-
-def plot_genes_global(args, tileset, zslice, gene_list,title="Global Genes", mask_path=None, improved=False, save=False):
+# Global Plots
+def plot_genes_global(args, tileset, zslice, gene_list=['All'],title="Global Genes", mask_path=None, improved=False, save=False):
     r"""
-    Plots the global distribution of specified genes. Each gene is represented as a scatter plot on a 2D slice of the global space. Optionally, a mask can be applied, and only genes within the mask will be plotted.
+    Plots the global distribution of specified genes. Each gene is represented as a scatter plot on a 2D slice of the global space. If 'All' is specified in gene_list, all possible genes will be plotted. Optionally, a mask can be applied, and only genes within the mask will be plotted.
 
     :param args: Configuration options.
     :type args: args.Args instance
@@ -1311,7 +1311,7 @@ def plot_genes_global(args, tileset, zslice, gene_list,title="Global Genes", mas
     :type tileset: exm.stitching.tileset.Tileset
     :param zslice: The Z coordinate for the slice to be displayed.
     :type zslice: int
-    :param gene_list: List of genes to be plotted.
+    :param gene_list: List of genes to be plotted. If ['All'] is passed, all possible genes will be plotted. Defaults to ['All'].
     :type gene_list: list
     :param title: The title for the plot. Defaults to "Global Genes".
     :type title: str, optional
@@ -1345,6 +1345,9 @@ def plot_genes_global(args, tileset, zslice, gene_list,title="Global Genes", mas
     plt.close()
     fig = plt.figure(figsize = (20,20))
 
+    if gene_list[0] == 'All':
+        gene_list=list(gene_to_digit.keys())
+
     for gene in gene_list:
         digit = gene_to_digit[gene]
         local_coords = []
@@ -1354,7 +1357,7 @@ def plot_genes_global(args, tileset, zslice, gene_list,title="Global Genes", mas
 
             for puncta in puncta_results:
                 if within_hamming_distance(puncta['barcode'],digit):
-                    z,y,x = puncta['position']
+                    z,y,x = puncta['position'] 
                     local_coords.append([fov, x, y, z])
 
         if len(local_coords) == 0:
@@ -1387,3 +1390,100 @@ def plot_genes_global(args, tileset, zslice, gene_list,title="Global Genes", mas
         plt.show()
 
 
+
+def plot_genes_global_zstep(args, tileset, gene_list=['All'], title="Global Genes z-step", improved=False):
+    r"""
+    Generates an animated .mp4 video depicting the global distribution of specified genes in a 3D volume using z-step slices. If 'All' is specified in gene_list, all possible genes will be included. 
+
+    :param args: Configuration options.
+    :type args: args.Args instance
+    :param tileset: The tileset object from which slices will be displayed.
+    :type tileset: exm.stitching.tileset.Tileset
+    :param gene_list: List of genes to be plotted. If ['All'] is passed, all possible genes will be plotted. Defaults to ['All'].
+    :type gene_list: list
+    :param title: The title for the animation. Defaults to "Global Genes z-step".
+    :type title: str, optional
+    :param improved: Whether to use improved puncta with gene data or retrieve all puncta. Defaults to False.
+    :type improved: bool, optional
+
+    :returns: This function doesn't return any value. It creates and saves an animation of gene distributions over z-slices to the 'inspect_gene' subdirectory of args.work_path as a .mp4 file.
+    """
+    def within_hamming_distance(a, b, max_diff=2):
+        diff = sum(x != y for x, y in zip(a, b))
+        return diff < max_diff
+
+    def within_global_mask(mask,coord):
+        return int(mask[coord[1],coord[0]]) == 0
+
+    def get_puncta_results(args, fov, improved):
+        if improved:
+            filepath = f"{args.work_path}/fov{fov}/improved_puncta_with_gene.pickle"
+            with open(filepath, 'rb') as f:
+                results = pickle.load(f)
+        else:
+            results = retrieve_all_puncta(args, fov)
+        return results
+
+    def plot_multi_gene_global(gene_list,tileset):
+        
+        df, digit_to_gene, gene_to_digit = gene_barcode_mapping(args)
+        global_coords_all = []
+        
+        if gene_list[0] == 'All':
+            gene_list=list(gene_to_digit.keys())
+
+        for gene in gene_list:
+            digit = gene_to_digit[gene]
+            local_coords = []
+
+            for fov in args.fovs:
+                puncta_results = get_puncta_results(args, fov, improved)
+
+                for puncta in puncta_results:
+                    if within_hamming_distance(puncta['barcode'],digit):
+                        z,y,x = puncta['position']
+                        local_coords.append([fov, x, y, z])
+
+            if len(local_coords) == 0:
+                return
+            
+            local_coords = np.array(local_coords)
+            local_coords[:,1:] = local_coords[:,1:]*np.array(tileset.voxel_size)
+            global_coords = tileset.local_to_global(local_coords)
+            global_coords = (global_coords //np.array(tileset.voxel_size)).astype(int)
+
+            global_coords_all.extend(global_coords.tolist())
+
+        return global_coords_all
+    
+    import napari
+    from napari_animation import Animation
+
+    volume = tileset.produce_output_volume()
+    genes_coords = plot_multi_gene_global(gene_list,tileset)
+    genes_coords[:, [0, 2]] = genes_coords[:, [2, 0]]
+
+    # Start napari viewer
+    viewer = napari.Viewer()
+    viewer.add_image(volume, name='Ref Volume',colormap='gray', blending='translucent',contrast_limits=[0,400])
+    viewer.add_points(genes_coords, name='My points', size=100, face_color='red')
+
+    # To Center the view
+    viewer.grid.enabled = True
+    viewer.grid.enabled = False
+
+    #Create the Animation
+    animation = Animation(viewer)
+    viewer.update_console({'animation': animation})
+
+    viewer.dims.current_step = (0, 0, 0)
+
+    for i in range(volume.shape[0]):
+        if i % 5 == 0:
+            viewer.dims.current_step = (i, 0, 0)
+            animation.capture_keyframe(steps=5)
+        
+    viewer.dims.current_step = (volume.shape[0], 0, 0)
+    animation.capture_keyframe(steps=5)
+
+    animation.animate(os.path.join(args.work_path, 'inspect_gene', f'{title}.mp4'),canvas_only=True)
