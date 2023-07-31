@@ -7,6 +7,8 @@ import numpy as np
 from IPython.display import display
 from PIL import Image
 
+from typing import Type
+from exm.args import Args
 from exm.utils.log import configure_logger
 logger = configure_logger('ExSeq-Toolbox')
 
@@ -251,3 +253,49 @@ def get_offsets(filename):
 
     trans = [transform_to_translate(vt).astype(np.int64) for vt in vtrans]
     return np.stack(trans)
+
+
+def visualize_progress(args: Type[Args]) -> None:
+    r"""Visualizes the progress of the ExSeq ToolBox."""
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+
+    try:
+        result = np.zeros((len(args.fovs), len(args.codes)))
+        annot = np.asarray(
+            [["{},{}".format(fov, code) for code in args.codes] for fov in args.fovs]
+        )
+        for fov in args.fovs:
+            for code_index, code in enumerate(args.codes):
+
+                if os.path.exists(args.h5_path.format(code, fov)):
+                    result[fov, code_index] = 1
+                else:
+                    continue
+
+                if os.path.exists(
+                    args.puncta_path + "/fov{}/result_code{}.pkl".format(fov, code)
+                ):
+                    result[fov, code_index] = 4
+                    continue
+
+                if os.path.exists(args.puncta_path + '/fov{}/coords_total_code{}.pkl'.format(fov,code)):
+                    result[fov,code_index] = 3
+                    continue
+
+                try:
+                    with h5py.File(args.h5_path.format(code, fov), "r+") as f:
+                        if set(f.keys()) == set(args.channel_names):
+                            result[fov, code_index] = 2
+                except:
+                    pass
+
+        fig, ax = plt.subplots(figsize=(7, 20))
+        ax = sns.heatmap(result, annot=annot, fmt="", vmin=0, vmax=4)
+        plt.show()
+        logger.info(
+            "1: 405 done, 2: all channels done, 3:puncta extracted 4:channel consolidated"
+        )
+    except Exception as e:
+        logger.error(f"Failed to visualize progress. Error: {e}")
+        raise
