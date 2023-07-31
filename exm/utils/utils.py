@@ -26,7 +26,7 @@ def retrieve_all_puncta(args, fov):
     :param args.Args args: configuration options.
     :param int fov: field of view to return
     """
-    with open(args.work_path + "/fov{}/result.pkl".format(fov), "rb") as f:
+    with open(args.puncta_path + "/fov{}/result.pkl".format(fov), "rb") as f:
         return pickle.load(f)
 
 
@@ -142,7 +142,7 @@ def retrieve_summary(args):
             summary[f'fov{fov}'][entry['barcode']] += 1
     summary = pd.DataFrame(summary).fillna(0).astype(int)
     summary = summary.sort_values(by='number', ascending=False)
-    summary.to_csv(os.path.join(args.work_path,'digit_summary.csv'))
+    summary.to_csv(os.path.join(args.puncta_path,'digit_summary.csv'))
     return summary
 
 def retrieve_complete(args):
@@ -156,7 +156,7 @@ def retrieve_complete(args):
     complete = summary.loc[list(set(df['Digits']) & set(summary.index))]
     complete['gene'] = [digit2gene[digit] for digit in complete.index]
     complete = complete.sort_values('gene') 
-    complete.to_csv(os.path.join(args.work_path,'gene_summary.csv'))
+    complete.to_csv(os.path.join(args.puncta_path,'gene_summary.csv'))
 
     return complete
 
@@ -187,7 +187,7 @@ def retrieve_gene(args, gene):
                     **puncta,
                     'fov':fov
                 })
-    df.to_csv(os.path.join(args.work_path,'gene_{}_digit_map.csv'.format(gene)))
+    df.to_csv(os.path.join(args.puncta_path,'gene_{}_digit_map.csv'.format(gene)))
     return puncta_lists
 
 def generate_debug_candidate(args, gene = None, fov = None, num_missing_code = 1):

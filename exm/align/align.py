@@ -157,9 +157,9 @@ def align(args, code_fov_pairs=None, masking_params=None, mode="405"):
 
         logger.info(f"align: code{code},fov{fov}")
 
-        if not os.path.exists(os.path.join(args.processed_path, "code{}".format(code))):
+        if not os.path.exists(os.path.join(args.processed_data_path, "code{}".format(code))):
             os.makedirs(os.path.join(
-                args.processed_path, "code{}".format(code)))
+                args.processed_data_path, "code{}".format(code)))
 
         # Fixed volume
         fix_vol = nd2ToVol(args.nd2_path.format(args.ref_code, "405", 4), fov)
@@ -402,9 +402,9 @@ def align_accelerated_function(args,tasks_queue,q_lock, masking_params=None, mod
 
             logger.info(f"align: code{code},fov{fov}")
 
-            if not os.path.exists(os.path.join(args.processed_path, "code{}".format(code))):
+            if not os.path.exists(os.path.join(args.processed_data_path, "code{}".format(code))):
                 os.makedirs(os.path.join(
-                    args.processed_path, "code{}".format(code)))
+                    args.processed_data_path, "code{}".format(code)))
 
             # Fixed volume
             fix_vol = nd2ToVol(args.nd2_path.format(args.ref_code, "405", 4), fov)

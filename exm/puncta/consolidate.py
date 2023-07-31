@@ -50,7 +50,7 @@ def consolidate_channels_function(args, fov, code):
 
     # Open the coord total .pkl for the particular code and FOV
     with open(
-        args.work_path + "/fov{}/coords_total_code{}.pkl".format(fov, code), "rb"
+        args.puncta_path + "/fov{}/coords_total_code{}.pkl".format(fov, code), "rb"
     ) as f:
         coords_total = pickle.load(f)
 
@@ -108,11 +108,11 @@ def consolidate_channels_function(args, fov, code):
                 "position"
             ]  # postion of the highest intensity puncta
 
-    with open(args.work_path + "/fov{}/result_code{}.pkl".format(fov, code), "wb") as f:
+    with open(args.puncta_path + "/fov{}/result_code{}.pkl".format(fov, code), "wb") as f:
         pickle.dump(reference, f)
 
     if args.permission:
-        chmod(os.path.join(args.work_path, "fov{}/result_code{}.pkl".format(fov, code)))
+        chmod(os.path.join(args.puncta_path, "fov{}/result_code{}.pkl".format(fov, code)))
 
 
 def consolidate_channels(args, code_fov_pairs, num_cpu=None):
@@ -203,7 +203,7 @@ def consolidate_codes_function(args, fov):
 
     ## get the consolidate_channels results for code 0
     code = args.ref_code
-    with open(args.work_path + "/fov{}/result_code{}.pkl".format(fov, code), "rb") as f:
+    with open(args.puncta_path + "/fov{}/result_code{}.pkl".format(fov, code), "rb") as f:
         new = pickle.load(f)
 
     # create reference using the code0 highest intensity puncta position and other details
@@ -212,7 +212,7 @@ def consolidate_codes_function(args, fov):
     for code in set(args.codes) - set([args.ref_code]):
         ## open other rounds consolidate_channels results
         with open(
-            args.work_path + "/fov{}/result_code{}.pkl".format(fov, code), "rb"
+            args.puncta_path + "/fov{}/result_code{}.pkl".format(fov, code), "rb"
         ) as f:
             new = pickle.load(f)
 
@@ -254,11 +254,11 @@ def consolidate_codes_function(args, fov):
         for x in reference
     ]
 
-    with open(args.work_path + "/fov{}/result.pkl".format(fov), "wb") as f:
+    with open(args.puncta_path + "/fov{}/result.pkl".format(fov), "wb") as f:
         pickle.dump(reference, f)
 
     if args.permission:
-        chmod(os.path.join(args.work_path, "fov{}/result.pkl".format(fov)))
+        chmod(os.path.join(args.puncta_path, "fov{}/result.pkl".format(fov)))
 
 
 def consolidate_codes(args, fov_list, num_cpu=None):

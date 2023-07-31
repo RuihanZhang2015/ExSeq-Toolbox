@@ -153,7 +153,7 @@ def improve_nearest(args, fov, num_missing_code=4):
     :param num_missing_code: Number of missing codes in the barcode to allow a puncta to be processed. Default is 4.
     :type num_missing_code: int, optional
 
-    :returns: This function doesn't return any value. However, it does save the improved puncta list to a pickle file named 'nearest_improved_puncta.pickle' in a subdirectory named 'fov{fov}' under the directory specified by args.work_path.
+    :returns: This function doesn't return any value. However, it does save the improved puncta list to a pickle file named 'nearest_improved_puncta.pickle' in a subdirectory named 'fov{fov}' under the directory specified by args.puncta_path.
     """
     puncta_list = retrieve_all_puncta(args, fov)
     new_puncta_list = []
@@ -179,7 +179,7 @@ def improve_nearest(args, fov, num_missing_code=4):
 
         new_puncta_list.append(puncta)
 
-    with open(args.work_path + '/fov{}/improved_puncta_results.pickle'.format(fov), 'wb') as f:
+    with open(args.puncta_path + '/fov{}/improved_puncta_results.pickle'.format(fov), 'wb') as f:
         pickle.dump(new_puncta_list, f)
 
 
@@ -265,7 +265,7 @@ def puncta_nearest_points(args,fov,puncta_index,search_code, mute = True):
 
     point_cloud1 = np.asarray([puncta['position']])
       
-    with open(args.work_path + '/fov{}/result_code{}.pkl'.format(fov,search_code), 'rb') as f:
+    with open(args.puncta_path + '/fov{}/result_code{}.pkl'.format(fov,search_code), 'rb') as f:
         new = pickle.load(f)
 
     point_cloud2 = np.asarray([x['position'] for x in new]) # other rounds puncta  
@@ -285,7 +285,7 @@ def puncta_nearest_points(args,fov,puncta_index,search_code, mute = True):
 
         
     point_cloud1 = np.asarray([new[pairs[0]['point1']]['position']])
-    with open(args.work_path + '/fov{}/result_code{}.pkl'.format(fov,ref_code), 'rb') as f:
+    with open(args.puncta_path + '/fov{}/result_code{}.pkl'.format(fov,ref_code), 'rb') as f:
         new = pickle.load(f)
     point_cloud2 = np.asarray([x['position'] for x in new]) # other rounds puncta  
 

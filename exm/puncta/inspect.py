@@ -76,7 +76,7 @@ def inspect_raw_plotly(
     if export_file_name != None:
         fig.write_html(
             os.path.join(
-                args.work_path,
+                args.puncta_path,
                 "inspect_puncta/{}".format(str(export_file_name) + ".html"),
             )
         )
@@ -187,7 +187,7 @@ def inspect_localmaximum_plotly(
 
     ## Scatter --------------
     with open(
-        args.work_path + "/fov{}/coords_total_code{}.pkl".format(fov, code), "rb"
+        args.puncta_path + "/fov{}/coords_total_code{}.pkl".format(fov, code), "rb"
     ) as f:
         coords_total = pickle.load(f)
         temp = []
@@ -230,7 +230,7 @@ def inspect_localmaximum_plotly(
     if export_file_name != None:
         fig.write_html(
             os.path.join(
-                args.work_path,
+                args.puncta_path,
                 "inspect_puncta/{}".format(str(export_file_name) + ".html"),
             )
         )
@@ -416,7 +416,7 @@ def inspect_puncta_ROI_plotly(
     if export_file_name != None:
         fig.write_html(
             os.path.join(
-                args.work_path,
+                args.puncta_path,
                 "inspect_puncta/{}".format(str(export_file_name) + ".html"),
             )
         )
@@ -486,7 +486,7 @@ def inspect_puncta_individual_plotly(args, fov, puncta, center_dist=40, spacer=4
     :param dict puncta: The puncta to visualize. Should contain information about the puncta's position in the 3D space and its index.
     :param int center_dist: Distance from the center of the puncta that should be viewable in the plot. Default: ``40``
     :param int spacer: Scaling factor used for z-spacing to separate different rounds of imaging in the 3D plot. Default: ``40``
-    :param bool save: If True, the plot will be saved as an HTML file in the directory specified by args.work_path. Default: ``False``
+    :param bool save: If True, the plot will be saved as an HTML file in the directory specified by args.puncta_path. Default: ``False``
     
     This function generates an interactive 3D scatter plot using Plotly, where each puncta is represented as a point in the 3D space. 
     The plot also includes slices of images from different rounds of imaging, providing a contextual understanding of puncta positioning.
@@ -630,7 +630,7 @@ def inspect_puncta_individual_plotly(args, fov, puncta, center_dist=40, spacer=4
     if save:
         fig.write_html(
             os.path.join(
-                args.work_path,
+                args.puncta_path,
                 'inspect_puncta_individual_plotly_fov_{}_puncta_{}.html'.format(fov, puncta['index']))
             )
         
@@ -845,7 +845,7 @@ def inspect_between_rounds_plotly(
     if export_file_name != None:
         fig.write_html(
             os.path.join(
-                args.work_path,
+                args.puncta_path,
                 "inspect_puncta/{}".format(str(export_file_name) + ".html"),
             )
         )
@@ -997,7 +997,7 @@ def inspect_across_rounds_plotly(
     if export_file_name != None:
         fig.write_html(
             os.path.join(
-                args.work_path,
+                args.puncta_path,
                 "inspect_puncta/{}".format(str(export_file_name) + ".html"),
             )
         )
@@ -1158,7 +1158,7 @@ def inspect_puncta_improvement_matplotlib(args, fov, puncta_index, option = 'fin
                             ax.scatter( temp[2]-ROI_min[2],temp[1]-ROI_min[1], marker = 'D', facecolors='none', edgecolors='yellow', s = 270, linewidths=3)
 
     if save:
-        plt.savefig(os.path.join(args.work_path,'inspect_puncta/puncta_improvement_fov{}_puncta{}.jpg'.format(fov,puncta_index)))
+        plt.savefig(os.path.join(args.puncta_path,'inspect_puncta/puncta_improvement_fov{}_puncta{}.jpg'.format(fov,puncta_index)))
         plt.close()
     else:
         plt.show()
@@ -1168,7 +1168,7 @@ def inspect_puncta_improvement_matplotlib(args, fov, puncta_index, option = 'fin
 def inspect_improved_puncta_plotly(args, fov, puncta,center_dist=40,spacer=40):
 
     # Information about the puncta
-    with open(args.work_path + '/fov{}/improved_puncta_results.pickle'.format(fov),'rb') as f:
+    with open(args.puncta_path + '/fov{}/improved_puncta_results.pickle'.format(fov),'rb') as f:
         reference = pickle.load(f)
 
     # Definition of ROI
@@ -1296,7 +1296,7 @@ def inspect_improved_puncta_plotly(args, fov, puncta,center_dist=40,spacer=40):
         )
     )
     # fig.show()
-    fig.write_html(os.path.join(args.work_path,'inspect_puncta/inspect_improved_puncta_plotly_fov_{}_puncta_{}.html'.format(fov, puncta['index'])))
+    fig.write_html(os.path.join(args.puncta_path,'inspect_puncta/inspect_improved_puncta_plotly_fov_{}_puncta_{}.html'.format(fov, puncta['index'])))
 
 
 
@@ -1319,7 +1319,7 @@ def plot_genes_global(args, tileset, zslice, gene_list=['All'],title="Global Gen
     :type mask_path: str, optional
     :param improved: Whether to use improved puncta with gene data or retrieve all puncta. Defaults to False.
     :type improved: bool, optional
-    :param save: Whether to save the plot to a file instead of displaying it. If True, the plot will be saved as a .png file in the 'inspect_gene' subdirectory of args.work_path. Defaults to False.
+    :param save: Whether to save the plot to a file instead of displaying it. If True, the plot will be saved as a .png file in the 'inspect_gene' subdirectory of args.puncta_path. Defaults to False.
     :type save: bool, optional
 
     :returns: This function doesn't return any value. It either displays the plot or saves it to a .png file depending on the 'save' parameter.
@@ -1333,7 +1333,7 @@ def plot_genes_global(args, tileset, zslice, gene_list=['All'],title="Global Gen
 
     def get_puncta_results(args, fov, improved):
         if improved:
-            filepath = f"{args.work_path}/fov{fov}/improved_puncta_with_gene.pickle"
+            filepath = f"{args.puncta_path}/fov{fov}/improved_puncta_with_gene.pickle"
             with open(filepath, 'rb') as f:
                 results = pickle.load(f)
         else:
@@ -1384,7 +1384,7 @@ def plot_genes_global(args, tileset, zslice, gene_list=['All'],title="Global Gen
     plt.title(title, fontsize=34)
 
     if save:
-        plt.savefig(os.path.join(args.work_path, 'inspect_gene', f'{title}.png'), dpi=300)
+        plt.savefig(os.path.join(args.puncta_path, 'inspect_gene', f'{title}.png'), dpi=300)
         plt.close()
     else:
         plt.show()
@@ -1406,7 +1406,7 @@ def plot_genes_global_zstep(args, tileset, gene_list=['All'], title="Global Gene
     :param improved: Whether to use improved puncta with gene data or retrieve all puncta. Defaults to False.
     :type improved: bool, optional
 
-    :returns: This function doesn't return any value. It creates and saves an animation of gene distributions over z-slices to the 'inspect_gene' subdirectory of args.work_path as a .mp4 file.
+    :returns: This function doesn't return any value. It creates and saves an animation of gene distributions over z-slices to the 'inspect_gene' subdirectory of args.puncta_path as a .mp4 file.
     """
     def within_hamming_distance(a, b, max_diff=2):
         diff = sum(x != y for x, y in zip(a, b))
@@ -1417,7 +1417,7 @@ def plot_genes_global_zstep(args, tileset, gene_list=['All'], title="Global Gene
 
     def get_puncta_results(args, fov, improved):
         if improved:
-            filepath = f"{args.work_path}/fov{fov}/improved_puncta_with_gene.pickle"
+            filepath = f"{args.puncta_path}/fov{fov}/improved_puncta_with_gene.pickle"
             with open(filepath, 'rb') as f:
                 results = pickle.load(f)
         else:
@@ -1486,4 +1486,4 @@ def plot_genes_global_zstep(args, tileset, gene_list=['All'], title="Global Gene
     viewer.dims.current_step = (volume.shape[0], 0, 0)
     animation.capture_keyframe(steps=5)
 
-    animation.animate(os.path.join(args.work_path, 'inspect_gene', f'{title}.mp4'),canvas_only=True)
+    animation.animate(os.path.join(args.puncta_path, 'inspect_gene', f'{title}.mp4'),canvas_only=True)

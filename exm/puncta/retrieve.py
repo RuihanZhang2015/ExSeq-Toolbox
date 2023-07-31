@@ -5,7 +5,7 @@ import pickle
 
 
 def retrieve_complete(self,fov):
-    with open(self.args.work_path+'/fov{}/complete.pkl'.format(fov),'rb') as f:
+    with open(self.args.puncta_path+'/fov{}/complete.pkl'.format(fov),'rb') as f:
         return pickle.load(f)
     
 def retrieve_coordinate(self):
