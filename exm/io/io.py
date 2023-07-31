@@ -6,16 +6,18 @@ import os
 import numpy as np
 import h5py
 import pandas as pd
+from pathlib import Path
 from nd2reader import ND2Reader
 import statistics
 from tifffile import imread
+from typing import List
 
 # from .image import imAdjust
 from PIL import Image
 import skimage.measure
 from IPython.display import Image as Img2
 
-from exm.utils import configure_logger
+from exm.utils.log import configure_logger
 logger = configure_logger('ExSeq-Toolbox')
 
 
@@ -120,34 +122,48 @@ def tiff2H5(tiff_file, h5_file, chunk_size=(100, 1024, 1024), step=100, im_thres
     fid.close()
 
 
-def nd2ToVol(filename: str, fov: int, channel_name: str = "405 SD", ratio=1):
-    r"""Reads the specified Nd2 file and returns it as an array.
+def nd2ToVol(filename: str, fov: int, channel_name: str = "405 SD", ratio: int = 1) -> np.ndarray:
+    r"""
+    Reads the specified Nd2 file and returns it as a numpy array.
 
-    :param str filename: path of the ``ND2`` file.
-    :param int fov: the field of view to be returned.
-    :param str channel_name: the channel to be returned.
-    :param int ratio: downsampling factor. Default is :math:`1`
+    :param filename: Path of the ND2 file.
+    :type filename: str
+    :param fov: The field of view to be returned.
+    :type fov: int
+    :param channel_name: The channel to be returned. Default is "405 SD".
+    :type channel_name: str
+    :param ratio: Downsampling factor. Default is 1.
+    :type ratio: int
+    :return: The ND2 file converted into a numpy array.
+    :rtype: np.ndarray
     """
-    # volume in zyx order
+    try:
+        # volume in zyx order
+        vol = ND2Reader(filename)
+        channel_names = vol.metadata["channels"]
 
-    vol = ND2Reader(filename)
-    channel_names = vol.metadata["channels"]
-
-    channel_id = [
-        x for x in range(len(channel_names)) if channel_name in channel_names[x]
-    ]
-    assert len(channel_id) == 1
-    channel_id = channel_id[0]
-
-    out = np.zeros(
-        [len(vol) // ratio, vol[0].shape[0] // ratio, vol[0].shape[1] // ratio],
-        np.uint16,
-    )
-    for z in range(len(vol) // ratio):
-        out[z] = vol.get_frame_2D(c=channel_id, t=0, z=int(z * ratio), x=0, y=0, v=fov)[
-            ::ratio, ::ratio
+        channel_id = [
+            x for x in range(len(channel_names)) if channel_name in channel_names[x]
         ]
-    return out
+        
+        if len(channel_id) != 1:
+            raise ValueError(f"Invalid channel name: {channel_name}. Please provide a valid channel name.")
+        
+        channel_id = channel_id[0]
+
+        out = np.zeros(
+            [len(vol) // ratio, vol[0].shape[0] // ratio, vol[0].shape[1] // ratio],
+            np.uint16,
+        )
+        for z in range(len(vol) // ratio):
+            out[z] = vol.get_frame_2D(c=channel_id, t=0, z=int(z * ratio), x=0, y=0, v=fov)[
+                ::ratio, ::ratio
+            ]
+        return out
+
+    except Exception as e:
+        print(f"Error occurred while converting ND2 file to volume: {e}")
+        raise
 
 
 def nd2ToChunk(
@@ -199,37 +215,34 @@ def nd2ToSlice(filename: str, fov: int, z: int, channel_name: str = "405 SD"):
     return out
 
 
-def createfolderstruc(out_dir, codes):
-    r"""Creates a results folder for the specified code.
+def create_folder_structure(processed_dir: str, codes: List[int]) -> None:
+    r"""
+    Creates a results folder for the specified codes.
 
-    :param str outdir: the directory where all results for the specified code should be stored.
-    :param list codes: the list of codes to create the folder structure for.
+    :param processed_dir: The directory where all results for the specified codes should be stored.
+    :type processed_dir: str
+    :param codes: The list of codes to create the folder structure for.
+    :type codes: List[int]
     """
+    try:
+        processed_dir = Path(processed_dir)
+        puncta_dir = processed_dir.joinpath("puncta/")
+        puncta_inspect_dir = puncta_dir.joinpath("inspect_puncta/")
 
-    processed_dir = os.path.join(out_dir, "processed/")
-    puncta_dir = os.path.join(out_dir, "puncta/")
-    puncta_inspect_dir = os.path.join(puncta_dir, "inspect_puncta/")
+        processed_dir.mkdir(parents=True, exist_ok=True)
+        puncta_dir.mkdir(parents=True, exist_ok=True)
+        puncta_inspect_dir.mkdir(parents=True, exist_ok=True)
 
-    if os.path.isdir(processed_dir) is False:
-        os.makedirs(processed_dir)
+        for code in codes:
+            code_path = processed_dir / f"code{code}"
+            code_path.mkdir(exist_ok=True)
 
-    if os.path.isdir(puncta_dir) is False:
-        os.makedirs(puncta_dir)
+            tform_dir = code_path.joinpath("tforms")
+            tform_dir.mkdir(exist_ok=True)
 
-    if os.path.isdir(puncta_inspect_dir) is False:
-        os.makedirs(puncta_inspect_dir)
-
-    for code in codes:
-
-        code_path = os.path.join(processed_dir, "code{}".format(code))
-
-        if os.path.isdir(code_path) is False:
-            os.makedirs(code_path)
-
-        tform_dir = os.path.join(code_path, "tforms")
-
-        if os.path.isdir(tform_dir) is False:
-            os.makedirs(tform_dir)
+    except Exception as e:
+        print(f"Error occurred while creating folder structure: {e}")
+        raise
 
         # TODO Do we need the gifs Dir
         # gif_parent_path = os.path.join(code_path, 'gifs')

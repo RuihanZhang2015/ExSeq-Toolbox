@@ -4,22 +4,34 @@ import h5py
 import random
 import pandas as pd
 import numpy as np
+from pathlib import Path
 from IPython.display import display
 from PIL import Image
 
-from typing import Type
-from exm.args import Args
+from skimage.restoration import rolling_ball
+from scipy.ndimage import white_tophat
+from skimage.morphology import disk
+
+from typing import Type , Optional
+
 from exm.utils.log import configure_logger
 logger = configure_logger('ExSeq-Toolbox')
 
 
-def chmod(path):
-    r"""Sets permissions so that users and the owner can read, write and execute files at the given path.
-
-    :param str path: path in which privileges should be granted
+def chmod(path: Path) -> None:
     """
-    if os.name != "nt":  # Skip for windows OS
-        os.system("chmod 766 {}".format(path))
+    Sets permissions so that users and the owner can read, write and execute files at the given path.
+
+    :param path: Path in which privileges should be granted.
+    :type path: pathlib.Path
+    """
+    if os.name != "nt":  # Skip for Windows OS
+        try:
+            path.chmod(0o766)  # octal notation for permissions
+        except Exception as e:
+            logger.error(
+                f"Failed to change permissions for {path}. Error: {e}")
+            raise
 
 
 def retrieve_all_puncta(args, fov):
@@ -255,7 +267,7 @@ def get_offsets(filename):
     return np.stack(trans)
 
 
-def visualize_progress(args: Type[Args]) -> None:
+def visualize_progress(args) -> None:
     r"""Visualizes the progress of the ExSeq ToolBox."""
     import seaborn as sns
     import matplotlib.pyplot as plt
@@ -298,4 +310,74 @@ def visualize_progress(args: Type[Args]) -> None:
         )
     except Exception as e:
         logger.error(f"Failed to visualize progress. Error: {e}")
+        raise
+
+## Background subtraction
+
+def subtract_background_rolling_ball(volume: np.ndarray,
+                                     radius: int = 50,
+                                     num_threads: Optional[int] = 40) -> np.ndarray:
+    """
+    Performs background subtraction on a volume image using the rolling ball method.
+
+    :param volume: The input volume image.
+    :type volume: np.ndarray
+    :param radius: The radius of the rolling ball used for background subtraction. Default is 50.
+    :type radius: int, optional
+    :param num_threads: The number of threads to use for the rolling ball operation. Default is 40.
+    :type num_threads: int, optional
+    :return: The volume image after background subtraction.
+    :rtype: np.ndarray
+    """
+    corrected_volume = np.empty_like(volume)
+    logger.info(f"Rolling_ball background subtraction")
+    try:
+        for slice_index in range(volume.shape[0]):
+            corrected_volume[slice_index] = volume[slice_index] - rolling_ball(
+                volume[slice_index], radius=radius, num_threads=num_threads)
+
+        return corrected_volume
+    except Exception as e:
+        logger.error(f"Error during rolling ball background subtraction: {e}")
+        raise
+
+
+def subtract_background_top_hat(volume: np.ndarray,
+                                radius: int = 50,
+                                use_gpu: Optional[bool] = True) -> np.ndarray:
+    """
+    Performs top-hat background subtraction on a volume image.
+
+    :param volume: The input volume image.
+    :type volume: np.ndarray
+    :param radius: The radius of the disk structuring element used for top-hat transformation. Default is 50.
+    :type radius: int, optional
+    :param use_gpu: If True, uses GPU for computation (requires cupy). Default is False.
+    :type use_gpu: bool, optional
+    :return: The volume image after background subtraction.
+    :rtype: np.ndarray
+    """
+    structuring_element = disk(radius)
+    corrected_volume = np.empty_like(volume)
+    logger.info(f"top-hat background subtraction")
+    try:
+        if use_gpu:
+            from cupyx.scipy.ndimage import white_tophat
+            import cupy as cp
+
+        for i in range(volume.shape[0]):
+            if use_gpu:
+                corrected_volume[i] = cp.asnumpy(
+                    white_tophat(
+                        cp.asarray(volume[i]),
+                        structure=cp.asarray(structuring_element)
+                    )
+                )
+            else:
+                corrected_volume[i] = white_tophat(
+                    volume[i], structure=structuring_element)
+
+        return corrected_volume
+    except Exception as e:
+        logger.error(f"Error during top-hat background subtraction: {e}")
         raise

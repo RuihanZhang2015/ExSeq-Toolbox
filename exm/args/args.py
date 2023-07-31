@@ -10,9 +10,8 @@ from typing import List, Optional
 
 pd.set_option("display.expand_frame_repr", False)
 from nd2reader import ND2Reader
-from exm.utils import chmod
-from exm.io import createfolderstruc
-from exm.utils import configure_logger
+
+from exm.utils.log import configure_logger
 logger = configure_logger('ExSeq-Toolbox')
 
 
@@ -37,7 +36,7 @@ class Args:
                 processed_data_path: Optional[str] = None,
                 codes: List[int] = list(range(7)),
                 fovs: Optional[List[int]] = None,
-                spacing: List[float] = [1.625,1.625,4.0],
+                spacing: List[float] = [4.0,1.625,1.625],
                 channel_names: List[str] = ['640','594','561','488','405'],
                 ref_code: int = 0,
                 ref_channel: str = '405',
@@ -57,9 +56,9 @@ class Args:
         :type codes: List[int]
         :param fovs: A list of integers, each representing a specific field of view. Default: ``None``.
         :type fovs: Optional[List[int]]
-        :param spacing: Spacing between pixels in the format [X,Y,Z]. Default: [1.625, 1.625, 4.0].
+        :param spacing: Spacing between pixels in the format [Z,Y,X]. Default: [4.0, 1.625, 1.625].
         :type spacing: List[float]
-        :param channel_names: Names of channels in the ND2 file. Default is ['640','594','561','488','405'].
+        :param channel_names: Names of channels in the ND2 file *in the correct sequence*. Default is ['640','594','561','488','405'].
         :type channel_names: List[str]
         :param ref_code: Specifies which code to use as the reference round. Default: 0.
         :type ref_code: int
@@ -137,8 +136,9 @@ class Args:
     
     def create_directroy_structure(self):
         r"""Creates the directory structure in the specified project path."""
+        from exm.io import create_folder_structure
         try:
-            createfolderstruc(str(self.processed_data_path), self.rounds)
+            create_folder_structure(str(self.processed_data_path), self.codes)
         except Exception as e:
             logger.error(f"Failed to create directory structure. Error: {e}")
             raise
@@ -146,6 +146,7 @@ class Args:
 
     def set_permissions(self):
         r"""Changes permission of the processed_data_path to allow other users to read and write on the generated files."""
+        from exm.utils.utils import chmod
         try:
             chmod(pathlib.Path(self.processed_data_path))
         except Exception as e:
