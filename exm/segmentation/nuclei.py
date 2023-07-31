@@ -93,7 +93,7 @@ def predict_z(args, z,fov, predictor, code=0,channel=4):
     else:
         mask_list = np.array(mask_list)
 
-    with open(args.project_path + 'nuclei/mask/mask_fov_{}_z_{}.pickle'.format(fov,z),'wb') as f:
+    with open(args.raw_data_path + 'nuclei/mask/mask_fov_{}_z_{}.pickle'.format(fov,z),'wb') as f:
         pickle.dump(mask_list, f)
         
     # Watershed algorithm
@@ -130,10 +130,10 @@ def predict_z(args, z,fov, predictor, code=0,channel=4):
 # Nuclei volume --> 3D Mask
 def generate_3d_mask(args, fov):
 
-    os.makedirs(args.project_path + 'nuclei/', exist_ok=True)   
-    os.makedirs(args.project_path + 'nuclei/mask/', exist_ok=True)   
-    os.makedirs(args.project_path + 'nuclei/mesh/', exist_ok=True)   
-    os.makedirs(args.project_path + 'nuclei/labels/', exist_ok=True)   
+    os.makedirs(args.raw_data_path + 'nuclei/', exist_ok=True)   
+    os.makedirs(args.raw_data_path + 'nuclei/mask/', exist_ok=True)   
+    os.makedirs(args.raw_data_path + 'nuclei/mesh/', exist_ok=True)   
+    os.makedirs(args.raw_data_path + 'nuclei/labels/', exist_ok=True)   
 
     predictor = get_predictor()
 
@@ -148,26 +148,26 @@ def generate_3d_mask(args, fov):
     # Generate 3d masks
     mask_3d = []
     for z in tqdm.tqdm(range(z_max)):
-        with open(args.project_path + 'nuclei/mask/mask_fov_{}_z_{}.pickle'.format(fov,z),'rb') as f:
+        with open(args.raw_data_path + 'nuclei/mask/mask_fov_{}_z_{}.pickle'.format(fov,z),'rb') as f:
             mask_2d = pickle.load(f)
         mask_2d = np.any(mask_2d, axis=0)
         mask_3d.append(mask_2d)
 
-    with open(args.project_path + 'nuclei/mask/mask_fov_{}.pickle'.format(fov),'wb') as f:
+    with open(args.raw_data_path + 'nuclei/mask/mask_fov_{}.pickle'.format(fov),'wb') as f:
         pickle.dump(mask_3d, f)
 
 
 # Voxel grid --> Nuclei
 def retrieve_nuclei_per_fov(args,fov,replace = False):
     
-    filename = args.project_path + 'nuclei/labels/labels_fov_{}.pickle'.format(fov)
+    filename = args.raw_data_path + 'nuclei/labels/labels_fov_{}.pickle'.format(fov)
     if os.path.exists(filename) and replace == False:
         with open(filename,'rb') as f:
             labels =  pickle.load(f)
             return labels
     
     # Load dataset
-    with open(args.project_path + 'nuclei/mask/mask_fov_{}.pickle'.format(fov),'rb') as f:
+    with open(args.raw_data_path + 'nuclei/mask/mask_fov_{}.pickle'.format(fov),'rb') as f:
         voxel_grid = pickle.load(f)
 
     for i, arr in enumerate(voxel_grid):
@@ -212,14 +212,14 @@ def plot_nuclei_puncta(args, fov, modality = 'mesh', option = 'full',valid_genes
 
     # Load puncta ==============================
     if option == 'original':
-        with open(args.work_path + 'fov{}/puncta_with_gene.pickle'.format(fov), 'rb') as f:
+        with open(args.puncta_path + 'fov{}/puncta_with_gene.pickle'.format(fov), 'rb') as f:
             puncta_list= pickle.load(f)
         if valid_genes:
             puncta_list = [x for x in puncta_list if x['gene'] != 'N/A']
 
     elif option == 'improve':
         # Select only valid genes vs show all puncta
-        with open(args.work_path + 'fov{}/improved_puncta_with_gene.pickle'.format(fov), 'rb') as f:
+        with open(args.puncta_path + 'fov{}/improved_puncta_with_gene.pickle'.format(fov), 'rb') as f:
             puncta_list = pickle.load(f)
         if valid_genes:
             puncta_list = [x for x in puncta_list if x['gene'] != 'N/A']
@@ -251,26 +251,26 @@ def plot_nuclei_puncta(args, fov, modality = 'mesh', option = 'full',valid_genes
     # show nuclei
     if modality == 'mesh':
 
-        with open(args.project_path + 'nuclei/mask/mask_fov_{}.pickle'.format(fov),'rb') as f:
+        with open(args.raw_data_path + 'nuclei/mask/mask_fov_{}.pickle'.format(fov),'rb') as f:
             voxel_grid = pickle.load(f)
         voxel_grid  = np.asarray(voxel_grid)
         
         # Use marching cubes to convert the mask to a mesh
         vertices, faces, _, _ = measure.marching_cubes(voxel_grid, level=0.5,step_size = 3)
 
-        filename = args.project_path + '/nuclei/mesh/vertices_fov_{}.pickle'.format(fov)
+        filename = args.raw_data_path + '/nuclei/mesh/vertices_fov_{}.pickle'.format(fov)
         with open(filename,'wb') as f:
             pickle.dump(vertices,f)
         
-        filename = args.project_path + '/nuclei/mesh/faces_fov_{}.pickle'.format(fov)
+        filename = args.raw_data_path + '/nuclei/mesh/faces_fov_{}.pickle'.format(fov)
         with open(filename,'wb') as f:
             pickle.dump(faces,f)
 
-        filename = args.project_path + '/nuclei/mesh/vertices_fov_{}.pickle'.format(fov)
+        filename = args.raw_data_path + '/nuclei/mesh/vertices_fov_{}.pickle'.format(fov)
         with open(filename,'rb') as f:
             vertices = pickle.load(f)
         
-        filename = args.project_path + '/nuclei/mesh/faces_fov_{}.pickle'.format(fov)
+        filename = args.raw_data_path + '/nuclei/mesh/faces_fov_{}.pickle'.format(fov)
         with open(filename,'rb') as f:
             faces = pickle.load(f)
 
@@ -298,14 +298,14 @@ def plot_nuclei_puncta(args, fov, modality = 'mesh', option = 'full',valid_genes
 
         # Save the figure as an HTML file
         from plotly.offline import plot
-        plot(fig, filename= os.path.join(args.work_path,'fov{}/plotly_nuclei_fov_{}_mesh_{}.html'.format(fov,fov,option)))
+        plot(fig, filename= os.path.join(args.puncta_path,'fov{}/plotly_nuclei_fov_{}_mesh_{}.html'.format(fov,fov,option)))
 
 
     # ====================================
     if modality == 'labels':
         
         labels = retrieve_nuclei_per_fov(args,fov,replace = True)
-        # filename = args.project_path + 'nuclei/labels_fov_{}.pickle'.format(fov)
+        # filename = args.raw_data_path + 'nuclei/labels_fov_{}.pickle'.format(fov)
         # with open(filename,'rb') as f:
         #     labels = pickle.load(f)
 
@@ -317,11 +317,11 @@ def plot_nuclei_puncta(args, fov, modality = 'mesh', option = 'full',valid_genes
         position_value_pairs[:,1] *= 10
         position_value_pairs[:,2] *= 10
 
-        filename = args.project_path + 'nuclei/position_value_pairs_{}.pickle'.format(fov)
+        filename = args.raw_data_path + 'nuclei/position_value_pairs_{}.pickle'.format(fov)
         with open(filename,'wb') as f:
             pickle.dump(position_value_pairs,f)
 
-        filename = args.project_path + 'nuclei/position_value_pairs_{}.pickle'.format(fov)
+        filename = args.raw_data_path + 'nuclei/position_value_pairs_{}.pickle'.format(fov)
         with open(filename,'rb') as f:
             position_value_pairs = pickle.load(f)
 
@@ -354,5 +354,5 @@ def plot_nuclei_puncta(args, fov, modality = 'mesh', option = 'full',valid_genes
         # Save the figure as an HTML file
         from plotly.offline import plot
         print('figures/plotly_nuclei_fov_{}_labels_{}.html'.format(fov,option))
-        plot(fig, filename=os.path.join(args.work_path,'fov{}/plotly_nuclei_fov_{}_labels_{}.html'.format(fov,fov,option)))
+        plot(fig, filename=os.path.join(args.puncta_path,'fov{}/plotly_nuclei_fov_{}_labels_{}.html'.format(fov,fov,option)))
 

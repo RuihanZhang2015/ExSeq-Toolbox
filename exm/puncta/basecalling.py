@@ -13,7 +13,7 @@ def assign_gene_fov(args, fov, option = 'original'):
     :param option: Operation mode, either 'original' or 'improve'. If 'original', the function retrieves the `conslidation_codes` results and saves output to 'puncta_with_gene.pickle'. If 'improve', the function loads results from 'improved_puncta_results.pickle' and saves output to 'improved_puncta_with_gene.pickle'. Default is 'original'.
     :type option: str, optional
 
-    :returns: No return value. The function saves the puncta list with assigned genes to a pickle file in a subdirectory named 'fov{fov}' under the directory specified by args.work_path.
+    :returns: No return value. The function saves the puncta list with assigned genes to a pickle file in a subdirectory named 'fov{fov}' under the directory specified by args.puncta_path.
     """
 
     from exm.utils import gene_barcode_mapping,retrieve_all_puncta
@@ -48,7 +48,7 @@ def assign_gene_fov(args, fov, option = 'original'):
     if option == 'original':
         result = retrieve_all_puncta(args,fov)
     elif option == 'improve':
-        with open(args.work_path + 'fov{}/improved_puncta_results.pickle'.format(fov),'rb') as f:
+        with open(args.puncta_path + 'fov{}/improved_puncta_results.pickle'.format(fov),'rb') as f:
             result = pickle.load(f)
   
     for puncta in result:
@@ -56,8 +56,8 @@ def assign_gene_fov(args, fov, option = 'original'):
         puncta_list.append(new_puncta)
         
     if option == 'original':
-        with open(args.work_path + 'fov{}/puncta_with_gene.pickle'.format(fov), 'wb') as f:
+        with open(args.puncta_path + 'fov{}/puncta_with_gene.pickle'.format(fov), 'wb') as f:
             pickle.dump(puncta_list,f)
     elif option == 'improve':
-        with open(args.work_path + 'fov{}/improved_puncta_with_gene.pickle'.format(fov), 'wb') as f:
+        with open(args.puncta_path + 'fov{}/improved_puncta_with_gene.pickle'.format(fov), 'wb') as f:
             pickle.dump(puncta_list,f)

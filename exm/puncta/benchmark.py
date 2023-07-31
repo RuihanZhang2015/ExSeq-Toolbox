@@ -16,10 +16,10 @@ def puncta_analysis(args, fov, improved=False):
     :returns: No return value. The function saves the analysis result to a pickle file named 'improved_puncta_analysis.pickle' or 'original_puncta_analysis.pickle' in a subdirectory of each fov, depending on the `improved` parameter.
     """
     if improved:
-        with open(args.work_path + '/fov{}/improved_puncta_with_gene.pickle'.format(fov), 'rb') as f:
+        with open(args.puncta_path + '/fov{}/improved_puncta_with_gene.pickle'.format(fov), 'rb') as f:
             consolidated_puncta = pickle.load(f)
     else:
-        with open(args.work_path + '/fov{}/puncta_with_gene.pickle'.format(fov), 'rb') as f:
+        with open(args.puncta_path + '/fov{}/puncta_with_gene.pickle'.format(fov), 'rb') as f:
             consolidated_puncta = pickle.load(f)
 
     total_puncta = len(consolidated_puncta)
@@ -99,7 +99,7 @@ def puncta_analysis(args, fov, improved=False):
     else:
         file_name = 'fov{}/original_puncta_analysis.pickle'.format(fov)
 
-    with open(args.work_path + file_name, 'wb') as f:
+    with open(args.puncta_path + file_name, 'wb') as f:
         pickle.dump(result, f)
 
 
@@ -111,7 +111,7 @@ def aggregate_puncta_analysis(args, improved=False):
     :param args.Args args: Configuration options. The `fovs` attribute should contain a list of fovs to include in the aggregation.
     :param bool improved: If True, the function retrieves data from 'improved_puncta_analysis.pickle' files, else retrieves data from 'original_puncta_analysis.pickle' files. Default is False.
 
-    :returns: No return value. The function saves the aggregated analysis result to a pickle file named 'aggregate_improved_puncta_analysis.pickle' or 'aggregate_orginal_puncta_analysis.pickle' in the directory specified by args.work_path, depending on the `improved` parameter.
+    :returns: No return value. The function saves the aggregated analysis result to a pickle file named 'aggregate_improved_puncta_analysis.pickle' or 'aggregate_orginal_puncta_analysis.pickle' in the directory specified by args.puncta_path, depending on the `improved` parameter.
     """
     aggregate_result = dict()
 
@@ -121,7 +121,7 @@ def aggregate_puncta_analysis(args, improved=False):
         else:
             file_name = 'fov{}/original_puncta_analysis.pickle'.format(fov)
 
-        with open(args.work_path + file_name, 'rb') as f:
+        with open(args.puncta_path + file_name, 'rb') as f:
             result = pickle.load(f)
 
         if not aggregate_result:
@@ -147,10 +147,10 @@ def aggregate_puncta_analysis(args, improved=False):
         aggregate_result['unique_ref_codes'])
 
     if improved:
-        with open(args.work_path + '/aggregate_improved_puncta_analysis.pickle', 'wb') as f:
+        with open(args.puncta_path + '/aggregate_improved_puncta_analysis.pickle', 'wb') as f:
             pickle.dump(aggregate_result, f)
     else:
-        with open(args.work_path + '/aggregate_orginal_puncta_analysis.pickle', 'wb') as f:
+        with open(args.puncta_path + '/aggregate_orginal_puncta_analysis.pickle', 'wb') as f:
             pickle.dump(aggregate_result, f)
 
 
@@ -162,23 +162,23 @@ def plot_benchmark_data(args, mode='single', fov=None):
     :param str mode: If 'single', the function retrieves data for a specific fov. If 'all', the function retrieves aggregate data for all fovs. Default is 'single'.
     :param int fov: The specific fov to retrieve data for if mode is 'single'. Default is None.
 
-    :returns: No return value. The function saves the generated dashboard to a HTML file named 'puncta_comparison_dashboard.html' or 'overall_puncta_comparison_dashboard.html' in the directory specified by args.work_path, depending on the `mode` parameter.
+    :returns: No return value. The function saves the generated dashboard to a HTML file named 'puncta_comparison_dashboard.html' or 'overall_puncta_comparison_dashboard.html' in the directory specified by args.puncta_path, depending on the `mode` parameter.
     """
     if mode == 'single':
         file_name = 'fov{}/puncta_comparison_dashboard.html'.format(fov)
-        with open(args.work_path + 'fov{}/original_puncta_analysis.pickle'.format(fov), 'rb') as f:
+        with open(args.puncta_path + 'fov{}/original_puncta_analysis.pickle'.format(fov), 'rb') as f:
             puncta_original = pickle.load(f)
 
-        with open(args.work_path + 'fov{}/improved_puncta_analysis.pickle'.format(fov), 'rb') as f:
+        with open(args.puncta_path + 'fov{}/improved_puncta_analysis.pickle'.format(fov), 'rb') as f:
             puncta_improved = pickle.load(f)
 
     if mode == 'all':
         fov = 'All'
         file_name = 'overall_puncta_comparison_dashboard.html'
-        with open(args.work_path + 'aggregate_orginal_puncta_analysis.pickle', 'rb') as f:
+        with open(args.puncta_path + 'aggregate_orginal_puncta_analysis.pickle', 'rb') as f:
             puncta_original = pickle.load(f)
 
-        with open(args.work_path + 'aggregate_improved_puncta_analysis.pickle', 'rb') as f:
+        with open(args.puncta_path + 'aggregate_improved_puncta_analysis.pickle', 'rb') as f:
             puncta_improved = pickle.load(f)
 
     # Sort keys in missing_code_counts dictionaries
@@ -304,5 +304,5 @@ def plot_benchmark_data(args, mode='single', fov=None):
     fig.update_layout(height=1900, width=1500, barmode='group',
                       title_text="Puncta Extraction Summary (FOV {})".format(fov), font=dict(size=18))
 
-    fig.write_html(os.path.join(args.work_path, file_name))
+    fig.write_html(os.path.join(args.puncta_path, file_name))
     fig.show()

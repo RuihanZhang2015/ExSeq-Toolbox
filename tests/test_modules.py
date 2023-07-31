@@ -6,11 +6,11 @@ from exm.puncta.consolidate import consolidate_channels, consolidate_codes
 
 
 def test_args_module():
-    project_path = "/mp/nas3/ruihan/20221218_zebrafish/"
+    raw_data_path = "/mp/nas3/ruihan/20221218_zebrafish/"
     align_z_init = "/home/mansour/ExSeq-Toolbox/examples/align_z_init.pkl"
     args = Args()
-    args.set_params(project_path, align_z_init=align_z_init)
-    args_path = os.path.join(project_path, "args.pkl")
+    args.set_params(raw_data_path, align_z_init=align_z_init)
+    args_path = os.path.join(raw_data_path, "args.pkl")
 
     assert os.path.exists(args_path) == True
 
@@ -41,13 +41,13 @@ def test_puncta_module_extract():
 
     assert (
         os.path.exists(
-            os.path.join(args.work_path, "fov{}/coords_total_code{}.pkl".format(0, 0))
+            os.path.join(args.puncta_path, "fov{}/coords_total_code{}.pkl".format(0, 0))
         )
         == True
     )
     assert (
         os.path.exists(
-            os.path.join(args.work_path, "fov{}/coords_total_code{}.pkl".format(0, 1))
+            os.path.join(args.puncta_path, "fov{}/coords_total_code{}.pkl".format(0, 1))
         )
         == True
     )
@@ -61,13 +61,13 @@ def test_puncta_module_consolidate_channels():
 
     assert (
         os.path.exists(
-            os.path.join(args.work_path + "/fov{}/result_code{}.pkl".format(0, 0))
+            os.path.join(args.puncta_path + "/fov{}/result_code{}.pkl".format(0, 0))
         )
         == True
     )
     assert (
         os.path.exists(
-            os.path.join(args.work_path + "/fov{}/result_code{}.pkl".format(0, 1))
+            os.path.join(args.puncta_path + "/fov{}/result_code{}.pkl".format(0, 1))
         )
         == True
     )
@@ -80,11 +80,11 @@ def test_puncta_module_consolidate_codes():
     consolidate_codes(args, fov_list)
 
     assert (
-        os.path.exists(os.path.join(args.work_path, "fov{}/result.pkl".format(0)))
+        os.path.exists(os.path.join(args.puncta_path, "fov{}/result.pkl".format(0)))
         == True
     )
     assert (
-        os.path.exists(os.path.join(args.work_path, "fov{}/result.pkl".format(1)))
+        os.path.exists(os.path.join(args.puncta_path, "fov{}/result.pkl".format(1)))
         == True
     )
 
@@ -94,5 +94,5 @@ def test_offset_computation():
     args.load_params("/mp/nas3/20221218_zebrafish/args.pkl")
     computeOffset(args=args, code_fov_pairs=[[1, 0]])
 
-    path = os.path.join(args.project_path, "processed/compute_offset")
+    path = os.path.join(args.raw_data_path, "processed/compute_offset")
     assert os.path.exists(f"{path}/z_offset.json")

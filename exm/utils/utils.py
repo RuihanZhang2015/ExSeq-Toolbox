@@ -7,6 +7,8 @@ import numpy as np
 from IPython.display import display
 from PIL import Image
 
+from typing import Type
+from exm.args import Args
 from exm.utils.log import configure_logger
 logger = configure_logger('ExSeq-Toolbox')
 
@@ -26,7 +28,7 @@ def retrieve_all_puncta(args, fov):
     :param args.Args args: configuration options.
     :param int fov: field of view to return
     """
-    with open(args.work_path + "/fov{}/result.pkl".format(fov), "rb") as f:
+    with open(args.puncta_path + "/fov{}/result.pkl".format(fov), "rb") as f:
         return pickle.load(f)
 
 
@@ -142,7 +144,7 @@ def retrieve_summary(args):
             summary[f'fov{fov}'][entry['barcode']] += 1
     summary = pd.DataFrame(summary).fillna(0).astype(int)
     summary = summary.sort_values(by='number', ascending=False)
-    summary.to_csv(os.path.join(args.work_path,'digit_summary.csv'))
+    summary.to_csv(os.path.join(args.puncta_path,'digit_summary.csv'))
     return summary
 
 def retrieve_complete(args):
@@ -156,7 +158,7 @@ def retrieve_complete(args):
     complete = summary.loc[list(set(df['Digits']) & set(summary.index))]
     complete['gene'] = [digit2gene[digit] for digit in complete.index]
     complete = complete.sort_values('gene') 
-    complete.to_csv(os.path.join(args.work_path,'gene_summary.csv'))
+    complete.to_csv(os.path.join(args.puncta_path,'gene_summary.csv'))
 
     return complete
 
@@ -187,7 +189,7 @@ def retrieve_gene(args, gene):
                     **puncta,
                     'fov':fov
                 })
-    df.to_csv(os.path.join(args.work_path,'gene_{}_digit_map.csv'.format(gene)))
+    df.to_csv(os.path.join(args.puncta_path,'gene_{}_digit_map.csv'.format(gene)))
     return puncta_lists
 
 def generate_debug_candidate(args, gene = None, fov = None, num_missing_code = 1):
@@ -251,3 +253,49 @@ def get_offsets(filename):
 
     trans = [transform_to_translate(vt).astype(np.int64) for vt in vtrans]
     return np.stack(trans)
+
+
+def visualize_progress(args: Type[Args]) -> None:
+    r"""Visualizes the progress of the ExSeq ToolBox."""
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+
+    try:
+        result = np.zeros((len(args.fovs), len(args.codes)))
+        annot = np.asarray(
+            [["{},{}".format(fov, code) for code in args.codes] for fov in args.fovs]
+        )
+        for fov in args.fovs:
+            for code_index, code in enumerate(args.codes):
+
+                if os.path.exists(args.h5_path.format(code, fov)):
+                    result[fov, code_index] = 1
+                else:
+                    continue
+
+                if os.path.exists(
+                    args.puncta_path + "/fov{}/result_code{}.pkl".format(fov, code)
+                ):
+                    result[fov, code_index] = 4
+                    continue
+
+                if os.path.exists(args.puncta_path + '/fov{}/coords_total_code{}.pkl'.format(fov,code)):
+                    result[fov,code_index] = 3
+                    continue
+
+                try:
+                    with h5py.File(args.h5_path.format(code, fov), "r+") as f:
+                        if set(f.keys()) == set(args.channel_names):
+                            result[fov, code_index] = 2
+                except:
+                    pass
+
+        fig, ax = plt.subplots(figsize=(7, 20))
+        ax = sns.heatmap(result, annot=annot, fmt="", vmin=0, vmax=4)
+        plt.show()
+        logger.info(
+            "1: 405 done, 2: all channels done, 3:puncta extracted 4:channel consolidated"
+        )
+    except Exception as e:
+        logger.error(f"Failed to visualize progress. Error: {e}")
+        raise
