@@ -5,306 +5,285 @@ import h5py
 import pickle
 import queue
 import numpy as np
+from scipy.spatial.distance import cdist
+
+from pathlib import Path
+from typing import List, Tuple, Optional
 import multiprocessing
-from multiprocessing import current_process, Lock, Process, Queue
-from exm.utils import chmod
-from exm.utils import configure_logger
+from multiprocessing import Lock, Process, Queue
+
+from exm.args import Args
+from exm.utils import chmod, configure_logger
+
 logger = configure_logger('ExSeq-Toolbox')
 
 
-def consolidate_channels_function(args, fov, code):
-    r"""Reads in the locations of the puncta from a specified fov and code, then uses distance thresholding to consolidate (remove duplicate puncta) across channels.
+def consolidate_channels_function(args: Args, fov: int, code: int, normalized: bool = False) -> None:
+    r"""
+    Consolidates (removes duplicate puncta) across channels using distance thresholding, called by `consolidate_channels`.
 
-    :param args.Args args: configuration options.
-    :param int fov: field of view.
-    :param int code: the code of the volume chunk to be consildate.
+    :param args: Configuration options. This should be an instance of the Args class.
+    :type args: Args
+    :param fov: Field of view.
+    :type fov: int
+    :param code: The code of the volume chunk to be consolidated.
+    :type code: int
+    :param normalized: If True, uses the quantile normalized intensity values if code/fov already processed by (utils.quantile_normalization). Default is False.
+    :type normalized: bool
     """
 
-    from scipy.spatial.distance import cdist
-
     def find_matching_points(point_cloud1, point_cloud2, distance_threshold=8):
-
         temp1 = np.copy(point_cloud1)
         temp1[:, 0] = temp1[:, 0] * 0.5
         temp2 = np.copy(point_cloud2)
         temp2[:, 0] = temp2[:, 0] * 0.5
-
-        # Calculate euclidean distance between the two cloud points (point_cloud1 x point_cloud2)
         distance = cdist(temp1, temp2, "euclidean")
-        # Find the index of the closest puncta from cloud 2 for each puncta in cloud 1
-        index1 = np.argmin(distance, axis=1)
-        # Find the index of the closest puncta from cloud 1 for each puncta in cloud 2
-        index2 = np.argmin(distance, axis=0)
-        # Pick puncta index that closest to each other (cloud 1 <-> cloud 2)
-        valid = [i for i, x in enumerate(index1) if index2[x] == i]
-        # Filter closest puncta pairs based on a set threshold
-        pairs = [
-            {"point0": i, "point1": index1[i]}
-            for i in valid
-            if (distance[i, index1[i]] < distance_threshold)
-        ]
 
+        index1 = np.argmin(distance, axis=1)
+        index2 = np.argmin(distance, axis=0)
+        valid = [i for i, x in enumerate(index1) if index2[x] == i]
+        pairs = [{"point0": i, "point1": index1[i]}
+                 for i in valid if (distance[i, index1[i]] < distance_threshold)]
         return pairs
 
-    logger.info("Consolidate channels: code{}, fov{}".format(fov, code))
+    try:
+        logger.info(
+            f"Starting to consolidate channels for Code: {code}, FOV: {fov}")
 
-    # Open the coord total .pkl for the particular code and FOV
-    with open(
-        args.puncta_path + "/fov{}/coords_total_code{}.pkl".format(fov, code), "rb"
-    ) as f:
-        coords_total = pickle.load(f)
+        with open(args.puncta_path + f"/fov{fov}/coords_total_code{code}.pkl", "rb") as f:
+            coords_total = pickle.load(f)
 
-    ### Set the puncta in channel 640 as reference
-    reference = [
-        {"position": position, "c0": {"index": i, "position": position}}
-        for i, position in enumerate(coords_total["c0"])
-    ]
+        reference = [{"position": position, "c0": {"index": i, "position": position}}
+                     for i, position in enumerate(coords_total["c0"])]
 
-    ### Other channels '594','561','488'
-    for c in [1, 2, 3]:
+        # Other channels
+        for c in [1, 2, 3]:
 
-        point_cloud1 = np.asarray(
-            [x["position"] for x in reference]
-        )  # Reference 640 channel puncta coordination
-        point_cloud2 = np.asarray(
-            coords_total["c{}".format(c)]
-        )  # other channels puncta coordination
-        pairs = find_matching_points(
-            point_cloud1, point_cloud2
-        )  # find closest pairs of puncta between 2 channels
-        # Write the matching pair for the other channels to the reference
-        for pair in pairs:
-            reference[pair["point0"]]["c{}".format(c)] = {
-                "index": pair["point1"],
-                "position": point_cloud2[pair["point1"]],
-            }
-        # Append the puncta without close pair to the 640 to the reference dict
-        others = set(range(len(point_cloud2))) - set([pair["point1"] for pair in pairs])
-        for other in others:
-            reference.append(
-                {
-                    "position": point_cloud2[other],
-                    "c{}".format(c): {"index": other, "position": point_cloud2[other]},
-                }
-            )
+            point_cloud1 = np.asarray([x["position"] for x in reference])
+            point_cloud2 = np.asarray(coords_total[f"c{c}"])
+            if point_cloud2.size != 0:
+                pairs = find_matching_points(point_cloud1, point_cloud2)
+            else:
+                continue
 
-    # Get the index of the puncta point in the .h5 channel dataset
-    with h5py.File(args.h5_path.format(code, fov), "r") as f:
-        for i, duplet in enumerate(reference):
-            temp = [
-                f[args.channel_names[c]][tuple(duplet["c{}".format(c)]["position"])]
-                if "c{}".format(c) in duplet
-                else 0
-                for c in range(4)
-            ]
-            duplet["color"] = np.argmax(
-                temp
-            )  # Channel of the puncta with highest intensity
-            duplet[
-                "intensity"
-            ] = temp  # Intensity on different channels ['640','594','561','488']
-            duplet["index"] = i  # puncta index
-            duplet["position"] = duplet["c{}".format(duplet["color"])][
-                "position"
-            ]  # postion of the highest intensity puncta
+            for pair in pairs:
+                reference[pair["point0"]][f"c{c}"] = {
+                    "index": pair["point1"], "position": point_cloud2[pair["point1"]], }
 
-    with open(args.puncta_path + "/fov{}/result_code{}.pkl".format(fov, code), "wb") as f:
-        pickle.dump(reference, f)
+            others = set(range(len(point_cloud2))) - \
+                set([pair["point1"] for pair in pairs])
+            for other in others:
+                reference.append({"position": point_cloud2[other], f"c{c}": {
+                                 "index": other, "position": point_cloud2[other]}, })
 
-    if args.permission:
-        chmod(os.path.join(args.puncta_path, "fov{}/result_code{}.pkl".format(fov, code)))
+        with h5py.File(args.h5_path.format(code, fov), "r") as f:
+            for i, duplet in enumerate(reference):
+                temp = [f[args.channel_names[c]][tuple(
+                    duplet[f"c{c}"]["position"])] if f"c{c}" in duplet else 0 for c in range(4)]
+
+                if normalized:
+                    temp_norm = [f[args.channel_names[c]+"_norm"][tuple(
+                        duplet[f"c{c}"]["position"])] if f"c{c}" in duplet else 0 for c in range(4)]
+                    duplet["color"] = np.argmax(temp_norm)
+                    duplet["intensity_normalized"] = temp_norm
+                else:
+                    duplet["color"] = np.argmax(temp)
+
+                duplet["intensity"] = temp
+                duplet["index"] = i
+                duplet["position"] = duplet[f'c{duplet["color"]}']["position"]
+
+        with open(args.puncta_path + f"/fov{fov}/result_code{code}.pkl", "wb") as f:
+            pickle.dump(reference, f)
+
+        if args.permission:
+            chmod(Path(args.puncta_path).joinpath(
+                f"fov{fov}/result_code{code}.pkl"))
+
+    except Exception as e:
+        logger.error(
+            f"Error during channels consolidation for Code: {code}, FOV: {fov}. Error: {e}")
+        raise
 
 
-def consolidate_channels(args, code_fov_pairs, num_cpu=None):
-    r"""Wrapper around consolidate_channels_function to enable parallel processing.
+def consolidate_channels(args: Args,
+                         code_fov_pairs: List[Tuple[int, int]],
+                         normalized: bool = False,
+                         num_cpu: Optional[int] = None) -> None:
+    r"""
+    Wrapper around `consolidate_channels_function` to enable parallel processing.
 
-    :param args.Args args: configuration options.
-    :param list code_fov_pairs: a list of tuples, where each tuple is a (code, fov) pair. Default: ``None``
-    :param int num_cpu: number of CPUs to use for processing. Default: ``None``
+    :param args: Configuration options. This should be an instance of the Args class.
+    :type args: Args
+    :param code_fov_pairs: A list of tuples, where each tuple is a (code, fov) pair.
+    :type code_fov_pairs: List[Tuple[int, int]]
+    :param normalized: If True, uses the quantile normalized intensity values if code/fov already processed by (utils.quantile_normalization). Default is False.
+    :type normalized: bool
+    :param num_cpu: Number of CPUs to use for processing. If not provided, defaults to a quarter of the available CPUs.
+    :type num_cpu: int, optional 
     """
 
-    def run(tasks_queue, q_lock):
+    def run(tasks_queue: Queue, q_lock: Lock, normalized: bool) -> None:
 
-        while True:  # Check for remaining task in the Queue
+        while True:
             try:
                 with q_lock:
                     fov, code = tasks_queue.get_nowait()
                     logger.info(
-                        "Remaining tasks to process : {}".format(tasks_queue.qsize())
-                    )
+                        f"Remaining tasks to process: {tasks_queue.qsize()}")
             except queue.Empty:
                 break
             else:
-                consolidate_channels_function(args, fov, code)
-                logger.info(
-                    "Consolidate Channels: Fov{}, Code{} Finished".format(fov, code)
-                )
+                try:
+                    consolidate_channels_function(args, fov, code, normalized)
+                    logger.info(
+                        f"Consolidate Channels: Fov{fov}, Code{code} Finished")
+                except Exception as e:
+                    logger.error(
+                        f"Error during channels consolidation for Code: {code}, FOV: {fov}. Error: {e}")
+                    raise
 
-    # Use a quarter of the available CPU resources to finish the tasks; you can increase this if the server is accessible for this task only.
-    if num_cpu == None:
-        if len(code_fov_pairs) < multiprocessing.cpu_count() / 4:
-            cpu_execution_core = len(code_fov_pairs)
-        else:
-            cpu_execution_core = multiprocessing.cpu_count() / 4
+    # Determine the number of CPU cores to use.
+    if num_cpu is None:
+        cpu_execution_core = min(
+            len(code_fov_pairs), multiprocessing.cpu_count() // 4)
     else:
         cpu_execution_core = num_cpu
 
-    # List to hold the child processes.
     child_processes = []
-    # Queue to hold all the puncta extraction tasks.
     tasks_queue = Queue()
-    # Queue lock to avoid race condition.
     q_lock = Lock()
 
-    # Add all the transform_other_channels to the queue.
+    # Add all the consolidation tasks to the queue.
     for code, fov in code_fov_pairs:
         tasks_queue.put((fov, code))
 
-    for cpu_cores in range(int(cpu_execution_core)):
-        p = Process(target=run, args=(tasks_queue, q_lock))
-        child_processes.append(p)
-        p.start()
+    for _ in range(cpu_execution_core):
+        try:
+            p = Process(target=run, args=(tasks_queue, q_lock, normalized))
+            child_processes.append(p)
+            p.start()
+        except Exception as e:
+            logger.error(f"Error starting process for CPU core. Error: {e}")
+            raise
 
     for p in child_processes:
         p.join()
 
 
-def consolidate_codes_function(args, fov):
-    r"""Reads in the locations of the puncta from a specified fov, then uses distance thresholding to consolidate (remove duplicate puncta) across codes.
+def consolidate_codes_function(args: Args, fov: int) -> None:
+    r"""
+    Reads in the locations of the puncta from a specified fov, then uses distance thresholding 
+    to consolidate (remove duplicate puncta) across codes.
 
-    :param args.Args args: configuration options.
-    :param int fov: field of view.
+    :param args: Configuration options.
+    :type args: Args
+    :param fov: Field of view.
+    :type fov: int
     """
 
-    from scipy.spatial.distance import cdist
-
-    def find_matching_points(point_cloud1, point_cloud2, distance_threshold=14):
-
+    def find_matching_points(point_cloud1, point_cloud2, distance_threshold=8):
         temp1 = np.copy(point_cloud1)
         temp1[:, 0] = temp1[:, 0] * 0.5
         temp2 = np.copy(point_cloud2)
         temp2[:, 0] = temp2[:, 0] * 0.5
-        # Calculate euclidean distance between the two cloud points (point_cloud1 x point_cloud2)
         distance = cdist(temp1, temp2, "euclidean")
-        # Find the index of the closest puncta from cloud 2 for each puncta in cloud 1
         index1 = np.argmin(distance, axis=1)
-        # Find the index of the closest puncta from cloud 1 for each puncta in cloud 2
         index2 = np.argmin(distance, axis=0)
-        # Pick puncta index that closest to each other (cloud 1 <-> cloud 2)
         valid = [i for i, x in enumerate(index1) if index2[x] == i]
-        # Filter closest puncta pairs based on a set threshold
-        pairs = [
-            {"point0": i, "point1": index1[i]}
-            for i in valid
-            if distance[i, index1[i]] < distance_threshold
-        ]
-
+        pairs = [{"point0": i, "point1": index1[i]}
+                 for i in valid if (distance[i, index1[i]] < distance_threshold)]
         return pairs
 
-    ## get the consolidate_channels results for code 0
-    code = args.ref_code
-    with open(args.puncta_path + "/fov{}/result_code{}.pkl".format(fov, code), "rb") as f:
-        new = pickle.load(f)
-
-    # create reference using the code0 highest intensity puncta position and other details
-    reference = [{"position": x["position"], "code0": x} for x in new]
-    # Run through the remaining rounds
-    for code in set(args.codes) - set([args.ref_code]):
-        ## open other rounds consolidate_channels results
-        with open(
-            args.puncta_path + "/fov{}/result_code{}.pkl".format(fov, code), "rb"
-        ) as f:
+    try:
+        with open(args.puncta_path + f"/fov{fov}/result_code{args.ref_code}.pkl", "rb") as f:
             new = pickle.load(f)
 
-        # create
-        point_cloud1 = np.asarray(
-            [x["position"] for x in reference]
-        )  # Reference puncta for code0 and other rounds
-        point_cloud2 = np.asarray([x["position"] for x in new])  # other rounds puncta
+        reference = [{"position": x["position"], "code0": x} for x in new]
 
-        pairs = find_matching_points(
-            point_cloud1, point_cloud2
-        )  # find closest pairs of puncta between 2 rounds
+        for code in set(args.codes) - set([args.ref_code]):
+            with open(args.puncta_path + f"/fov{fov}/result_code{code}.pkl", "rb") as f:
+                new = pickle.load(f)
 
-        # Write the matching pair for other rounds to the reference
-        for pair in pairs:
-            reference[pair["point0"]]["code{}".format(code)] = new[pair["point1"]]
+            point_cloud1 = np.asarray([x["position"] for x in reference])
+            point_cloud2 = np.asarray([x["position"] for x in new])
 
-        # Append non-matching pairs for other rounds to the reference
-        others = set(range(len(point_cloud2))) - set([pair["point1"] for pair in pairs])
-        for other in others:
-            reference.append(
-                {"position": point_cloud2[other], "code{}".format(code): new[other]}
-            )
-    # index puncta from all channels
-    reference = [{**x, "index": i} for i, x in enumerate(reference)]
+            pairs = find_matching_points(point_cloud1, point_cloud2)
 
-    reference = [
-        {
-            **x,
-            "barcode": "".join(
-                [
-                    str(x["code{}".format(code)]["color"])
-                    if "code{}".format(code) in x
-                    else "_"
-                    for code in args.codes
-                ]
-            ),
-        }
-        for x in reference
-    ]
+            for pair in pairs:
+                reference[pair["point0"]][f"code{code}"] = new[pair["point1"]]
 
-    with open(args.puncta_path + "/fov{}/result.pkl".format(fov), "wb") as f:
-        pickle.dump(reference, f)
+            others = set(range(len(point_cloud2))) - \
+                set([pair["point1"] for pair in pairs])
+            for other in others:
+                reference.append(
+                    {"position": point_cloud2[other], f"code{code}": new[other]})
 
-    if args.permission:
-        chmod(os.path.join(args.puncta_path, "fov{}/result.pkl".format(fov)))
+        reference = [{**x, "index": i} for i, x in enumerate(reference)]
+        reference = [{**x, "barcode": "".join([str(x[f"code{code}"]["color"])
+                                              if f"code{code}" in x else "_" for code in args.codes])} for x in reference]
+
+        with open(args.puncta_path + f"/fov{fov}/result.pkl", "wb") as f:
+            pickle.dump(reference, f)
+
+        if args.permission:
+            chmod(Path(args.puncta_path).joinpath(f"fov{fov}/result.pkl"))
+
+        logger.info(
+            f"Consolidation of codes for FOV {fov} completed successfully.")
+
+    except Exception as e:
+        logger.error(
+            f"Error during codes consolidation for FOV {fov}. Error: {e}")
+        raise
 
 
-def consolidate_codes(args, fov_list, num_cpu=None):
-    r"""Wrapper around consolidate_codes_function to enable parallel processing.
+def consolidate_codes(args: Args, fov_list: List[int], num_cpu: Optional[int] = None) -> None:
+    r"""
+    Wrapper around consolidate_codes_function to enable parallel processing.
 
-    :param args.Args args: configuration options.
-    :param list fov_list: a list of integers, where each integer is a field of view to process.
-    :param int num_cpu: number of CPUs to use for processing. Default: ``None``
+    :param args: Configuration options.
+    :type args: Args
+    :param fov_list: A list of integers, where each integer is a field of view to process.
+    :type fov_list: List[int]
+    :param num_cpu: Number of CPUs to use for processing. Default is None which means it will use a quarter of available CPUs.
+    :type num_cpu: Optional[int]
     """
 
-    def run(tasks_queue, q_lock):
-
-        while True:  # Check for remaining task in the Queue
+    def run(tasks_queue: Queue, q_lock: Lock) -> None:
+        while True:
             try:
                 with q_lock:
                     fov = tasks_queue.get_nowait()
                     logger.info(
-                        "Remaining tasks to process : {}".format(tasks_queue.qsize())
-                    )
+                        f"Remaining tasks to process: {tasks_queue.qsize()}")
             except queue.Empty:
                 break
             else:
-                consolidate_codes_function(args, fov)
-                logger.info("Consolidate Codes: fov{} Finished".format(fov))
+                try:
+                    consolidate_codes_function(args, fov)
+                    logger.info(
+                        f"Consolidate Codes for fov {fov} finished successfully.")
+                except Exception as e:
+                    logger.error(
+                        f"Error during codes consolidation for FOV {fov}. Error: {e}")
+                    raise
 
-    # Use a quarter of the available CPU resources to finish the tasks; you can increase this if the server is accessible for this task only.
-    if num_cpu == None:
-        if len(fov_list) < multiprocessing.cpu_count() / 4:
-            cpu_execution_core = len(fov_list)
-        else:
-            cpu_execution_core = multiprocessing.cpu_count() / 4
+    # Determine the number of CPU cores to use.
+    if num_cpu is None:
+        cpu_execution_core = min(
+            len(fov_list), multiprocessing.cpu_count() // 4)
     else:
         cpu_execution_core = num_cpu
 
-    # List to hold the child processes.
     child_processes = []
-    # Queue to hold all the puncta extraction tasks.
     tasks_queue = Queue()
-    # Queue lock to avoid race condition.
     q_lock = Lock()
 
-    # Add all the transform_other_channels to the queue.
     for fov in fov_list:
-        tasks_queue.put((fov))
+        tasks_queue.put(fov)
 
-    for cpu_cores in range(int(cpu_execution_core)):
+    for _ in range(int(cpu_execution_core)):
         p = Process(target=run, args=(tasks_queue, q_lock))
         child_processes.append(p)
         p.start()
