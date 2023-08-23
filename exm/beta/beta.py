@@ -62,3 +62,105 @@ def quantile_normalization(args: Args, code: int, fov: int) -> None:
     except Exception as e:
         print(f"Error occurred while applying quantile normalization: {e}")
         raise
+
+
+def algin_channels_function(args, tasks_queue, q_lock):
+    r"""
+    Applies alignment between other channels and DAPI within the same round and fov.
+    """
+    import queue
+    import multiprocessing
+    from bigstream.transform import apply_transform
+    from bigstream.align import affine_align, alignment_pipeline
+
+    while True:  # Check for remaining task in the Queue
+        try:
+            with q_lock:
+                code, fov = tasks_queue.get_nowait()
+                logger.info(
+                    f"Remaining tasks to process : {tasks_queue.qsize()}")
+        except queue.Empty:
+            logger.info(f"{multiprocessing.current_process().name}: Done")
+            break
+        except Exception as e:
+            logger.error(f"Error fetching task from queue: {e}")
+            break
+        else:
+            with h5py.File(args.h5_path.format(code, fov), "r") as f:
+                fix_volume = f[args.ref_channel][()]
+
+            for channel in args.channel_names:
+                if channel == args.ref_channel:
+                    continue
+
+                with h5py.File(args.h5_path.format(code, fov), "r") as f:
+                    mov_volume = f[channel][()]
+
+                spacing = [0.40, 0.1625, 0.1625]
+
+                # define alignment steps
+                rigid_kwargs = {
+                    'alignment_spacing': 0.5,
+                    'shrink_factors': (8, 4, 2, 1),
+                    'smooth_sigmas': (1., 1., 1., 1.),
+                    'optimizer_args': {
+                        'learningRate': 0.25,
+                        'minStep': 0.,
+                        'numberOfIterations': 400,
+                    },
+                }
+
+                rigid = affine_align(
+                    fix_volume, mov_volume,
+                    spacing, spacing,
+                    rigid=True,
+                    fix_mask=(fix_volume > 105).astype(np.uint8),
+                    mov_mask=(mov_volume > 105).astype(np.uint8), **rigid_kwargs
+                )
+
+                np.savetxt(args.tform_path.format(
+                    code, f"fov{fov}_{channel}_affine.mat"), rigid)
+
+                # apply affine only
+                aligned_vol = apply_transform(
+                    fix_volume, mov_volume,
+                    spacing, spacing,
+                    transform_list=[rigid,],
+                )
+
+                with h5py.File(args.h5_path.format(code, fov), "a") as f:
+                    aligned_channel = channel + '_align'
+                    if aligned_channel in f.keys():
+                        del f[aligned_channel]
+                    f.create_dataset(
+                        aligned_channel, aligned_vol.shape, dtype=aligned_vol.dtype, data=aligned_vol)
+
+
+def algin_channels(args: Args,
+                   code_fov_pairs,
+                   parallel_processes: int = 1) -> None:
+
+    logger.warn("This function `algin_channels` is experimental.")
+    import multiprocessing
+
+    child_processes = []
+    tasks_queue = multiprocessing.Queue()
+    q_lock = multiprocessing.Lock()
+
+    if not code_fov_pairs:
+        code_fov_pairs = [[round_val, roi_val]
+                          for round_val in args.codes for roi_val in args.fovs]
+
+    for round, roi in code_fov_pairs:
+        tasks_queue.put((round, roi))
+
+    for w in range(int(parallel_processes)):
+
+        p = multiprocessing.Process(
+            target=algin_channels_function, args=(args, tasks_queue, q_lock))
+
+        child_processes.append(p)
+        p.start()
+
+    for p in child_processes:
+        p.join()
