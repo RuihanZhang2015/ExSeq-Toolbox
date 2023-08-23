@@ -100,7 +100,7 @@ class Args:
             self.processed_data_path = os.path.join(self.raw_data_path, "processed_data")
 
         self.h5_path = os.path.join(self.processed_data_path, "code{}/{}.h5")
-        self.tform_path = os.path.join(self.processed_data_path, "code{}/tforms/{}.txt")
+        self.tform_path = os.path.join(self.processed_data_path, "code{}/tforms/{}")
         self.puncta_path = os.path.join(self.processed_data_path, "puncta/")
 
         if not fovs and "fovs" not in dir(self):
