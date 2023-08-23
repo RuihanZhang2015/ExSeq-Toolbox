@@ -5,15 +5,19 @@ import random
 import pandas as pd
 import numpy as np
 from pathlib import Path
+
 from IPython.display import display
 from PIL import Image
 
 from skimage.restoration import rolling_ball
-from scipy.ndimage import white_tophat
 from skimage.morphology import disk
+from scipy.ndimage import white_tophat
+from scipy.stats import rankdata
 
-from typing import Type , Optional
 
+from typing import Type, Optional
+
+from exm.args import Args
 from exm.utils.log import configure_logger
 logger = configure_logger('ExSeq-Toolbox')
 
@@ -71,8 +75,8 @@ def retrieve_img(args, fov, code, channel, ROI_min, ROI_max):
     with h5py.File(args.h5_path.format(code, fov), "r") as f:
         im = f[args.channel_names[channel]][
             zz,
-            max(0, ROI_min[1]) : min(2048, ROI_max[1]),
-            max(0, ROI_min[2]) : min(2048, ROI_max[2]),
+            max(0, ROI_min[1]): min(2048, ROI_max[1]),
+            max(0, ROI_min[2]): min(2048, ROI_max[2]),
         ]
         im = np.squeeze(im)
 
@@ -91,11 +95,12 @@ def retrieve_vol(args, fov, code, c, ROI_min, ROI_max):
     """
     with h5py.File(args.h5_path.format(code, fov), "r") as f:
         vol = f[args.channel_names[c]][
-            max(0, ROI_min[0]) : ROI_max[0],
-            max(0, ROI_min[1]) : min(2048, ROI_max[1]),
-            max(0, ROI_min[2]) : min(2048, ROI_max[2]),
+            max(0, ROI_min[0]): ROI_max[0],
+            max(0, ROI_min[1]): min(2048, ROI_max[1]),
+            max(0, ROI_min[2]): min(2048, ROI_max[2]),
         ]
     return vol
+
 
 def gene_barcode_mapping(args):
     r"""This function loads a CSV file `args.gene_digit_csv` containing gene symbols and corresponding barcodes. It converts the barcodes to digit representations and creates two mappings: 'digit2gene' (from digit representation to gene symbol) and 'gene2digit' (from gene symbol to digit representation). These mappings are useful for identifying genes associated with puncta barcode in a field of view.
@@ -103,12 +108,13 @@ def gene_barcode_mapping(args):
     :returns: A tuple containing three elements. The first element is a pandas DataFrame containing the original CSV data with an additional column for the digit representations of the barcodes. The second element is a dictionary mapping from digit representation to gene symbol ('digit2gene'). The third element is a dictionary mapping from gene symbol to digit representation ('gene2digit').
     """
     df = pd.read_csv(args.gene_digit_csv)
-    df['Digits'] = [''.join([args.code2num[c] for c in barcode]) for barcode in df['Barcode']]
-    digit2gene,gene2digit = {},{}
+    df['Digits'] = [''.join([args.code2num[c] for c in barcode])
+                    for barcode in df['Barcode']]
+    digit2gene, gene2digit = {}, {}
     for i, row in df.iterrows():
         digit2gene[row['Digits']] = row['Symbol']
         gene2digit[row['Symbol']] = row['Digits']
-    return df,digit2gene,gene2digit
+    return df, digit2gene, gene2digit
 
 
 def display_img(img):
@@ -117,9 +123,9 @@ def display_img(img):
     :param numpy.ndarray img: The input image to display. This can be a boolean or non-boolean numpy array.
     """
     if img.dtype is np.dtype(bool):
-        display(Image.fromarray((img * 255).astype(np.uint8)))
+        display(Image.fromarray((img).astype(np.uint8)))
     else:
-        display(Image.fromarray(img.astype(np.uint8)))
+        display(Image.fromarray(img))
 
 
 def retrieve_digit(args, digit):
@@ -130,15 +136,16 @@ def retrieve_digit(args, digit):
     """
     puncta_lists = []
     for fov in args.fovs:
-        result = retrieve_all_puncta(args,fov)
+        result = retrieve_all_puncta(args, fov)
         for puncta in result:
             if puncta['barcode'] == digit:
                 puncta_lists.append({
                     **puncta,
-                    'fov':fov
+                    'fov': fov
                 })
 
     return puncta_lists
+
 
 def retrieve_summary(args):
     r"""This function retrieves a summary of all puncta for each field of view (fov) in the provided fovs list. The summary includes the total number of each barcode across all fovs as well as the count of each barcode in individual fovs. The function then saves this summary to a CSV file.
@@ -150,14 +157,15 @@ def retrieve_summary(args):
 
     summary = defaultdict(lambda: defaultdict(int))
     for fov in tqdm.tqdm(args.fovs):
-        result = retrieve_all_puncta(args,fov)
+        result = retrieve_all_puncta(args, fov)
         for entry in result:
             summary['number'][entry['barcode']] += 1
             summary[f'fov{fov}'][entry['barcode']] += 1
     summary = pd.DataFrame(summary).fillna(0).astype(int)
     summary = summary.sort_values(by='number', ascending=False)
-    summary.to_csv(os.path.join(args.puncta_path,'digit_summary.csv'))
+    summary.to_csv(os.path.join(args.puncta_path, 'digit_summary.csv'))
     return summary
+
 
 def retrieve_complete(args):
     r"""This function retrieves a complete summary of barcodes that are present in both the gene-barcode mapping and the overall barcode summary. The function returns a DataFrame sorted by gene names and also writes this DataFrame to a CSV file.
@@ -165,14 +173,15 @@ def retrieve_complete(args):
     :returns: A pandas DataFrame containing the complete summary of barcodes. The DataFrame is indexed by barcode with columns for total count ('number') and count per fov (e.g., 'fov1', 'fov2', ...). Additionally, it contains a 'gene' column that maps each barcode to its corresponding gene. The DataFrame is sorted by gene names in ascending order.
 
     """
-    df,digit2gene,gene2digit = gene_barcode_mapping(args)
+    df, digit2gene, gene2digit = gene_barcode_mapping(args)
     summary = retrieve_summary(args)
     complete = summary.loc[list(set(df['Digits']) & set(summary.index))]
     complete['gene'] = [digit2gene[digit] for digit in complete.index]
-    complete = complete.sort_values('gene') 
-    complete.to_csv(os.path.join(args.puncta_path,'gene_summary.csv'))
+    complete = complete.sort_values('gene')
+    complete.to_csv(os.path.join(args.puncta_path, 'gene_summary.csv'))
 
     return complete
+
 
 def retrieve_gene(args, gene):
     r"""This function retrieves all puncta associated with a specific gene across all fields of view (fovs). It leverages a Hamming distance function to match the barcode of each puncta with the gene of interest, permitting a maximum of one mismatch. It also writes the gene-barcode mapping to a CSV file.
@@ -180,31 +189,33 @@ def retrieve_gene(args, gene):
     :param str gene: The gene of interest for which all corresponding puncta across all fovs will be retrieved.
     :returns: A list of dictionaries, each representing a puncta associated with the gene. Each dictionary includes the puncta's properties, as well as the fov in which it is found.
     """
-    def within_hamming_distance(a,b):
+    def within_hamming_distance(a, b):
         diff = 0
-        for x,y in zip(a,b):
-            if x!=y:
-                diff +=1
-            if diff>=2:
+        for x, y in zip(a, b):
+            if x != y:
+                diff += 1
+            if diff >= 2:
                 return False
         return True
 
-    df,digit2gene,gene2digit = gene_barcode_mapping(args)
+    df, digit2gene, gene2digit = gene_barcode_mapping(args)
     digit = gene2digit[gene]
 
     puncta_lists = []
     for fov in args.fovs:
-        result = retrieve_all_puncta(args,fov)
+        result = retrieve_all_puncta(args, fov)
         for puncta in result:
-            if within_hamming_distance(puncta['barcode'],digit):
+            if within_hamming_distance(puncta['barcode'], digit):
                 puncta_lists.append({
                     **puncta,
-                    'fov':fov
+                    'fov': fov
                 })
-    df.to_csv(os.path.join(args.puncta_path,'gene_{}_digit_map.csv'.format(gene)))
+    df.to_csv(os.path.join(args.puncta_path,
+              'gene_{}_digit_map.csv'.format(gene)))
     return puncta_lists
 
-def generate_debug_candidate(args, gene = None, fov = None, num_missing_code = 1):
+
+def generate_debug_candidate(args, gene=None, fov=None, num_missing_code=1):
     r"""Generates a candidate puncta for debugging purposes. The function first randomly selects a gene and retrieves all corresponding puncta. It then filters the puncta based on the number of missing codes in their barcodes. Finally, it randomly selects one puncta from the filtered list.
     :param args.Args args: configuration options, including methods for gene-barcode mapping and retrieving all puncta.
     :param str gene: The gene of interest, if none is provided a gene is randomly selected.
@@ -216,22 +227,27 @@ def generate_debug_candidate(args, gene = None, fov = None, num_missing_code = 1
 
     if not gene:
         gene = complete['gene'].values[np.random.randint(0, len(complete))]
-    
+
     puncta_lists = retrieve_gene(args, gene)
 
     if fov:
-        logger.info('Studying gene {} in fov '.format(gene),fov)
-        puncta_lists = [puncta for puncta in puncta_lists if puncta['fov'] == fov]
+        logger.info('Studying gene {} in fov '.format(gene, fov))
+        puncta_lists = [
+            puncta for puncta in puncta_lists if puncta['fov'] == fov]
     else:
         logger.info('Studying gene {} in all fovs'.format(gene))
-    logger.info('Total barcode that matches gene {} '.format(gene),len(puncta_lists))
+    logger.info('Total barcode that matches gene {} '.format(
+        gene, len(puncta_lists)))
 
-    puncta_lists = [puncta for puncta in puncta_lists if puncta['barcode'].count('_') == num_missing_code]
+    puncta_lists = [puncta for puncta in puncta_lists if puncta['barcode'].count(
+        '_') == num_missing_code]
     if len(puncta_lists) == 0:
-        logger.info('Total barcode with {} missing codes: {}'.format(num_missing_code,0))
-        return generate_debug_candidate(args, gene = None, fov = None, num_missing_code = 1)
+        logger.info('Total barcode with {} missing codes: {}'.format(
+            num_missing_code, 0))
+        return generate_debug_candidate(args, gene=None, fov=None, num_missing_code=1)
     else:
-        logger.info('Total barcode with {} missing codes: {}'.format(num_missing_code,len(puncta_lists)))
+        logger.info('Total barcode with {} missing codes: {}'.format(
+            num_missing_code, len(puncta_lists)))
 
     random_index = random.randint(0, len(puncta_lists)-1)
     return puncta_lists[random_index]
@@ -242,7 +258,7 @@ def get_offsets(filename):
 
     :param str filename: the file name of the ``BDV/H5`` XML file, produced by the Big Stitcher plugin of fiji.
     """
-    import xml.etree.ElementTree 
+    import xml.etree.ElementTree
 
     tree = xml.etree.ElementTree.parse(filename)
     root = tree.getroot()
@@ -252,7 +268,8 @@ def get_offsets(filename):
         for view_transform in registration_tag.findall("ViewTransform"):
             affine_transform = view_transform.find("affine")
             mat = np.array(
-                [float(a) for a in affine_transform.text.split(" ")] + [0, 0, 0, 1]
+                [float(a)
+                 for a in affine_transform.text.split(" ")] + [0, 0, 0, 1]
             ).reshape((4, 4))
             tot_mat = np.matmul(tot_mat, mat)
         vtrans.append(tot_mat)
@@ -275,7 +292,8 @@ def visualize_progress(args) -> None:
     try:
         result = np.zeros((len(args.fovs), len(args.codes)))
         annot = np.asarray(
-            [["{},{}".format(fov, code) for code in args.codes] for fov in args.fovs]
+            [["{},{}".format(fov, code) for code in args.codes]
+             for fov in args.fovs]
         )
         for fov in args.fovs:
             for code_index, code in enumerate(args.codes):
@@ -286,13 +304,14 @@ def visualize_progress(args) -> None:
                     continue
 
                 if os.path.exists(
-                    args.puncta_path + "/fov{}/result_code{}.pkl".format(fov, code)
+                    args.puncta_path +
+                        "/fov{}/result_code{}.pkl".format(fov, code)
                 ):
                     result[fov, code_index] = 4
                     continue
 
-                if os.path.exists(args.puncta_path + '/fov{}/coords_total_code{}.pkl'.format(fov,code)):
-                    result[fov,code_index] = 3
+                if os.path.exists(args.puncta_path + '/fov{}/coords_total_code{}.pkl'.format(fov, code)):
+                    result[fov, code_index] = 3
                     continue
 
                 try:
@@ -312,7 +331,8 @@ def visualize_progress(args) -> None:
         logger.error(f"Failed to visualize progress. Error: {e}")
         raise
 
-## Background subtraction
+# Background subtraction
+
 
 def subtract_background_rolling_ball(volume: np.ndarray,
                                      radius: int = 50,
@@ -381,3 +401,4 @@ def subtract_background_top_hat(volume: np.ndarray,
     except Exception as e:
         logger.error(f"Error during top-hat background subtraction: {e}")
         raise
+

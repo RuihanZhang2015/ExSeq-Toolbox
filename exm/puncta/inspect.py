@@ -8,7 +8,7 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter,zoom
-from exm.utils import retrieve_img, retrieve_all_puncta, retrieve_one_puncta, gene_barcode_mapping
+from exm.utils.utils import retrieve_img, retrieve_all_puncta, retrieve_one_puncta, gene_barcode_mapping
 from exm.puncta.improve import puncta_all_nearest_points
 
 import plotly.graph_objects as go
@@ -661,7 +661,7 @@ def inspect_between_rounds_plotly(
 
     reference = retrieve_all_puncta(args, fov)
     reference = [x for x in reference if in_region(x["position"], ROI_min, ROI_max)]
-    logger.info("Only {} puncta remained".format(len(reference)))
+    logger.info(f"Only {len(reference)} puncta remained")
 
     fig = go.Figure()
 
@@ -1031,16 +1031,16 @@ def inspect_puncta_improvement_matplotlib(args, fov, puncta_index, option = 'fin
 
     # Get individual puncta information based on puncta_indexn
     puncta = retrieve_one_puncta(args,fov, puncta_index)
-    logger.info('fov',fov,'index',puncta_index)
+    logger.info(f'fov {fov}, index {puncta_index}')
 
     # Get postion of the puncta
     d0, d1, d2 = puncta['position']
-    logger.info('puncta position',d0,d1,d2)
+    logger.info(f'puncta position {d0},{d1},{d2}')
 
     # Define the Region of Interest (ROI) based on the puncta position
     ROI_min = [max(0,d0 - 10),max(0,d1 - center_dist), max(d2 - center_dist,0)]
     ROI_max = [d0 + 10,d1 + center_dist, d2 + center_dist]    
-    logger.info('ROI_min,ROI_max = {},{}'.format(ROI_min,ROI_max))
+    logger.info(f'ROI_min,ROI_max = {ROI_min},{ROI_max}')
 
     # Define the z-stack step size
     delta_z = (ROI_max[0] - ROI_min[0])/10
@@ -1054,9 +1054,9 @@ def inspect_puncta_improvement_matplotlib(args, fov, puncta_index, option = 'fin
         missed_code = np.where(arr == '_')[0]
         ref_code, new_position, closest_position = puncta_nearest_points(args,puncta['fov'],puncta['index'],missed_code[0])  
         if new_position:
-            logger.info('new_position', new_position)
+            logger.info(f'new_position {new_position}')
         if closest_position:
-            logger.info('closest_position', closest_position)
+            logger.info(f'closest_position {closest_position}')
 
     fontsize = 40
 
@@ -1295,7 +1295,7 @@ def inspect_improved_puncta_plotly(args, fov, puncta,center_dist=40,spacer=40):
             zaxis_title = "Z" ,
         )
     )
-    # fig.show()
+    fig.show()
     fig.write_html(os.path.join(args.puncta_path,'inspect_puncta/inspect_improved_puncta_plotly_fov_{}_puncta_{}.html'.format(fov, puncta['index'])))
 
 
