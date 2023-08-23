@@ -13,7 +13,8 @@ import multiprocessing
 from multiprocessing import Lock, Process, Queue
 
 from exm.args import Args
-from exm.utils import chmod, configure_logger
+from exm.utils.log import configure_logger
+from exm.utils.utils import chmod
 
 logger = configure_logger('ExSeq-Toolbox')
 

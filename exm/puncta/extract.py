@@ -1,245 +1,300 @@
-"""Extracts puncta and saves coordinates into a .pkl file"""
-
 import os
 import h5py
 import pickle
-import multiprocessing
-import numpy as np
 import queue
-from multiprocessing import current_process,Lock,Process,Queue
-from exm.utils import chmod
+import numpy as np
+
+import collections
+from typing import List, Tuple
+from pathlib import Path
+from multiprocessing import current_process, Lock, Process, Queue
+
+from exm.args import Args
 from exm.utils import configure_logger
+from exm.utils.utils import chmod
+
 logger = configure_logger('ExSeq-Toolbox')
 
-def calculate_coords_gpu(args, tasks_queue, device, lock, queue_lock):
-    r"""Extracts puncta from volumes included in the task queue, then saves their locations to a .pkl file. GPU enabled.
 
-        :param args.Args args: configuration options.
-        :param list tasks_queue: a list of tuples, where each tuple is a (code, fov) pair.
-        :param device: TO DO
-        :param multiprocessing.Lock lock: a multiporcessing.Lock instance to avoid race condition when processes accessing the ``task_queue``.
-        :param queue_lock: TO DO
-     """
+def calculate_coords_gpu(args: Args,
+                         tasks_queue: Queue[Tuple[int, int]],
+                         device: int,
+                         lock: Lock,
+                         queue_lock: Lock) -> None:
+    r"""
+    Extracts puncta from volumes included in the task queue and saves their locations to a .pkl file using GPU acceleration.
 
+    :param args: Configuration options. This should be an instance of the Args class.
+    :type args: Args
+    :param tasks_queue: A queue of tasks, where each task is a (code, fov) pair.
+    :type tasks_queue: Queue[Tuple[int, int]]
+    :param device: GPU device ID.
+    :type device: int
+    :param lock: A multiprocessing lock instance to avoid race condition when processes accessing the GPU.
+    :type lock: Lock
+    :param queue_lock: A multiprocessing lock instance to avoid race condition when processes accessing the task queue.
+    :type queue_lock: Lock
+    """
     import cupy as cp
-    import queue # imported for using queue.Empty exception
     from cupyx.scipy.ndimage import gaussian_filter
     from cucim.skimage.feature import peak_local_max
 
-    # TODO varaible chunk size 
-    chunk_size = 100
-    
+    chunk_size = 100  # TODO: Consider making this variable
+
     with cp.cuda.Device(device):
-
-        while True: # Check for remaining task in the Queue
-
+        while True:  # Check for remaining tasks in the Queues
             try:
                 with queue_lock:
-                    temp_args = tasks_queue.get_nowait()
-                    logger.info('Remaining tasks to process : {}'.format(tasks_queue.qsize()))
-            except  queue.Empty:
-                logger.info("No task left for {}".format(current_process().name))
+                    fov, code = tasks_queue.get_nowait()
+                    logger.info(
+                        f'Remaining tasks to process: {tasks_queue.qsize()}')
+            except queue.Empty:
+                logger.info(f"No tasks left for {current_process().name}")
                 break
-            else:
-                fov,code = temp_args
-                logger.info('calculate_coords_gpu: code{}, fov{} on {}'.format(fov,code,current_process().name))   
 
-                coords_total = dict()
+            coords_total = collections.defaultdict(list)
 
-                with h5py.File(args.h5_path.format(code,fov), "r") as f:
-                    num_z = len(f[args.channel_names[0]][:,0,0])
+            try:
+                with h5py.File(args.h5_path.format(code, fov), "r") as f:
+                    num_z = len(f[args.channel_names[0]][:, 0, 0])
 
                 for c in range(4):
-
-                    for chunk in range((num_z//chunk_size)+1):
-
-                        with h5py.File(args.h5_path.format(code,fov), "r") as f:
-                                img = f[args.channel_names[c]][max(chunk_size*chunk-7,0):min(chunk_size*(chunk+1)+7,num_z),:,:]
-                                f.close()
+                    for chunk in range((num_z // chunk_size) + 1):
+                        with h5py.File(args.h5_path.format(code, fov), "r") as f:
+                            img = cp.array(f[args.channel_names[c]][max(
+                                chunk_size * chunk - 7, 0):min(chunk_size * (chunk + 1) + 7, num_z), :, :])
 
                         with lock:
-                            img = cp.array(img)
-                            gaussian_filter(img, 1, output=img, mode='reflect', cval=0)
-                            coords = cp.array(peak_local_max(img, min_distance = 7, threshold_abs=args.thresholds[c],exclude_border=False).get())
+                            gaussian_filter(img, 1, output=img,
+                                            mode='reflect', cval=0)
+                            coords = cp.array(peak_local_max(
+                                img, min_distance=7, threshold_abs=args.thresholds[c], exclude_border=False).get())
+                            coords[:, 0] += max(chunk_size * chunk - 7, 0)
 
-                            #offset the z-axis between chunks
-                            coords[:,0] += max(chunk_size*chunk-7,0)
-                                    
-                            # concat puncta in each chunk
                             if chunk == 0:
-                                coords_total['c{}'.format(c)] = coords
-                            else:     
-                                coords_total['c{}'.format(c)] = cp.concatenate((coords_total['c{}'.format(c)],coords),axis=0)
+                                coords_total[f'c{c}'] = coords
+                            else:
+                                coords_total[f'c{c}'] = cp.concatenate(
+                                    (coords_total[f'c{c}'], coords), axis=0)
 
-                            del img
-                            del coords
+                            del img, coords
                             cp.get_default_memory_pool().free_all_blocks()
                             cp.get_default_pinned_memory_pool().free_all_blocks()
 
-
-                # Remove duplicated puncta resulted from in the mautal regions between chunks. 
                 for c in range(4):
-                    coords_total['c{}'.format(c)] = np.unique(coords_total['c{}'.format(c)].get(), axis=0)
+                    coords_total[f'c{c}'] = np.unique(
+                        coords_total[f'c{c}'].get(), axis=0)
 
-                with open(args.puncta_path + '/fov{}/coords_total_code{}.pkl'.format(fov,code), 'wb') as f:
-                    pickle.dump(coords_total,f)
-                    f.close()
-  
+                with open(args.puncta_path + f'fov{fov}/coords_total_code{code}.pkl', 'wb') as f:
+                    pickle.dump(coords_total, f)
+
                 if args.permission:
-                    chmod(os.path.join(args.puncta_path,'fov{}/coords_total_code{}.pkl'.format(fov,code)))
-            logger.info('------ Fov:{}, Code:{} Finished on {}'.format(fov,code, current_process().name))
+                    chmod(Path(args.puncta_path).joinpath(
+                        f"fov{fov}/coords_total_code{code}.pkl"))
+
+                logger.info(
+                    f'Extract Puncta:  Code: {code} fov: {fov} Finished on {current_process().name}')
+
+            except Exception as e:
+                logger.error(
+                    f"Error during puncta extraction for Fov:{fov}, Code:{code}. Error: {e}")
+                raise
 
 
-def puncta_extraction_gpu(args, tasks_queue, num_gpu):    
-    r"""Wrapper around calculate_coords_gpu to enable parallel processing. 
+def puncta_extraction_gpu(args: Args,
+                          tasks_queue: Queue[Tuple[int, int]],
+                          num_gpu: int) -> None:
+    r"""
+    Wrapper around calculate_coords_gpu to enable parallel processing on GPU. 
 
-    :param args.Args args: configuration options.
-    :param list tasks_queue: a list of tuples, where each tuple is a (code, fov) pair.
-    :param int num_gpu: number of GPUs to use for processing.
+    :param args: Configuration options. This should be an instance of the Args class.
+    :type args: Args
+    :param tasks_queue: A queue of tasks, where each task is a (code, fov) pair.
+    :type tasks_queue: Queue[Tuple[int, int]]
+    :param num_gpu: Number of GPUs to use for processing.
+    :type num_gpu: int
     """
-            
-    # List to hold the child processes.
-    child_processes = [] 
-    # Queue locks to avoid race condition.
+
+    child_processes = []
     q_lock = Lock()
 
-    logger.info('Total tasks to process : {}'.format(tasks_queue.qsize()))
-    # Excute the extraction tasks on GPU
-    gpu_locks=[]
-    for gpu in range(num_gpu):
-        lock = Lock()
-        gpu_locks.append((gpu,lock))
+    logger.info(f'Total tasks to process: {tasks_queue.qsize()}')
 
-    #Give user option to set process_per_gpu
-    # Create and start a parallel execution processes based on the number of GPUs and 'process_per_gpu'. 
+    gpu_locks = [(i, Lock()) for i in range(num_gpu)]
+
     process_per_gpu = 1
-    for gpu_device in gpu_locks:
-        for cpu_cores in range(process_per_gpu):
-            p = Process(target=calculate_coords_gpu, args=(args, tasks_queue,int(gpu_device[0]),gpu_device[1],q_lock))
-            child_processes.append(p)
-            p.start()
+    for gpu_id, gpu_lock in gpu_locks:
+        for _ in range(process_per_gpu):
+            try:
+                p = Process(target=calculate_coords_gpu, args=(
+                    args, tasks_queue, gpu_id, gpu_lock, q_lock))
+                child_processes.append(p)
+                p.start()
+            except Exception as e:
+                logger.error(
+                    f"Error during puncta extraction on GPU {gpu_id}. Error: {e}")
+                raise
 
-    # End all the execution child processes.
     for p in child_processes:
-        p.join()
+        try:
+            p.join()
+        except Exception as e:
+            logger.error(f"Error during joining GPU process. Error: {e}")
+            raise
+
+    logger.info("Puncta extraction on GPU completed successfully.")
 
 
-def calculate_coords_cpu(args, tasks_queue, queue_lock):
-    r"""Extracts puncta from volumes included in the task queue, then saves their locations to a .pkl file. Runs on CPU (GPU disabled).
+def calculate_coords_cpu(args: Args,
+                         tasks_queue: Queue[Tuple[int, int]],
+                         queue_lock: Lock) -> None:
+    r"""
+    Extracts puncta from volumes included in the task queue using CPU and saves their locations to a .pkl file.
 
-    :param args.Args args: configuration options.
-    :param list tasks_queue: a list of tuples, where each tuple is a (code, fov) pair.
-    :param queue_lock: TO DO
+    :param args: Configuration options. This should be an instance of the Args class.
+    :type args: Args
+    :param tasks_queue: A queue of tasks, where each task is a (code, fov) pair.
+    :type tasks_queue: Queue[Tuple[int, int]]
+    :param queue_lock: Lock for the shared tasks queue to avoid race conditions.
+    :type queue_lock: Lock
     """
-    
     from scipy.ndimage import gaussian_filter
     from skimage.feature import peak_local_max
-    import collections
-    
+
     chunk_size = 100
-    while True: # Check for remaining task in the Queues
+
+    while True:  # Check for remaining tasks in the Queues
         try:
             with queue_lock:
-                temp_args = tasks_queue.get_nowait()
-                logger.info('Remaining tasks to process : {}'.format(tasks_queue.qsize()))
+                fov, code = tasks_queue.get_nowait()
+                logger.info(
+                    f'Remaining tasks to process: {tasks_queue.qsize()}')
         except queue.Empty:
-            logger.info("No task left for {}".format(current_process().name))
+            logger.info(f"No tasks left for {current_process().name}")
             break
 
         else:
+            logger.info(
+                f'calculate_coords_cpu: Code: {code}, FOV: {fov} on {current_process().name}')
 
-            fov,code = temp_args
-            logger.info('calculate_coords_cpu: code{}, fov{} on {}'.format(fov,code,current_process().name)) 
-
-            #TODO why we using collections for dict here            
             coords_total = collections.defaultdict(list)
 
-            with h5py.File(args.h5_path.format(code,fov), "r") as f:
-                num_z = len(f[args.channel_names[0]][:,0,0])
+            with h5py.File(args.h5_path.format(code, fov), "r") as f:
+                num_z = len(f[args.channel_names[0]][:, 0, 0])
 
             for c in range(4):
-
-                for chunk in range((num_z//chunk_size)+1):
-
-                    with h5py.File(args.h5_path.format(code,fov), "r") as f:
-                        img = f[args.channel_names[c]][max(chunk_size*chunk-7,0):min(chunk_size*(chunk+1)+7,num_z),:,:]
+                for chunk in range((num_z // chunk_size) + 1):
+                    with h5py.File(args.h5_path.format(code, fov), "r") as f:
+                        img = f[args.channel_names[c]][max(
+                            chunk_size * chunk - 7, 0):min(chunk_size * (chunk + 1) + 7, num_z), :, :]
                         f.close()
 
                     gaussian_filter(img, 1, output=img, mode='reflect', cval=0)
-                    coords = peak_local_max(img, min_distance = 7, threshold_abs= args.thresholds[c],exclude_border=False)
+                    coords = peak_local_max(
+                        img, min_distance=7, threshold_abs=args.thresholds[c], exclude_border=False)
+                    coords[:, 0] += max(chunk_size * chunk - 7, 0)
 
-                    #offset the z-axis between chunks
-                    coords[:,0] += max(chunk_size*chunk-7,0)
+                    if chunk == 0 or len(coords_total[f'c{c}']) == 0:
+                        coords_total[f'c{c}'] = coords
+                    else:
+                        coords_total[f'c{c}'] = np.concatenate(
+                            (coords_total[f'c{c}'], coords), axis=0)
 
-                    # concat puncta in each chunk
-                    if chunk == 0 or len(coords_total['c{}'.format(c)])==0:
-                        coords_total['c{}'.format(c)] = coords
-                    else:     
-                        coords_total['c{}'.format(c)] = np.concatenate((coords_total['c{}'.format(c)],coords),axis=0)
-
-            # Remove duplicated puncta resulted from the mutual regions between chunks.
             for c in range(4):
-                coords_total['c{}'.format(c)] = np.unique(coords_total['c{}'.format(c)], axis=0)
+                coords_total[f'c{c}'] = np.unique(
+                    coords_total[f'c{c}'], axis=0)
 
-            with open(args.puncta_path + '/fov{}/coords_total_code{}.pkl'.format(fov,code), 'wb') as f:
-                pickle.dump(coords_total,f)
-                f.close()
+            with open(args.puncta_path + f'/fov{fov}/coords_total_code{code}.pkl', 'wb') as f:
+                pickle.dump(coords_total, f)
 
             if args.permission:
-                chmod(os.path.join(args.puncta_path,'fov{}/coords_total_code{}.pkl'.format(fov,code)))
+                chmod(Path(args.puncta_path).joinpath(
+                    f"fov{fov}/coords_total_code{code}.pkl"))
 
-        logger.info('Extract Puncta: Fov{}, Code{} Finished on {}'.format(fov,code,current_process().name))
+        logger.info(
+            f'Extract Puncta:  Code: {code} fov: {fov} Finished on {current_process().name}')
 
 
-def puncta_extraction_cpu(args, tasks_queue, num_cpu):
-    r"""Wrapper around calculate_coords_cpu to enable parallel processing. 
+def puncta_extraction_cpu(args: Args,
+                          tasks_queue: Queue,
+                          num_cpu: int) -> None:
+    r"""
+    Wrapper around calculate_coords_cpu to enable parallel processing on the CPU.
 
-        :param args.Args args: configuration options.
-        :param list tasks_queue: a list of tuples, where each tuple is a (code, fov) pair.
-        :param int num_cpu: number of CPUs to use for processing.
-     """
+    :param args: Configuration options. This should be an instance of the Args class.
+    :type args: Args
+    :param tasks_queue: A queue of tasks, where each task is a (code, fov) pair.
+    :type tasks_queue: Queue
+    :param num_cpu: Number of CPUs to use for processing.
+    :type num_cpu: int
+    """
 
-    # List to hold the child processes.
+    logger.info(
+        f"Starting puncta extraction on CPU for {tasks_queue.qsize()} tasks.")
+
     child_processes = []
-
-    # Queue locks to avoid race condition.
     q_lock = Lock()
 
-    logger.info('Total tasks to process : {}'.format(tasks_queue.qsize()))
-    # Execute the extraction tasks on the CPU only.
-    # Create and start a parallel execution processes based on the number of 'num_cpu'. 
-    for w in range(int(num_cpu)):
-        p = Process(target=calculate_coords_cpu, args=(args,tasks_queue,q_lock))
-        child_processes.append(p)
-        p.start()
+    try:
+        for _ in range(num_cpu):
+            p = Process(target=calculate_coords_cpu,
+                        args=(args, tasks_queue, q_lock))
+            child_processes.append(p)
+            p.start()
 
-    # End all the execution child processes.
-    for p in child_processes:
-        p.join()
+        for p in child_processes:
+            p.join()
 
-def extract(args, code_fov_pairs, use_gpu=False, num_gpu = 3, num_cpu = 3):
-    r"""Runs extraction process (calculate_coords_cpu or calculate_coords_gpu) for all codes and fovs specified in code_fov_pairs. 
+        logger.info("Puncta extraction on CPU completed successfully.")
+    except Exception as e:
+        logger.error(f"Error during puncta extraction on CPU. Error: {e}")
+        raise
 
-        :param args.Args args: configuration options.
-        :param list code_fov_pairs: a list of tuples, where each tuple is a (code, fov) pair.
-        :param bool use_gpu: whether or not to enable GPU processing. Default: ``False``
-        :param int num_gpu: number of GPUs to use for processing. Default: ``3``
-        :param int num_cpu: number of CPUs to use for processing. Default: ``3``
-     """
+
+def extract(args: Args,
+            code_fov_pairs: List[Tuple[int, int]],
+            use_gpu: bool = False,
+            num_gpu: int = 3,
+            num_cpu: int = 3) -> None:
+    r"""
+    Runs the extraction process (calculate_coords_cpu or calculate_coords_gpu) 
+    for all codes and FOVs specified in code_fov_pairs.
+
+    :param args: Configuration options. This should be an instance of the Args class.
+    :type args: Args
+    :param code_fov_pairs: A list of tuples, where each tuple is a (code, fov) pair.
+    :type code_fov_pairs: List[Tuple[int, int]]
+    :param use_gpu: Whether or not to enable GPU processing. Default is False.
+    :type use_gpu: bool
+    :param num_gpu: Number of GPUs to use for processing. Default is 3.
+    :type num_gpu: int
+    :param num_cpu: Number of CPUs to use for processing. Default is None which means it will use a quarter of available CPUs.
+    :type num_cpu: Optional[int]
+    """
+
+    # Ensure directories exist for the specified FOVs
+    for _, fov in code_fov_pairs:
+        fov_path = os.path.join(args.puncta_path, f'fov{fov}')
+        if not os.path.exists(fov_path):
+            os.makedirs(fov_path)
 
     # Queue to hold all the puncta extraction tasks.
-    tasks_queue = Queue() 
-    
-    # Add all the extraction tasks to the queue.
-    for code,fov in code_fov_pairs:
-        tasks_queue.put((fov,code))
-        if not os.path.exists(args.puncta_path + 'fov{}/'.format(fov)):
-            os.makedirs(args.puncta_path + 'fov{}/'.format(fov))
+    tasks_queue = Queue()
 
-    if use_gpu:
-        processing_device = 'GPU'
-        puncta_extraction_gpu(args,tasks_queue,num_gpu)
-    else:
-        processing_device = 'CPU'
-        puncta_extraction_cpu(args,tasks_queue,num_cpu)
-         
+    # Add all the extraction tasks to the queue.
+    for code, fov in code_fov_pairs:
+        tasks_queue.put((fov, code))
+
+    try:
+        if use_gpu:
+            logger.info(
+                f"Starting puncta extraction using GPU for {len(code_fov_pairs)} pairs.")
+            puncta_extraction_gpu(args, tasks_queue, num_gpu)
+        else:
+            logger.info(
+                f"Starting puncta extraction using CPU for {len(code_fov_pairs)} pairs.")
+            puncta_extraction_cpu(args, tasks_queue, num_cpu)
+        logger.info("Puncta extraction completed successfully.")
+    except Exception as e:
+        logger.error(f"Error during puncta extraction. Error: {e}")
+        raise
