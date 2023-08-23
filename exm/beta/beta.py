@@ -7,7 +7,7 @@ from exm.args import Args
 from exm.utils.log import configure_logger
 logger = configure_logger('ExSeq-Toolbox')
 
-
+# TODO evaluate the benefits of this step
 def quantile_normalization(args: Args, code: int, fov: int) -> None:
     r"""
     Applies quantile normalization to the volumes aligned .h5 file.
@@ -63,7 +63,8 @@ def quantile_normalization(args: Args, code: int, fov: int) -> None:
         print(f"Error occurred while applying quantile normalization: {e}")
         raise
 
-
+#TODO Fine-tune alignment parameter
+# confirm a shift in the original data
 def algin_channels_function(args, tasks_queue, q_lock):
     r"""
     Applies alignment between other channels and DAPI within the same round and fov.
@@ -168,7 +169,11 @@ def algin_channels(args: Args,
         p.join()
 
 
-def forground_segmentation(args):
+
+
+#TODO fine-tune foreground_segmentation parameter   
+# test possiblity to train a u-net for each speices 
+def foreground_segmentation(args):
     r"""
     Applies forground_segmentation on code 0 DAPI for each fov.
     """
