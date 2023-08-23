@@ -139,7 +139,9 @@ def algin_channels_function(args, tasks_queue, q_lock):
 def algin_channels(args: Args,
                    code_fov_pairs,
                    parallel_processes: int = 1) -> None:
-
+    r"""
+    Applies alignment between other channels and DAPI within the same round and fov.
+    """
     logger.warn("This function `algin_channels` is experimental.")
     import multiprocessing
 
@@ -164,3 +166,46 @@ def algin_channels(args: Args,
 
     for p in child_processes:
         p.join()
+
+
+def forground_segmentation(args):
+    r"""
+    Applies forground_segmentation on code 0 DAPI for each fov.
+    """
+    import numpy as np
+    from exm.io.io import nd2ToVol
+    from scipy import ndimage
+    from bigstream import level_set
+    import tifffile
+    import os
+    logger.warn("This function `forground_segmentation` is experimental.")
+    def histogram_stretch(image, min_out=0, max_out=255):
+        
+        # Calculate the minimum and maximum pixel values in the image
+        min_val = np.min(image)
+        max_val = np.max(image)
+
+        # Perform histogram stretching
+        adjusted_image = ((image - min_val) / (max_val - min_val)
+                        * (max_out - min_out) + min_out).astype(np.int8)
+
+        return adjusted_image
+
+    for fov in args.fovs:
+        vol = nd2ToVol(args.nd2_path.format(0,'405', 4), fov)
+        vol = histogram_stretch(vol, min_out=0, max_out=255)
+        vol_cont = ndimage.zoom(vol, (1, 0.1, 0.1), order=1)
+        noise = level_set.estimate_background(
+            vol_cont.astype(np.uint8), int(vol_cont.shape[1]/20))
+        mask = level_set.foreground_segmentation(
+            vol_cont.astype(np.uint8),
+            voxel_spacing = np.array([1,1,1]),
+            mask_smoothing=2,
+            iterations=[80, 40, 10],
+            smooth_sigmas=[12, 6, 3],
+            lambda2=1.0,
+            background=noise,
+        )
+        vol_cont = ndimage.zoom(mask, (1, 10, 10), order=0)
+
+        tifffile.imwrite(os.path.join(args.puncta_path,'fg_masks',f'fov{fov}.tif'), mask)
