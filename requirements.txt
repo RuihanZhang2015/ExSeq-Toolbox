@@ -8,8 +8,7 @@ h5py
 tifffile
 scikit-image
 cucim
-open-cv
-cv2
+opencv-python
 Pillow
 glymur
 natsort
