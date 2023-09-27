@@ -31,7 +31,7 @@ def chmod(path: Path) -> None:
     """
     if os.name != "nt":  # Skip for Windows OS
         try:
-            path.chmod(0o766)  # octal notation for permissions
+            path.chmod(0o777)  # octal notation for permissions
         except Exception as e:
             logger.error(
                 f"Failed to change permissions for {path}. Error: {e}")
