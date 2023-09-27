@@ -6,7 +6,7 @@ import numpy as np
 from scipy.ndimage import gaussian_filter
 from skimage.feature import peak_local_max
 from scipy.spatial.distance import cdist
-from exm.utils import retrieve_all_puncta,retrieve_one_puncta, retrieve_vol
+from exm.utils.utils import retrieve_all_puncta,retrieve_one_puncta, retrieve_vol
 from exm.utils import configure_logger
 logger = configure_logger('ExSeq-Toolbox')
 

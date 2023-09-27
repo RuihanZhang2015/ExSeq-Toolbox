@@ -212,7 +212,7 @@ def execute_volumetric_alignment_bigstream(args: Args,
     r"""
     Executes volumetric alignment using BigStream for each code and FOV from the tasks queue.
 
-    :param config: Configuration options. This should be an instance of the Args class.
+    :param args: Configuration options. This should be an instance of the Args class.
     :type args: Args
     :param tasks_queue: A multiprocessing queue containing tasks. Each task is a tuple of (round, roi, bg_sub).
     :type tasks_queue: multiprocessing.Queue

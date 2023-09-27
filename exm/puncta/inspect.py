@@ -8,7 +8,7 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter,zoom
-from exm.utils import retrieve_img, retrieve_all_puncta, retrieve_one_puncta, gene_barcode_mapping
+from exm.utils.utils import retrieve_img, retrieve_all_puncta, retrieve_one_puncta, gene_barcode_mapping
 from exm.puncta.improve import puncta_all_nearest_points
 
 import plotly.graph_objects as go
@@ -661,7 +661,7 @@ def inspect_between_rounds_plotly(
 
     reference = retrieve_all_puncta(args, fov)
     reference = [x for x in reference if in_region(x["position"], ROI_min, ROI_max)]
-    logger.info("Only {} puncta remained".format(len(reference)))
+    logger.info(f"Only {len(reference)} puncta remained")
 
     fig = go.Figure()
 
@@ -1031,16 +1031,16 @@ def inspect_puncta_improvement_matplotlib(args, fov, puncta_index, option = 'fin
 
     # Get individual puncta information based on puncta_indexn
     puncta = retrieve_one_puncta(args,fov, puncta_index)
-    logger.info('fov',fov,'index',puncta_index)
+    logger.info(f'fov {fov}, index {puncta_index}')
 
     # Get postion of the puncta
     d0, d1, d2 = puncta['position']
-    logger.info('puncta position',d0,d1,d2)
+    logger.info(f'puncta position {d0},{d1},{d2}')
 
     # Define the Region of Interest (ROI) based on the puncta position
     ROI_min = [max(0,d0 - 10),max(0,d1 - center_dist), max(d2 - center_dist,0)]
     ROI_max = [d0 + 10,d1 + center_dist, d2 + center_dist]    
-    logger.info('ROI_min,ROI_max = {},{}'.format(ROI_min,ROI_max))
+    logger.info(f'ROI_min,ROI_max = {ROI_min},{ROI_max}')
 
     # Define the z-stack step size
     delta_z = (ROI_max[0] - ROI_min[0])/10
@@ -1054,9 +1054,9 @@ def inspect_puncta_improvement_matplotlib(args, fov, puncta_index, option = 'fin
         missed_code = np.where(arr == '_')[0]
         ref_code, new_position, closest_position = puncta_nearest_points(args,puncta['fov'],puncta['index'],missed_code[0])  
         if new_position:
-            logger.info('new_position', new_position)
+            logger.info(f'new_position {new_position}')
         if closest_position:
-            logger.info('closest_position', closest_position)
+            logger.info(f'closest_position {closest_position}')
 
     fontsize = 40
 
@@ -1295,7 +1295,7 @@ def inspect_improved_puncta_plotly(args, fov, puncta,center_dist=40,spacer=40):
             zaxis_title = "Z" ,
         )
     )
-    # fig.show()
+    fig.show()
     fig.write_html(os.path.join(args.puncta_path,'inspect_puncta/inspect_improved_puncta_plotly_fov_{}_puncta_{}.html'.format(fov, puncta['index'])))
 
 
@@ -1324,6 +1324,7 @@ def plot_genes_global(args, tileset, zslice, gene_list=['All'],title="Global Gen
 
     :returns: This function doesn't return any value. It either displays the plot or saves it to a .png file depending on the 'save' parameter.
     """
+    from matplotlib_scalebar.scalebar import ScaleBar
     def within_hamming_distance(a, b, max_diff=2):
         diff = sum(x != y for x, y in zip(a, b))
         return diff < max_diff
@@ -1333,7 +1334,7 @@ def plot_genes_global(args, tileset, zslice, gene_list=['All'],title="Global Gen
 
     def get_puncta_results(args, fov, improved):
         if improved:
-            filepath = f"{args.puncta_path}/fov{fov}/improved_puncta_with_gene.pickle"
+            filepath = args.puncta_path + f"/fov{fov}/improved_puncta_with_gene.pickle"
             with open(filepath, 'rb') as f:
                 results = pickle.load(f)
         else:
@@ -1343,7 +1344,7 @@ def plot_genes_global(args, tileset, zslice, gene_list=['All'],title="Global Gen
     
     df, digit_to_gene, gene_to_digit = gene_barcode_mapping(args)
     plt.close()
-    fig = plt.figure(figsize = (20,20))
+    fig = plt.figure(figsize = (10,10))
 
     if gene_list[0] == 'All':
         gene_list=list(gene_to_digit.keys())
@@ -1378,13 +1379,20 @@ def plot_genes_global(args, tileset, zslice, gene_list=['All'],title="Global Gen
         
         plt.scatter(global_coords[:,0], global_coords[:,1], s=10, marker='.', label=gene)
 
+    plt.axis('off')  # Turn off the axis
+    # Add scale bar
+    pixel_size = tileset.voxel_size[0]  # Assuming voxel_size is in micrometers
     plt.imshow(img, vmax=400, origin='lower', cmap='gray')
+    scalebar = ScaleBar(pixel_size, units='um', location='lower right', length_fraction=0.2,label=" ")  # 0.1 means 10% of the axis size
+    plt.gca().add_artist(scalebar)
+
     legend = plt.legend(fontsize=14)
     legend.set_title("Genes", prop={"size": 16})
     plt.title(title, fontsize=34)
 
     if save:
-        plt.savefig(os.path.join(args.puncta_path, 'inspect_gene', f'{title}.png'), dpi=300)
+        plt.savefig(os.path.join(args.puncta_path, 'inspect_gene', f'{title}.png'), dpi=150)
+        
         plt.close()
     else:
         plt.show()
