@@ -115,7 +115,7 @@ class Args:
         if create_directroy_structure is not None:
             self.create_directroy_structure()
 
-        if permission is not None:
+        if permission:
             self.set_permissions()
 
         self.save_config(args_file_name)
