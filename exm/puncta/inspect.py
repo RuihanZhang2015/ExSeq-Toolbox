@@ -1324,6 +1324,7 @@ def plot_genes_global(args, tileset, zslice, gene_list=['All'],title="Global Gen
 
     :returns: This function doesn't return any value. It either displays the plot or saves it to a .png file depending on the 'save' parameter.
     """
+    from matplotlib_scalebar.scalebar import ScaleBar
     def within_hamming_distance(a, b, max_diff=2):
         diff = sum(x != y for x, y in zip(a, b))
         return diff < max_diff
@@ -1333,7 +1334,7 @@ def plot_genes_global(args, tileset, zslice, gene_list=['All'],title="Global Gen
 
     def get_puncta_results(args, fov, improved):
         if improved:
-            filepath = f"{args.puncta_path}/fov{fov}/improved_puncta_with_gene.pickle"
+            filepath = args.puncta_path + f"/fov{fov}/improved_puncta_with_gene.pickle"
             with open(filepath, 'rb') as f:
                 results = pickle.load(f)
         else:
@@ -1343,7 +1344,7 @@ def plot_genes_global(args, tileset, zslice, gene_list=['All'],title="Global Gen
     
     df, digit_to_gene, gene_to_digit = gene_barcode_mapping(args)
     plt.close()
-    fig = plt.figure(figsize = (20,20))
+    fig = plt.figure(figsize = (10,10))
 
     if gene_list[0] == 'All':
         gene_list=list(gene_to_digit.keys())
@@ -1378,13 +1379,20 @@ def plot_genes_global(args, tileset, zslice, gene_list=['All'],title="Global Gen
         
         plt.scatter(global_coords[:,0], global_coords[:,1], s=10, marker='.', label=gene)
 
+    plt.axis('off')  # Turn off the axis
+    # Add scale bar
+    pixel_size = tileset.voxel_size[0]  # Assuming voxel_size is in micrometers
     plt.imshow(img, vmax=400, origin='lower', cmap='gray')
+    scalebar = ScaleBar(pixel_size, units='um', location='lower right', length_fraction=0.2,label=" ")  # 0.1 means 10% of the axis size
+    plt.gca().add_artist(scalebar)
+
     legend = plt.legend(fontsize=14)
     legend.set_title("Genes", prop={"size": 16})
     plt.title(title, fontsize=34)
 
     if save:
-        plt.savefig(os.path.join(args.puncta_path, 'inspect_gene', f'{title}.png'), dpi=300)
+        plt.savefig(os.path.join(args.puncta_path, 'inspect_gene', f'{title}.png'), dpi=150)
+        
         plt.close()
     else:
         plt.show()
