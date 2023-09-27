@@ -17,7 +17,7 @@ logger = configure_logger('ExSeq-Toolbox')
 
 
 def calculate_coords_gpu(args: Args,
-                         tasks_queue: Queue[Tuple[int, int]],
+                         tasks_queue: Queue,
                          device: int,
                          lock: Lock,
                          queue_lock: Lock) -> None:
@@ -102,7 +102,7 @@ def calculate_coords_gpu(args: Args,
 
 
 def puncta_extraction_gpu(args: Args,
-                          tasks_queue: Queue[Tuple[int, int]],
+                          tasks_queue: Queue,
                           num_gpu: int) -> None:
     r"""
     Wrapper around calculate_coords_gpu to enable parallel processing on GPU. 
@@ -146,7 +146,7 @@ def puncta_extraction_gpu(args: Args,
 
 
 def calculate_coords_cpu(args: Args,
-                         tasks_queue: Queue[Tuple[int, int]],
+                         tasks_queue: Queue,
                          queue_lock: Lock) -> None:
     r"""
     Extracts puncta from volumes included in the task queue using CPU and saves their locations to a .pkl file.
