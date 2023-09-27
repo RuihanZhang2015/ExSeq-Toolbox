@@ -14,10 +14,8 @@ from skimage.morphology import disk
 from scipy.ndimage import white_tophat
 from scipy.stats import rankdata
 
-
 from typing import Type, Optional
 
-from exm.args import Args
 from exm.utils.log import configure_logger
 logger = configure_logger('ExSeq-Toolbox')
 
