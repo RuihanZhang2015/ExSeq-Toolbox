@@ -138,7 +138,7 @@ class Args:
         r"""Creates the directory structure in the specified project path."""
         from exm.io import create_folder_structure
         try:
-            create_folder_structure(str(self.processed_data_path), self.codes)
+            create_folder_structure(str(self.processed_data_path),self.fovs, self.codes)
         except Exception as e:
             logger.error(f"Failed to create directory structure. Error: {e}")
             raise

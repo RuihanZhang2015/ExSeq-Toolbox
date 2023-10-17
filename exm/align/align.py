@@ -76,7 +76,7 @@ def execute_volumetric_alignment(args: Args,
 
         try:
             with q_lock:
-                code, fov = tasks_queue.get_nowait()
+                code, fov, bg_sub = tasks_queue.get_nowait()
                 logger.info(
                     f"Remaining tasks to process : {tasks_queue.qsize()}")
         except queue.Empty:
@@ -88,7 +88,7 @@ def execute_volumetric_alignment(args: Args,
         else:
             try:
                 if code == args.ref_code:
-                    transform_ref_code(args, fov)
+                    transform_ref_code(args, fov, bg_sub)
 
                 logger.info(f"Aligning: Code:{code},Fov:{fov}")
 
@@ -325,8 +325,8 @@ def volumetric_alignment(args: Args,
     q_lock = multiprocessing.Lock()
 
     if not code_fov_pairs:
-        code_fov_pairs = [[round_val, roi_val]
-                          for round_val in args.codes for roi_val in args.fovs]
+        code_fov_pairs = [[code_val, fov_val]
+                          for code_val in args.codes for fov_val in args.fovs]
 
     for round, roi in code_fov_pairs:
         tasks_queue.put((round, roi, bg_sub))
