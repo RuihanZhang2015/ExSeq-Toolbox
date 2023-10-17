@@ -215,12 +215,14 @@ def nd2ToSlice(filename: str, fov: int, z: int, channel_name: str = "405 SD"):
     return out
 
 
-def create_folder_structure(processed_dir: str, codes: List[int]) -> None:
+def create_folder_structure(processed_dir: str, fovs:List[int], codes: List[int]) -> None:
     r"""
     Creates a results folder for the specified codes.
 
     :param processed_dir: The directory where all results for the specified codes should be stored.
     :type processed_dir: str
+    :param fovs: The list of Fovs to create the folder structure for.
+    :type fovs: List[int]
     :param codes: The list of codes to create the folder structure for.
     :type codes: List[int]
     """
@@ -239,6 +241,13 @@ def create_folder_structure(processed_dir: str, codes: List[int]) -> None:
 
             tform_dir = code_path.joinpath("tforms")
             tform_dir.mkdir(exist_ok=True)
+        
+        align_eval_dir = processed_dir / "alignment_evaluation"
+        align_eval_dir.mkdir(parents=True, exist_ok=True)
+
+        for fov in fovs:
+            fov_dir = align_eval_dir / f"FOV{fov}"
+            fov_dir.mkdir(exist_ok=True)
 
     except Exception as e:
         print(f"Error occurred while creating folder structure: {e}")
