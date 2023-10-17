@@ -19,7 +19,7 @@ from exm.utils.utils import chmod
 logger = configure_logger('ExSeq-Toolbox')
 
 
-def consolidate_channels_function(args: Args, fov: int, code: int, normalized: bool = False) -> None:
+def consolidate_channels_function(args: Args, fov: int, code: int) -> None:
     r"""
     Consolidates (removes duplicate puncta) across channels using distance thresholding, called by `consolidate_channels`.
 
@@ -29,8 +29,6 @@ def consolidate_channels_function(args: Args, fov: int, code: int, normalized: b
     :type fov: int
     :param code: The code of the volume chunk to be consolidated.
     :type code: int
-    :param normalized: If True, uses the quantile normalized intensity values if code/fov already processed by (utils.quantile_normalization). Default is False.
-    :type normalized: bool
     """
 
     def find_matching_points(point_cloud1, point_cloud2, distance_threshold=8):
@@ -82,17 +80,10 @@ def consolidate_channels_function(args: Args, fov: int, code: int, normalized: b
                 temp = [f[args.channel_names[c]][tuple(
                     duplet[f"c{c}"]["position"])] if f"c{c}" in duplet else 0 for c in range(4)]
 
-                if normalized:
-                    temp_norm = [f[args.channel_names[c]+"_norm"][tuple(
-                        duplet[f"c{c}"]["position"])] if f"c{c}" in duplet else 0 for c in range(4)]
-                    duplet["color"] = np.argmax(temp_norm)
-                    duplet["intensity_normalized"] = temp_norm
-                else:
-                    duplet["color"] = np.argmax(temp)
-
-                duplet["intensity"] = temp
-                duplet["index"] = i
-                duplet["position"] = duplet[f'c{duplet["color"]}']["position"]
+                duplet["color"] = np.argmax(temp)
+                duplet["intensity"] = temp  # Intensity on different channels ['640','594','561','488']
+                duplet["index"] = i  
+                duplet["position"] = duplet["c{}".format(duplet["color"])]["position"]  
 
         with open(args.puncta_path + f"/fov{fov}/result_code{code}.pkl", "wb") as f:
             pickle.dump(reference, f)
@@ -109,7 +100,6 @@ def consolidate_channels_function(args: Args, fov: int, code: int, normalized: b
 
 def consolidate_channels(args: Args,
                          code_fov_pairs: List[Tuple[int, int]],
-                         normalized: bool = False,
                          num_cpu: Optional[int] = None) -> None:
     r"""
     Wrapper around `consolidate_channels_function` to enable parallel processing.
@@ -118,8 +108,6 @@ def consolidate_channels(args: Args,
     :type args: Args
     :param code_fov_pairs: A list of tuples, where each tuple is a (code, fov) pair.
     :type code_fov_pairs: List[Tuple[int, int]]
-    :param normalized: If True, uses the quantile normalized intensity values if code/fov already processed by (utils.quantile_normalization). Default is False.
-    :type normalized: bool
     :param num_cpu: Number of CPUs to use for processing. If not provided, defaults to a quarter of the available CPUs.
     :type num_cpu: int, optional 
     """
@@ -136,7 +124,7 @@ def consolidate_channels(args: Args,
                 break
             else:
                 try:
-                    consolidate_channels_function(args, fov, code, normalized)
+                    consolidate_channels_function(args, fov, code)
                     logger.info(
                         f"Consolidate Channels: Fov{fov}, Code{code} Finished")
                 except Exception as e:
