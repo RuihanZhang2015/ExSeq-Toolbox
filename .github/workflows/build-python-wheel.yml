@@ -1,5 +1,14 @@
 name: Build python wheel
 
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - '*'
+  workflow_dispatch:
+
 jobs:
   build:
     strategy:
