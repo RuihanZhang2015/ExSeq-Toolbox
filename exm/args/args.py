@@ -3,14 +3,9 @@ Sets up the project parameters.
 """
 import os
 import json
-import pickle
 import pathlib
-import pandas as pd
-from typing import List, Optional
-
-pd.set_option("display.expand_frame_repr", False)
 from nd2reader import ND2Reader
-
+from typing import List, Optional
 from exm.utils.log import configure_logger
 logger = configure_logger('ExSeq-Toolbox')
 
@@ -118,10 +113,10 @@ class Args:
         if permission:
             self.set_permissions()
 
-        self.save_config(args_file_name)
+        self.save_params(args_file_name)
 
 
-    def save_config(self, args_file_name):
+    def save_params(self, args_file_name):
         r"""Saves the parameters to a .json file.
 
         :param args_file_name: Name of the parameters file.
@@ -129,7 +124,7 @@ class Args:
         """
         try:
             with open(os.path.join(self.processed_data_path , args_file_name + '.json'), "w") as f:
-                json.dump(self.__dict__, f, default=str)
+                json.dump(self.__dict__, f)
         except Exception as e:
             logger.error(f"Failed to save configuration. Error: {e}")
             raise
