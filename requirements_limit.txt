@@ -1,3 +1,4 @@
+pytest
 ipython
 nd2reader
 h5py
