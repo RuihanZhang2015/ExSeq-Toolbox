@@ -112,7 +112,7 @@ def consolidate_channels(args: Args,
     :type num_cpu: int, optional 
     """
 
-    def run(tasks_queue: Queue, q_lock: Lock, normalized: bool) -> None:
+    def run(tasks_queue: Queue, q_lock: Lock) -> None:
 
         while True:
             try:
@@ -149,7 +149,7 @@ def consolidate_channels(args: Args,
 
     for _ in range(cpu_execution_core):
         try:
-            p = Process(target=run, args=(tasks_queue, q_lock, normalized))
+            p = Process(target=run, args=(tasks_queue, q_lock))
             child_processes.append(p)
             p.start()
         except Exception as e:
