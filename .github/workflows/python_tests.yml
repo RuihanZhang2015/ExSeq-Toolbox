@@ -10,11 +10,13 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
     strategy:
       matrix:
+        os: [ubuntu-latest, windows-latest]
         python-version: ['3.8', '3.9', '3.10', '3.11']
-      fail-fast: false  # If you want the rest of the jobs to continue even if one fails
+      fail-fast: false
+
+    runs-on: ${{ matrix.os }}
 
     steps:
     - name: Checkout code
