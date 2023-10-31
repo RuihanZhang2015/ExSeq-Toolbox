@@ -10,9 +10,6 @@ import multiprocessing
 import numpy as np
 from typing import Tuple, Optional, List
 
-from bigstream.transform import apply_transform
-from bigstream.align import affine_align
-
 from exm.args import Args
 from exm.io.io import nd2ToVol
 from exm.utils import chmod, subtract_background_rolling_ball, subtract_background_top_hat
@@ -224,6 +221,9 @@ def execute_volumetric_alignment_bigstream(args: Args,
     :param q_lock: A lock for synchronizing tasks queue access.
     :type q_lock: multiprocessing.Lock
     """
+    
+    from bigstream.transform import apply_transform
+    from bigstream.align import affine_align
 
     while True:  # Check for remaining task in the Queue
 
