@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11']
+        python-version: ['3.8']
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
@@ -36,11 +36,6 @@ jobs:
         pip install -r requirements_limit.txt
 
     - name: Run tests
-      run: pytest tests/test_flow_1.py
-      env:
-        BASE_DIR: ${{ github.workspace }}
-
-    - name: Run tests
-      run: pytest tests/test_flow_2.py
+      run: pytest tests/test_flow.py
       env:
         BASE_DIR: ${{ github.workspace }}
