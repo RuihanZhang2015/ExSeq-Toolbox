@@ -1,0 +1,8 @@
+pytest
+ipython
+nd2reader
+h5py
+pandas
+scikit-image
+git+https://github.com/JaneliaSciComp/bigstream.git
+SimpleITK-SimpleElastix
