@@ -242,8 +242,6 @@ def algin_channels(args: Args,
         p.join()
 
 
-
-
 #TODO fine-tune foreground_segmentation parameter   
 # test possiblity to train a u-net for each speices 
 def foreground_segmentation(args):
@@ -475,8 +473,7 @@ def algin_channels_function_new(args, tasks_queue, q_lock):
             #             x.create_dataset(
             #             channel, volume.shape, dtype=volume.dtype, data=volume)
                         
-
-
+                        
 def algin_channels_new(args: Args,
                    code_fov_pairs,
                    parallel_processes: int = 1) -> None:

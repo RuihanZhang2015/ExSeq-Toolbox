@@ -1,3 +1,6 @@
+"""
+The Utils module within the ExSeq Toolbox provides a comprehensive suite of utility functions to support the preprocessing, retrieval, manipulation, and visualization of expansion microscopy data.
+"""
 import os
 import pickle
 import h5py
@@ -5,6 +8,8 @@ import random
 import pandas as pd
 import numpy as np
 from pathlib import Path
+from collections import defaultdict
+import xml.etree.ElementTree as ET
 
 from IPython.display import display
 from PIL import Image
@@ -14,7 +19,7 @@ from skimage.morphology import disk
 from scipy.ndimage import white_tophat
 from scipy.stats import rankdata
 
-from typing import Type, Optional
+from typing import Type, Optional, Dict, List, Tuple, Union
 
 from exm.utils.log import configure_logger
 logger = configure_logger('ExSeq-Toolbox')
@@ -36,102 +41,228 @@ def chmod(path: Path) -> None:
             raise
 
 
-def retrieve_all_puncta(args, fov):
-    r"""Returns all identified puncta for a given field of view.
+def retrieve_all_puncta(args, fov: int) -> List[Dict]:
+    r"""
+    Returns all identified puncta for a given field of view.
 
-    :param args.Args args: configuration options.
-    :param int fov: field of view to return
+    This function loads and returns all puncta data from a pickle file for the specified field of view. The path to the
+    pickle file is constructed using the configuration options provided in the `args` parameter.
+
+    :param args: Configuration options. This should be an instance of the Args class.
+    :type args: Args
+    :param fov: The field of view for which to return all identified puncta.
+    :type fov: int
+    :return: The data of all puncta identified in the specified field of view.
+    :rtype: List[Dict]  
+
     """
-    with open(args.puncta_path + "/fov{}/result.pkl".format(fov), "rb") as f:
-        return pickle.load(f)
+    try:
+        puncta_file_path = f"{args.puncta_path}/fov{fov}/result.pkl"
+        with open(puncta_file_path, "rb") as f:
+            return pickle.load(f)
+    except FileNotFoundError as e:
+        logger.error(f"Pickle file not found for fov {fov}: {e}")
+    except pickle.UnpicklingError as e:
+        logger.error(f"Error unpickling data for fov {fov}: {e}")
 
 
-def retrieve_one_puncta(args, fov, puncta_index):
-    r"""Returns information about a single puncta, given a specified field of view and index.
+def retrieve_one_puncta(args, fov: int, puncta_index: int) -> Dict:
+    r"""
+    Retrieves information about a specific puncta from a given field of view.
 
-    :param args.Args args: configuration options.
-    :param int fov: field of view.
-    :param int puncta_index: index of the puncta of interest
+    This function uses the provided configuration options to access and return
+    data for a single puncta, identified by its index, within the specified field of view.
+
+    :param args: Configuration options. This should be an instance of the Args class.
+    :type args: Args
+    :param fov: The field of view from which to retrieve the puncta.
+    :type fov: int
+    :param puncta_index: The index of the specific puncta to retrieve.
+    :type puncta_index: int
+
+    :return: A dictionary containing information about the puncta.
+    :rtype: Dict
     """
-    return retrieve_all_puncta(args, fov)[puncta_index]
+    if not isinstance(fov, int):
+        logger.error("The field of view (fov) must be an integer.")
+        raise
+    if not isinstance(puncta_index, int):
+        logger.error("The puncta index must be an integer.")
+        raise
+
+    all_puncta = retrieve_all_puncta(args, fov)
+
+    try:
+        return all_puncta[puncta_index]
+    except Exception as e:
+        logger.error(f"The specified puncta_index is out of range {e}.")
+        raise
 
 
-def retrieve_img(args, fov, code, channel, ROI_min, ROI_max):
-    r"""Returns the middle slice of a specified volume chunk.
+def retrieve_img(args, fov: int, code: int, channel: int, ROI_min: List[int], ROI_max: List[int]) -> np.ndarray:
+    r"""
+    Returns the middle slice of a specified volume chunk.
 
-    :param args.Args: configuration options.
-    :param int fov: the field of fiew of the volume slice to be returned.
-    :param int code: the code of the volume slice to be returned.
-    :param int channel: the channel of the volume slice to be returned.
-    :param list ROI_min: minimum coordinates of the volume chunk to take the middle slice of. Expects coordinates in the format of :math:`[z, y, x]`.
-    :param list ROI_max: maximum coordinates of the volume chunk to take the middle slice of. Expects coordinates in the format of :math:`[z, y, x]`.
+    This function retrieves a middle z-slice from a 3D volume chunk specified by its field of view, code, and channel.
+    The ROI (Region of Interest) is defined by minimum and maximum coordinates.
+
+    :param args: Configuration options. This should be an instance of the Args class.
+    :type args: Args
+    :param fov: The field of view of the volume slice to be returned.
+    :type fov: int
+    :param code: The code of the volume slice to be returned.
+    :type code: int
+    :param channel: The channel of the volume slice to be returned.
+    :type channel: int
+    :param ROI_min: Minimum coordinates of the volume chunk in the format of [z, y, x].
+    :type ROI_min: List[int]
+    :param ROI_max: Maximum coordinates of the volume chunk in the format of [z, y, x].
+    :type ROI_max: List[int]
+
+    :return: A 2D numpy array representing the middle z-slice of the specified volume chunk.
+    :rtype: np.ndarray
+
     """
+    if not (len(ROI_min) == len(ROI_max) == 3):
+        logger.error(
+            "ROI_min and ROI_max must both be lists of three integers.")
+        raise
 
     if ROI_min != ROI_max:
         zz = int((ROI_min[0] + ROI_max[0]) // 2)
+    else:
+        logger.error("ROI_min and ROI_max cannot be the same.")
+        raise
 
-    with h5py.File(args.h5_path.format(code, fov), "r") as f:
-        im = f[args.channel_names[channel]][
-            zz,
-            max(0, ROI_min[1]): min(2048, ROI_max[1]),
-            max(0, ROI_min[2]): min(2048, ROI_max[2]),
-        ]
-        im = np.squeeze(im)
+    try:
+        with h5py.File(args.h5_path.format(code, fov), "r") as f:
+            im = f[args.channel_names[channel]][
+                zz,
+                max(0, ROI_min[1]): min(2048, ROI_max[1]),
+                max(0, ROI_min[2]): min(2048, ROI_max[2]),
+            ]
+            im = np.squeeze(im)
+    except Exception as e:
+        logger.error(f"An error occurred while retrieving the image: {e}")
+        raise
 
     return im
 
 
-def retrieve_vol(args, fov, code, c, ROI_min, ROI_max):
-    r"""Returns a specified volume chunk.
-
-    :param args.Args args: configuration options.
-    :param int fov: the field of fiew of the volume chunk to be returned.
-    :param int code: the code of the volume chunk to be returned.
-    :param int channel: the channel of the volume chunk to be returned.
-    :param list ROI_min: minimum coordinates of the volume chunk. Expects coordinates in the format of :math:`[z, y, x]`.
-    :param list ROI_max: maximum coordinates of the volume chunk. Expects coordinates in the format of :math:`[z, y, x]`.
-    """
-    with h5py.File(args.h5_path.format(code, fov), "r") as f:
-        vol = f[args.channel_names[c]][
-            max(0, ROI_min[0]): ROI_max[0],
-            max(0, ROI_min[1]): min(2048, ROI_max[1]),
-            max(0, ROI_min[2]): min(2048, ROI_max[2]),
-        ]
-    return vol
-
-
-def gene_barcode_mapping(args):
-    r"""This function loads a CSV file `args.gene_digit_csv` containing gene symbols and corresponding barcodes. It converts the barcodes to digit representations and creates two mappings: 'digit2gene' (from digit representation to gene symbol) and 'gene2digit' (from gene symbol to digit representation). These mappings are useful for identifying genes associated with puncta barcode in a field of view.
-    :param args.Args args: configuration options, including the path to the gene-digit CSV file and the mapping from code to number.
-    :returns: A tuple containing three elements. The first element is a pandas DataFrame containing the original CSV data with an additional column for the digit representations of the barcodes. The second element is a dictionary mapping from digit representation to gene symbol ('digit2gene'). The third element is a dictionary mapping from gene symbol to digit representation ('gene2digit').
-    """
-    df = pd.read_csv(args.gene_digit_csv)
-    df['Digits'] = [''.join([args.code2num[c] for c in barcode])
-                    for barcode in df['Barcode']]
-    digit2gene, gene2digit = {}, {}
-    for i, row in df.iterrows():
-        digit2gene[row['Digits']] = row['Symbol']
-        gene2digit[row['Symbol']] = row['Digits']
-    return df, digit2gene, gene2digit
-
-
-def display_img(img):
+def retrieve_vol(args, fov: int, code: int, c: int, ROI_min: List[int], ROI_max: List[int]) -> np.ndarray:
     r"""
-    This function displays an image using the Image module from the Python Imaging Library (PIL). The function supports images of type boolean and other numpy data types. For boolean images, the function multiplies the image by 255 to create an 8-bit grayscale image. For non-boolean images, the function simply converts the image to an 8-bit grayscale image.
-    :param numpy.ndarray img: The input image to display. This can be a boolean or non-boolean numpy array.
+    Returns a specified volume chunk from a dataset.
+
+    :param args: Configuration options. This should be an instance of the Args class.
+    :type args: Args
+    :param fov: The field of view of the volume chunk to be returned.
+    :type fov: int
+    :param code: The code of the volume chunk to be returned.
+    :type code: int
+    :param c: The channel of the volume chunk to be returned.
+    :type c: int
+    :param ROI_min: Minimum coordinates of the volume chunk in the format of [z, y, x].
+    :type ROI_min: List[int]
+    :param ROI_max: Maximum coordinates of the volume chunk in the format of [z, y, x].
+    :type ROI_max: List[int]
+    :return: A numpy array representing the retrieved volume chunk.
+    :rtype: h5py.Dataset
+
     """
-    if img.dtype is np.dtype(bool):
-        display(Image.fromarray((img).astype(np.uint8)))
+
+    try:
+        # Access the HDF5 file and retrieve the specified volume
+        with h5py.File(args.h5_path.format(code, fov), "r") as f:
+            vol = f[args.channel_names[c]][
+                max(0, ROI_min[0]): ROI_max[0],
+                max(0, ROI_min[1]): min(2048, ROI_max[1]),
+                max(0, ROI_min[2]): min(2048, ROI_max[2]),
+            ]
+        return vol
+    except OSError as e:
+        logger.error(f"Error accessing file: {e}")
+        raise
+    except ValueError as e:
+        logger.error(f"Invalid ROI coordinates: {e}")
+        raise
+
+
+def gene_barcode_mapping(args) -> Tuple[pd.DataFrame, Dict[str, str], Dict[str, str]]:
+    r"""
+    Loads a CSV file containing gene symbols and corresponding barcodes, and creates mappings between them.
+
+    This function reads a CSV file specified by `args.gene_digit_csv`, which contains gene symbols and their
+    corresponding barcodes. It converts the barcodes into digit representations and creates two mappings:
+    'digit2gene' for mapping from digit representation to gene symbol, and 'gene2digit' for mapping from
+    gene symbol to digit representation. These mappings are useful for identifying genes associated with
+    puncta barcodes in a field of view.
+
+    :param args: Configuration options. This should be an instance of the Args class.
+    :type args: Args
+    :returns: A tuple containing:
+                - A pandas DataFrame with the original CSV data and an additional column for digit representations.
+                - A dictionary mapping from digit representation to gene symbol ('digit2gene').
+                - A dictionary mapping from gene symbol to digit representation ('gene2digit').
+    :rtype: Tuple[pd.DataFrame, Dict[str, str], Dict[str, str]]
+    """
+    try:
+        # Read the CSV file into a DataFrame
+        df = pd.read_csv(args.gene_digit_csv)
+        # Convert barcodes to digit representations
+        df['Digits'] = [''.join([args.code2num[c] for c in barcode])
+                        for barcode in df['Barcode']]
+        # Initialize the mappings
+        digit2gene, gene2digit = {}, {}
+        # Populate the mappings
+        for i, row in df.iterrows():
+            digit2gene[row['Digits']] = row['Symbol']
+            gene2digit[row['Symbol']] = row['Digits']
+        return df, digit2gene, gene2digit
+    except FileNotFoundError as e:
+        logger.error(f"The gene-digit CSV file could not be found: {e}")
+        raise
+    except KeyError as e:
+        logger.error(f"Expected columns are missing from the CSV: {e}")
+        raise
+
+
+def display_img(img: Union[np.ndarray, bool]) -> None:
+    r"""
+    Displays an image using the Image module from the Python Imaging Library (PIL).
+
+    The function supports images of type boolean and other numpy data types. For boolean images, the function
+    multiplies the image by 255 to create an 8-bit grayscale image. For non-boolean images, the function simply
+    converts the image to an 8-bit grayscale image without scaling.
+
+    :param img: The input image to display. This can be a boolean or non-boolean numpy array.
+    :type img: Union[np.ndarray, bool]
+    """
+    # Check if the image is of boolean type, if so, convert to 8-bit by multiplying by 255
+    if img.dtype == bool:
+        img_to_display = (img * 255).astype(np.uint8)
     else:
-        display(Image.fromarray(img))
+        # For non-boolean images, ensure the image is in 8-bit format
+        img_to_display = img.astype(np.uint8)
+
+    # Convert to a PIL image and display it
+    display(Image.fromarray(img_to_display))
 
 
-def retrieve_digit(args, digit):
-    """This function retrieves all puncta with a specified barcode (represented as a digit) across all provided fields of view (fov). For each puncta that matches the barcode, it appends the puncta (with added fov information) to a list.
-    :param args.Args args:  Configuration options, including the list of fovs and the method to retrieve all puncta for a given fov.
+def retrieve_digit(args, digit: str) -> List[Dict]:
+    r"""
+    Retrieves all puncta with a specified barcode (represented as a digit) across all fields of view.
+
+    This function iterates over all provided fields of view (FOVs) and retrieves puncta that match
+    the specified barcode. Each matching puncta, along with its FOV information, is appended to a list.
+
+    :param args: Configuration options. This should be an instance of the Args class.
+    :type args: Args
     :param digit: The barcode to search for, represented as a digit.
-    :returns: A list of all puncta across all fovs that match the specified barcode. Each puncta is represented as a dictionary containing puncta information and the fov it was found in.
+    :type digit: str
+    :returns: A list of dictionaries where each dictionary contains information about a puncta and the FOV it was found in.
+    :rtype: List[Dict]
     """
+
     puncta_lists = []
     for fov in args.fovs:
         result = retrieve_all_puncta(args, fov)
@@ -145,186 +276,292 @@ def retrieve_digit(args, digit):
     return puncta_lists
 
 
-def retrieve_summary(args):
-    r"""This function retrieves a summary of all puncta for each field of view (fov) in the provided fovs list. The summary includes the total number of each barcode across all fovs as well as the count of each barcode in individual fovs. The function then saves this summary to a CSV file.
-    :param args.Args args: configuration options, including the list of fovs, the method to retrieve all puncta for a given fov, and the work path where the summary CSV file will be saved.
-    :returns: A pandas DataFrame containing the summary of barcodes. The DataFrame is indexed by barcode with columns for total count ('number') and count per fov (e.g., 'fov1', 'fov2', ...). The DataFrame is sorted by total count in descending order.
+def retrieve_summary(args) -> pd.DataFrame:
+    r"""
+    Retrieves a summary of all puncta for each field of view (FOV).
+
+    This function iterates over the provided list of FOVs, retrieves all puncta for each FOV, and aggregates
+    the count of each barcode across all FOVs and individually per FOV. The summary is then saved to a CSV file.
+
+    :param args: Configuration options. This should be an instance of the Args class.
+    :type args: Args
+    :returns: A pandas DataFrame containing the summary of barcodes. The DataFrame is indexed by barcode with columns
+              for total count ('number') and count per FOV (e.g., 'fov1', 'fov2', ...). The DataFrame is sorted by
+              total count in descending order.
+    :rtype: pd.DataFrame
     """
-    import tqdm
-    from collections import defaultdict
+    try:
+        summary = defaultdict(lambda: defaultdict(int))
+        for fov in args.fovs:
+            result = retrieve_all_puncta(args, fov)
+            for entry in result:
+                summary['number'][entry['barcode']] += 1
+                summary[f'fov{fov}'][entry['barcode']] += 1
+        summary_df = pd.DataFrame(summary).fillna(0).astype(int)
+        summary_df = summary_df.sort_values(by='number', ascending=False)
 
-    summary = defaultdict(lambda: defaultdict(int))
-    for fov in tqdm.tqdm(args.fovs):
-        result = retrieve_all_puncta(args, fov)
-        for entry in result:
-            summary['number'][entry['barcode']] += 1
-            summary[f'fov{fov}'][entry['barcode']] += 1
-    summary = pd.DataFrame(summary).fillna(0).astype(int)
-    summary = summary.sort_values(by='number', ascending=False)
-    summary.to_csv(os.path.join(args.puncta_path, 'digit_summary.csv'))
-    return summary
+        csv_path = os.path.join(args.puncta_path, 'digit_summary.csv')
+        if not os.path.exists(os.path.dirname(csv_path)):
+            raise FileNotFoundError(
+                f"Directory does not exist for saving the CSV file: {os.path.dirname(csv_path)}")
+
+        summary_df.to_csv(csv_path)
+        return summary_df
+
+    except Exception as e:
+        logger.error(
+            f"An error occurred while retrieving summary or saving the CSV file: {e}")
+        raise
 
 
-def retrieve_complete(args):
-    r"""This function retrieves a complete summary of barcodes that are present in both the gene-barcode mapping and the overall barcode summary. The function returns a DataFrame sorted by gene names and also writes this DataFrame to a CSV file.
-    :param args.Args args: configuration options, including methods for gene-barcode mapping, retrieving barcode summary, and the work path where the summary CSV file will be saved.
-    :returns: A pandas DataFrame containing the complete summary of barcodes. The DataFrame is indexed by barcode with columns for total count ('number') and count per fov (e.g., 'fov1', 'fov2', ...). Additionally, it contains a 'gene' column that maps each barcode to its corresponding gene. The DataFrame is sorted by gene names in ascending order.
+def retrieve_complete(args) -> pd.DataFrame:
+    r"""
+    Retrieves a complete summary of barcodes present in both the gene-barcode mapping and the overall barcode summary.
 
+    :param args: Configuration options. This should be an instance of the Args class.
+    :type args: Args
+    :returns: A pandas DataFrame containing the complete summary of barcodes, indexed by barcode with columns for
+              total count ('number') and count per fov (e.g., 'fov1', 'fov2', ...), and a 'gene' column mapping
+              each barcode to its corresponding gene. Sorted by gene names in ascending order.
+    :rtype: pd.DataFrame
     """
-    df, digit2gene, gene2digit = gene_barcode_mapping(args)
-    summary = retrieve_summary(args)
-    complete = summary.loc[list(set(df['Digits']) & set(summary.index))]
-    complete['gene'] = [digit2gene[digit] for digit in complete.index]
-    complete = complete.sort_values('gene')
-    complete.to_csv(os.path.join(args.puncta_path, 'gene_summary.csv'))
+    try:
+        df, digit2gene, gene2digit = gene_barcode_mapping(args)
+        summary = retrieve_summary(args)
 
-    return complete
+        complete = summary.loc[list(set(df['Digits']) & set(summary.index))]
+        complete['gene'] = [digit2gene[digit] for digit in complete.index]
+        complete = complete.sort_values('gene')
+
+        csv_path = os.path.join(args.puncta_path, 'gene_summary.csv')
+        complete.to_csv(csv_path)
+
+        return complete
+    except Exception as e:
+        logger.error(
+            f"An error occurred during the retrieval process or CSV file saving: {e}")
+        raise
 
 
-def retrieve_gene(args, gene):
-    r"""This function retrieves all puncta associated with a specific gene across all fields of view (fovs). It leverages a Hamming distance function to match the barcode of each puncta with the gene of interest, permitting a maximum of one mismatch. It also writes the gene-barcode mapping to a CSV file.
-    :param args.Args args: configuration options, including methods for gene-barcode mapping, retrieving all puncta, and the work path where the gene-barcode CSV file will be saved.
-    :param str gene: The gene of interest for which all corresponding puncta across all fovs will be retrieved.
-    :returns: A list of dictionaries, each representing a puncta associated with the gene. Each dictionary includes the puncta's properties, as well as the fov in which it is found.
+def retrieve_gene(args, gene: str) -> List[Dict]:
+    r"""
+    Retrieves all puncta associated with a specific gene across all fields of view (FOVs).
+
+    :param args: Configuration options. This should be an instance of the Args class.
+    :type args: Args
+    :param gene: The gene of interest for which all corresponding puncta across all FOVs will be retrieved.
+    :type gene: str
+    :returns: A list of dictionaries, each representing a puncta associated with the gene, including puncta's properties
+              and the FOV in which it is found.
+    :rtype: List[Dict]
     """
-    def within_hamming_distance(a, b):
-        diff = 0
-        for x, y in zip(a, b):
-            if x != y:
-                diff += 1
-            if diff >= 2:
-                return False
-        return True
+    def within_hamming_distance(a: str, b: str) -> bool:
+        """Check if two barcodes are within a Hamming distance of 1."""
+        diff = sum(1 for x, y in zip(a, b) if x != y)
+        return diff < 2
 
-    df, digit2gene, gene2digit = gene_barcode_mapping(args)
-    digit = gene2digit[gene]
+    try:
+        df, digit2gene, gene2digit = gene_barcode_mapping(args)
 
-    puncta_lists = []
-    for fov in args.fovs:
-        result = retrieve_all_puncta(args, fov)
-        for puncta in result:
-            if within_hamming_distance(puncta['barcode'], digit):
-                puncta_lists.append({
-                    **puncta,
-                    'fov': fov
-                })
-    df.to_csv(os.path.join(args.puncta_path,
-              'gene_{}_digit_map.csv'.format(gene)))
-    return puncta_lists
+        # Retrieve the barcode digit for the specified gene
+        digit = gene2digit[gene]
+
+        puncta_lists = []
+        for fov in args.fovs:
+            result = retrieve_all_puncta(args, fov)
+            for puncta in result:
+                if within_hamming_distance(puncta['barcode'], digit):
+                    puncta_lists.append({
+                        **puncta,
+                        'fov': fov
+                    })
+
+        # Save the gene-barcode mapping to a CSV file
+        gene_csv_path = os.path.join(
+            args.puncta_path, f'gene_{gene}_digit_map.csv')
+        df.to_csv(gene_csv_path)
+
+        return puncta_lists
+    except KeyError as e:
+        logger.error(f"Gene {gene} not found in gene2digit mapping: {e}")
+        raise
+    except Exception as e:
+        logger.error(
+            f"An error occurred during the retrieval process or CSV file saving: {e}")
+        raise
 
 
-def generate_debug_candidate(args, gene=None, fov=None, num_missing_code=1):
-    r"""Generates a candidate puncta for debugging purposes. The function first randomly selects a gene and retrieves all corresponding puncta. It then filters the puncta based on the number of missing codes in their barcodes. Finally, it randomly selects one puncta from the filtered list.
-    :param args.Args args: configuration options, including methods for gene-barcode mapping and retrieving all puncta.
-    :param str gene: The gene of interest, if none is provided a gene is randomly selected.
-    :param int fov: The field of view (fov) to consider. If none is provided, all fovs are considered.
-    :param int num_missing_code: The number of missing codes in the barcode of the puncta to be retrieved, defaults is 1.
-    :returns: A single randomly chosen puncta that satisfies all the criteria (matching gene, within fov, correct number of missing codes).
+def generate_debug_candidate(args, gene: Optional[str] = None, fov: Optional[int] = None, num_missing_code: int = 1) -> Optional[Dict]:
     """
-    complete = retrieve_complete(args)
+    Generates a candidate puncta for debugging purposes.
 
-    if not gene:
-        gene = complete['gene'].values[np.random.randint(0, len(complete))]
+    The function first randomly selects a gene if not provided and retrieves all corresponding puncta. It then filters
+    the puncta based on the number of missing codes in their barcodes. Finally, it randomly selects one puncta from
+    the filtered list.
 
-    puncta_lists = retrieve_gene(args, gene)
-
-    if fov:
-        logger.info('Studying gene {} in fov '.format(gene, fov))
-        puncta_lists = [
-            puncta for puncta in puncta_lists if puncta['fov'] == fov]
-    else:
-        logger.info('Studying gene {} in all fovs'.format(gene))
-    logger.info('Total barcode that matches gene {} '.format(
-        gene, len(puncta_lists)))
-
-    puncta_lists = [puncta for puncta in puncta_lists if puncta['barcode'].count(
-        '_') == num_missing_code]
-    if len(puncta_lists) == 0:
-        logger.info('Total barcode with {} missing codes: {}'.format(
-            num_missing_code, 0))
-        return generate_debug_candidate(args, gene=None, fov=None, num_missing_code=1)
-    else:
-        logger.info('Total barcode with {} missing codes: {}'.format(
-            num_missing_code, len(puncta_lists)))
-
-    random_index = random.randint(0, len(puncta_lists)-1)
-    return puncta_lists[random_index]
-
-
-def get_offsets(filename):
-    r"""Given the filename for the BDV/H5 XML file, returns the stitching offset as a :math:`(N,3)` array in the :math:`(X,Y,Z)` order. Returned values are expressed in :math:`\mu m`.
-
-    :param str filename: the file name of the ``BDV/H5`` XML file, produced by the Big Stitcher plugin of fiji.
+    :param args: Configuration options. This should be an instance of the Args class.
+    :type args: Args
+    :param gene: The gene of interest, if none is provided a gene is randomly selected.
+    :type gene: Optional[str]
+    :param fov: The field of view (FOV) to consider. If none is provided, all FOVs are considered.
+    :type fov: Optional[int]
+    :param num_missing_code: The number of missing codes in the barcode of the puncta to be retrieved. Default is 1.
+    :type num_missing_code: int
+    :returns: A single randomly chosen puncta that satisfies all the criteria (matching gene, within FOV, correct
+              number of missing codes).
+    :rtype: Optional[Dict]
     """
-    import xml.etree.ElementTree
+    try:
+        complete = retrieve_complete(args)
 
-    tree = xml.etree.ElementTree.parse(filename)
-    root = tree.getroot()
-    vtrans = list()
-    for registration_tag in root.findall("./ViewRegistrations/ViewRegistration"):
-        tot_mat = np.eye(4, 4)
-        for view_transform in registration_tag.findall("ViewTransform"):
-            affine_transform = view_transform.find("affine")
-            mat = np.array(
-                [float(a)
-                 for a in affine_transform.text.split(" ")] + [0, 0, 0, 1]
-            ).reshape((4, 4))
-            tot_mat = np.matmul(tot_mat, mat)
-        vtrans.append(tot_mat)
+        # Randomly select a gene if not provided
+        if not gene:
+            gene = complete['gene'].sample().iloc[0]
 
-    def transform_to_translate(m):
-        m[0, :] = m[0, :] / m[0][0]
-        m[1, :] = m[1, :] / m[1][1]
-        m[2, :] = m[2, :] / m[2][2]
-        return m[:-1, -1]
+        puncta_lists = retrieve_gene(args, gene)
 
-    trans = [transform_to_translate(vt).astype(np.int64) for vt in vtrans]
-    return np.stack(trans)
+        # Filter puncta by field of view if provided
+        if fov is not None:
+            logger.info(f'Studying gene {gene} in fov {fov}')
+            puncta_lists = [
+                puncta for puncta in puncta_lists if puncta['fov'] == fov]
+        else:
+            logger.info(f'Studying gene {gene} in all fovs')
+
+        logger.info(
+            f'Total barcode that matches gene {gene}: {len(puncta_lists)}')
+
+        # Filter puncta by the number of missing codes
+        puncta_lists = [puncta for puncta in puncta_lists if puncta['barcode'].count(
+            '_') == num_missing_code]
+
+        if len(puncta_lists) == 0:
+            logger.info(
+                f'Total barcode with {num_missing_code} missing codes: 0')
+            return None  # Or raise an exception if the function should not return None
+        else:
+            logger.info(
+                f'Total barcode with {num_missing_code} missing codes: {len(puncta_lists)}')
+
+        # Randomly select and return a puncta from the filtered list
+        random_index = random.randint(0, len(puncta_lists)-1)
+        return puncta_lists[random_index]
+    except ValueError as e:
+        logger.error(
+            f"An error occurred during debug candidate generation: {e}")
+        raise
+
+
+def get_offsets(filename: str) -> np.ndarray:
+    r"""
+    Given the filename for the BDV/H5 XML file, returns the stitching offset as an (N,3) array in (X,Y,Z) order.
+
+    The offsets are expressed in micrometers (µm) and are extracted from the XML file produced by the Big Stitcher
+    plugin of Fiji.
+
+    :param filename: The file name of the BDV/H5 XML file.
+    :type filename: str
+    :return: An array of stitching offsets in the format of (X, Y, Z).
+    :rtype: np.ndarray
+
+    :raises FileNotFoundError: If the XML file cannot be found.
+    :raises ET.ParseError: If there is an error parsing the XML file.
+    :raises ValueError: If the XML file has an unexpected structure or if the affine transformation cannot be read.
+    """
+    try:
+        # Parse the XML file
+        tree = ET.parse(filename)
+        root = tree.getroot()
+        vtrans: List[np.ndarray] = []
+
+        # Extract the view transformations
+        for registration_tag in root.findall("./ViewRegistrations/ViewRegistration"):
+            tot_mat = np.eye(4, 4)
+            for view_transform in registration_tag.findall("ViewTransform"):
+                affine_transform = view_transform.find("affine")
+                if affine_transform is None or affine_transform.text is None:
+                    raise ValueError(
+                        "Affine transformation not found or is empty.")
+
+                mat = np.array(
+                    [float(a) for a in affine_transform.text.split(
+                        " ")] + [0, 0, 0, 1]
+                ).reshape((4, 4))
+                tot_mat = np.matmul(tot_mat, mat)
+            vtrans.append(tot_mat)
+
+        # Define a function to convert transformation matrices to translation vectors
+        def transform_to_translate(m: np.ndarray) -> np.ndarray:
+            m[0, :] = m[0, :] / m[0][0]
+            m[1, :] = m[1, :] / m[1][1]
+            m[2, :] = m[2, :] / m[2][2]
+            return m[:-1, -1]
+
+        # Apply the transformation and stack the results
+        trans = [transform_to_translate(vt).astype(np.int64) for vt in vtrans]
+        return np.stack(trans)
+
+    except FileNotFoundError as e:
+        logger.error(f"The XML file could not be found: {e}")
+        raise
+    except ET.ParseError as e:
+        logger.error(f"Error parsing the XML file: {e}")
+        raise
+    except ValueError as e:
+        logger.error(f"Error processing the XML file: {e}")
+        raise
 
 
 def visualize_progress(args) -> None:
-    r"""Visualizes the progress of the ExSeq ToolBox."""
-    import seaborn as sns
-    import matplotlib.pyplot as plt
+    r"""
+    Visualizes the progress of the ExSeq Toolbox.
 
+    This function creates a heatmap visualizing the completion status of different steps in the ExSeq Toolbox
+    for each field of view (FOV) and each code.
+
+    :param args: Configuration options. This should be an instance of the Args class.
+    :type args: Args
+
+    """
     try:
+        # Initialize the result matrix with zeros
         result = np.zeros((len(args.fovs), len(args.codes)))
+        # Create annotation for the heatmap
         annot = np.asarray(
             [["{},{}".format(fov, code) for code in args.codes]
              for fov in args.fovs]
         )
-        for fov in args.fovs:
+
+        # Check the progress for each FOV and code
+        for fov_index, fov in enumerate(args.fovs):
             for code_index, code in enumerate(args.codes):
+                h5_path = args.h5_path.format(code, fov)
+                puncta_path = args.puncta_path
+                result_code_path = f"{puncta_path}/fov{fov}/result_code{code}.pkl"
+                coords_total_code_path = f"{puncta_path}/fov{fov}/coords_total_code{code}.pkl"
 
-                if os.path.exists(args.h5_path.format(code, fov)):
-                    result[fov, code_index] = 1
-                else:
-                    continue
+                if os.path.exists(h5_path):
+                    result[fov_index, code_index] = 1
 
-                if os.path.exists(
-                    args.puncta_path +
-                        "/fov{}/result_code{}.pkl".format(fov, code)
-                ):
-                    result[fov, code_index] = 4
-                    continue
+                    if os.path.exists(result_code_path):
+                        result[fov_index, code_index] = 4
+                    elif os.path.exists(coords_total_code_path):
+                        result[fov_index, code_index] = 3
+                    else:
+                        try:
+                            with h5py.File(h5_path, "r") as f:
+                                if set(f.keys()) == set(args.channel_names):
+                                    result[fov_index, code_index] = 2
+                        except Exception as e:
+                            logger.warning(
+                                f"Could not read file {h5_path}: {e}")
 
-                if os.path.exists(args.puncta_path + '/fov{}/coords_total_code{}.pkl'.format(fov, code)):
-                    result[fov, code_index] = 3
-                    continue
-
-                try:
-                    with h5py.File(args.h5_path.format(code, fov), "r+") as f:
-                        if set(f.keys()) == set(args.channel_names):
-                            result[fov, code_index] = 2
-                except:
-                    pass
-
+        # Plot the heatmap
         fig, ax = plt.subplots(figsize=(7, 20))
-        ax = sns.heatmap(result, annot=annot, fmt="", vmin=0, vmax=4)
+        sns.heatmap(result, annot=annot, fmt="", vmin=0, vmax=4, ax=ax)
         plt.show()
         logger.info(
-            "1: 405 done, 2: all channels done, 3:puncta extracted 4:channel consolidated"
-        )
+            "1: 405 done, 2: all channels done, 3: puncta extracted, 4: channel consolidated")
     except Exception as e:
         logger.error(f"Failed to visualize progress. Error: {e}")
         raise
@@ -399,4 +636,3 @@ def subtract_background_top_hat(volume: np.ndarray,
     except Exception as e:
         logger.error(f"Error during top-hat background subtraction: {e}")
         raise
-

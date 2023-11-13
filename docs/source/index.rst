@@ -1,8 +1,7 @@
 ExSeq-Toolbox Documentation
 ===============================================
 
-Check out the :doc:`usage` section for further information, including
-how to :ref:`installation` the project.
+Explore the :doc:`usage` section for comprehensive details, covering everything from :ref:`installation` of the project to :ref:`Step-by-step Guide` for getting started.
 
 .. note::
 
@@ -13,7 +12,7 @@ Contents
 
 .. toctree::
    :glob:
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Get Started
 
    usage
@@ -30,5 +29,5 @@ Contents
    modules/stitching
    modules/utils
    modules/io
-   modules/ui 
+   modules/beta
    

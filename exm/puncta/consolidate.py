@@ -1,5 +1,6 @@
-"""Consolidates puncta across channels and codes."""
-
+"""
+Puncta consolidation module is designed to refine puncta detection by eliminating redundancies across different channels and codes. It processes the data to merge closely located puncta into a single entity based on a distance threshold, which helps in reducing noise and improving the accuracy of the puncta detection process.
+"""
 import os
 import h5py
 import pickle

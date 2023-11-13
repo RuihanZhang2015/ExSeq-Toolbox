@@ -1,3 +1,7 @@
+"""
+Segmentation Module currently utilizes the Cellpose model only `(more to come soon)`, a generalist algorithm for cell segmentation, to process volumetric datasets. It provides tools to perform and visualize 3D segmentation on microscopy images, facilitating the analysis of biological structures within a 3D space.
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import ndimage

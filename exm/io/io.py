@@ -1,5 +1,5 @@
 """
-Functions to assist in folder creation and reading/writing image files. 
+The IO module in the ExSeq Toolbox is designed to streamline the process of reading, converting, and managing image data files for expansion microscopy
 """
 
 import os
@@ -17,112 +17,170 @@ from PIL import Image
 import skimage.measure
 from IPython.display import Image as Img2
 
+from typing import Optional, Dict, List, Tuple, Any
+
 from exm.utils.log import configure_logger
 logger = configure_logger('ExSeq-Toolbox')
 
 
 # TODO document the expected Xlsx structure
-def readXlsx(xlsx_file):
-    r"""Reads the experiment xlsx_file and returns it as a Pandas dataframe.
+def readXlsx(xlsx_file: str) -> np.ndarray:
+    r"""
+    Reads the experiment xlsx_file and returns it as a NumPy array.
 
-    :param str xlsx_file: Path to the ``xlsx`` file.
+    The function expects the following columns to be present: 'Point Name', 'Z Pos[µm]', 'Y Pos[µm]', and 'X Pos[µm]'.
+    It processes the file to extract position data and returns this data, transforming 'X Pos' by negating its values.
+
+    :param xlsx_file: Path to the xlsx file.
+    :type xlsx_file: str
+    :return: A NumPy array containing the processed position data.
+    :rtype: np.ndarray
+
+    :raises FileNotFoundError: If the xlsx file cannot be found.
+    :raises ValueError: If the file structure is not as expected.
     """
-    df = pd.read_excel(
-        open(xlsx_file, "rb"), engine="openpyxl", header=[1], sheet_name=3
-    )
+    try:
+        df = pd.read_excel(
+            xlsx_file, engine="openpyxl", header=[1], sheet_name=3
+        )
 
-    # drop invalid rows
-    flag = []
-    for x in df["Point Name"]:
-        if isinstance(x, str) and ("#" in x):
-            flag.append(False)
-        else:
-            flag.append(True)
-    df = df.drop(df[flag].index)
-    flag = []
-    for x in df["X Pos[µm]"]:
-        if isinstance(x, float) or isinstance(x, int):
-            flag.append(False)
-        else:
-            flag.append(True)
-    df = df.drop(df[flag].index)
+        # drop invalid rows
+        flag = []
+        for x in df["Point Name"]:
+            if isinstance(x, str) and ("#" in x):
+                flag.append(False)
+            else:
+                flag.append(True)
+        df = df.drop(df[flag].index)
+        flag = []
+        for x in df["X Pos[µm]"]:
+            if isinstance(x, float) or isinstance(x, int):
+                flag.append(False)
+            else:
+                flag.append(True)
+        df = df.drop(df[flag].index)
 
-    # select columns
-    zz, yy, xx = (
-        np.array(df["Z Pos[µm]"].values),
-        np.array(df["Y Pos[µm]"].values),
-        np.array(df["X Pos[µm]"].values),
-    )
-    ii = np.array([int(x[1:]) - 1 for x in df["Point Name"].values])
-    # need to flip x
-    out = np.vstack([zz, yy, -xx, ii]).T.astype(float)
-    if (ii == 0).sum() != 1:
-        loop_ind = np.hstack([np.where(ii == 0)[0], len(ii)])
-        loop_len = loop_ind[1:] - loop_ind[:-1]
-        logger.info("exist %d multipoint loops with length" % len(loop_len), loop_len)
-        mid = np.argmax(loop_len)
-        out = out[loop_ind[mid] : loop_ind[mid + 1]]
-        # take the longest one
-    return out
-
+        # select columns
+        zz, yy, xx = (
+            np.array(df["Z Pos[µm]"].values),
+            np.array(df["Y Pos[µm]"].values),
+            np.array(df["X Pos[µm]"].values),
+        )
+        ii = np.array([int(x[1:]) - 1 for x in df["Point Name"].values])
+        # need to flip x
+        out = np.vstack([zz, yy, -xx, ii]).T.astype(float)
+        if (ii == 0).sum() != 1:
+            loop_ind = np.hstack([np.where(ii == 0)[0], len(ii)])
+            loop_len = loop_ind[1:] - loop_ind[:-1]
+            logger.info("exist %d multipoint loops with length" %
+                        len(loop_len), loop_len)
+            mid = np.argmax(loop_len)
+            out = out[loop_ind[mid]: loop_ind[mid + 1]]
+            # take the longest one
+        return out
+    except FileNotFoundError as e:
+        logger.error(f"Xlsx file not found: {e}")
+        raise FileNotFoundError(f"Xlsx file not found: {e}")
+    except ValueError as e:
+        logger.error(f"Error reading xlsx file: {e}")
+        raise ValueError(f"Error reading xlsx file: {e}")
 
 # TODO document the expected Xlsx structure
-def readNd2(nd2_file, do_info=True):
-    r"""Returns the image and metadata from the specified Nd2 file.
 
-    :param str nd2_file: file path.
-    :param bool do_info: whether or not the Nd2 file has metadata. Default: ``True``
+
+def readNd2(nd2_file: str, do_info: bool = True) -> Tuple[ND2Reader, Optional[Dict[str, Any]]]:
+    r"""
+    Returns the image and metadata from the specified Nd2 file.
+
+    :param nd2_file: File path to the Nd2 file.
+    :type nd2_file: str
+    :param do_info: Whether or not to extract metadata from the Nd2 file. Defaults to True.
+    :type do_info: bool
+    :return: A tuple containing ND2Reader object for the image data and a dictionary for metadata if requested.
+    :rtype: Tuple[ND2Reader, Optional[Dict[str, Any]]]
+
+    :raises FileNotFoundError: If the Nd2 file cannot be found.
+    :raises Exception: If an error occurs while reading the Nd2 file or extracting metadata.
     """
-    vol = ND2Reader(nd2_file)
-    info = {}
-    if do_info:
-        meta = vol.metadata
-        # assume zyx order
-        info["tiles_size"] = np.array(
-            [meta["z_levels"][-1] + 1, meta["height"], meta["width"]]
-        )
-        zz = np.array(meta["z_coordinates"])
-        zz_res = statistics.mode(np.round(10000 * (zz[1:] - zz[:-1])) / 10000)
-        info["resolution"] = np.array(
-            [zz_res, meta["pixel_microns"], meta["pixel_microns"]]
-        )
-        info["channels"] = meta["channels"]
-    return vol, info
+    try:
+        vol = ND2Reader(nd2_file)
+        info: Optional[Dict[str, Any]] = None
+
+        if do_info:
+            meta = vol.metadata
+            # assume zyx order
+            info["tiles_size"] = np.array(
+                [meta["z_levels"][-1] + 1, meta["height"], meta["width"]]
+            )
+            zz = np.array(meta["z_coordinates"])
+            zz_res = statistics.mode(
+                np.round(10000 * (zz[1:] - zz[:-1])) / 10000)
+            info["resolution"] = np.array(
+                [zz_res, meta["pixel_microns"], meta["pixel_microns"]]
+            )
+            info["channels"] = meta["channels"]
+        return vol, info
+    except FileNotFoundError as e:
+        logger.error(f"Nd2 file not found: {e}")
+        raise FileNotFoundError(f"Nd2 file not found: {e}")
+    except Exception as e:
+        logger.error(f"Error reading Nd2 file: {e}")
+        raise Exception(f"Error reading Nd2 file: {e}")
 
 
-def tiff2H5(tiff_file, h5_file, chunk_size=(100, 1024, 1024), step=100, im_thres=None):
-    r"""Reads the specified tiff file and re-saves it as a H5 file.
+def tiff2H5(tiff_file: str, h5_file: str, chunk_size: Tuple[int, int, int] = (100, 1024, 1024), step: int = 100, im_thres: Optional[int] = None) -> None:
+    r"""
+    Reads a TIFF file and re-saves it as an H5 file.
 
-    :param str tiff_file: path to the existing ``tiff`` file.
-    :param str h5_file: path to the new ``H5`` file.
-    :param tuple chunk_size: chunk size to break the image into. Default: :math:`(100, 1024, 1024)`
-    :param int step: :math:`z` step size. Default: :math:`100`
-    :param im_thresh: integer used for image thresholding. Default: ``None``
-    :type im_thresh: int, optional
+    :param tiff_file: Path to the existing TIFF file.
+    :type tiff_file: str
+    :param h5_file: Path to the new H5 file.
+    :type h5_file: str
+    :param chunk_size: Chunk size to break the image into. Default: (100, 1024, 1024)
+    :type chunk_size: Tuple[int, int, int]
+    :param step: Z step size. Default: 100
+    :type step: int
+    :param im_thres: Integer used for image thresholding, None to disable. Default: None
+    :type im_thres: Optional[int]
+
+    :raises FileNotFoundError: If the TIFF file is not found.
+    :raises IOError: If there is an error reading the TIFF file or writing the H5 file.
+    :raises ValueError: If there are issues with the image thresholding.
     """
-    # get tiff volume dimension
-    img = Image.open(tiff_file)
-    num_z = img.n_frames
-    test_page = imread(tiff_file, key=range(1))
-    sz = [num_z, test_page.shape[0], test_page.shape[1]]
+    try:
+        # Get TIFF volume dimensions
+        with Image.open(tiff_file) as img:
+            num_z = img.n_frames
 
-    fid = h5py.File(h5_file, "w")
-    dtype = np.uint8 if im_thres is not None else test_page.dtype
-    ds = fid.create_dataset(
-        "main", sz, compression="gzip", dtype=dtype, chunks=chunk_size
-    )
+        test_page = imread(tiff_file, key=range(1))
+        sz = [num_z, test_page.shape[0], test_page.shape[1]]
 
-    num_zi = (sz[0] + step - 1) // step
-    for zi in range(num_zi):
-        z = min((zi + 1) * step, sz[0])
-        im = imread(tiff_file, key=range(zi * step, z))
-        if im_thres is not None:
-            im = imAdjust(im, im_thres).astype(np.uint8)
-        ds[zi * step : z] = im
-    fid.close()
+        # Open or create the H5 file
+        with h5py.File(h5_file, "w") as fid:
+            dtype = np.uint8 if im_thres is not None else test_page.dtype
+            ds = fid.create_dataset(
+                "main", sz, compression="gzip", dtype=dtype, chunks=chunk_size)
+
+            num_zi = (sz[0] + step - 1) // step
+            for zi in range(num_zi):
+                z = min((zi + 1) * step, sz[0])
+                im = imread(tiff_file, key=range(zi * step, z))
+                if im_thres is not None:
+                    im = imAdjust(im, im_thres).astype(np.uint8)
+                ds[zi * step: z] = im
+    except FileNotFoundError as e:
+        logger.error(f"The TIFF file was not found: {e}")
+        raise
+    except IOError as e:
+        logger.error(
+            f"There was an error reading the TIFF file or writing the H5 file: {e}")
+        raise
+    except ValueError as e:
+        logger.error(f"There was an issue with the image thresholding: {e}")
+        raise
 
 
-def nd2ToVol(filename: str, fov: int, channel_name: str = "405 SD", ratio: int = 1, dataset_type = ".nd2" ) -> np.ndarray:
+def nd2ToVol(filename: str, fov: int, channel_name: str = "405 SD", ratio: int = 1, dataset_type=".nd2") -> np.ndarray:
     r"""
     Reads the specified Nd2 file and returns it as a numpy array.
 
@@ -151,14 +209,16 @@ def nd2ToVol(filename: str, fov: int, channel_name: str = "405 SD", ratio: int =
             channel_id = [
                 x for x in range(len(channel_names)) if channel_name in channel_names[x]
             ]
-            
+
             if len(channel_id) != 1:
-                raise ValueError(f"Invalid channel name: {channel_name}. Please provide a valid channel name.")
-            
+                raise ValueError(
+                    f"Invalid channel name: {channel_name}. Please provide a valid channel name.")
+
             channel_id = channel_id[0]
 
             out = np.zeros(
-                [len(vol) // ratio, vol[0].shape[0] // ratio, vol[0].shape[1] // ratio],
+                [len(vol) // ratio, vol[0].shape[0] //
+                 ratio, vol[0].shape[1] // ratio],
                 np.uint16,
             )
             for z in range(len(vol) // ratio):
@@ -168,60 +228,93 @@ def nd2ToVol(filename: str, fov: int, channel_name: str = "405 SD", ratio: int =
             return out
 
     except Exception as e:
-        print(f"Error occurred while converting ND2 file to volume: {e}")
+        logger.error(
+            f"Error occurred while converting ND2 file to volume: {e}")
         raise
 
 
-def nd2ToChunk(
-    filename: str, fov: int, z_min: int, z_max: int, channel_name: str = "405 SD"
-):
-    r"""Reads the speficied Nd2 file and returns a chunk from it.
+def nd2ToChunk(filename: str, fov: int, z_min: int, z_max: int, channel_name: str = "405 SD") -> np.ndarray:
+    r"""
+    Reads the specified Nd2 file and returns a chunk from it.
 
-    :param str filename: configuration options
-    :param int fov: the field of view to be returned.
-    :param int z_min: starting :math:`z` position of the chunk.
-    :param int z_max: ending :math:`z` position of the chunk.
-    :param str channel_name: the channel to be returned. Default: ``'405 SD'``
+    :param filename: Path to the ND2 file.
+    :type filename: str
+    :param fov: The field of view to be returned.
+    :type fov: int
+    :param z_min: Starting z position of the chunk.
+    :type z_min: int
+    :param z_max: Ending z position of the chunk.
+    :type z_max: int
+    :param channel_name: The channel to be returned. Default is "405 SD".
+    :type channel_name: str
+
+    :return: A 3D numpy array representing the selected chunk of the ND2 file.
+    :rtype: np.ndarray
+
+    :raises ValueError: If the specified channel is not found or if there are multiple matches for the channel name.
     """
-    # volume in zyx order
+    try:
+        vol = ND2Reader(filename)
+        channel_names = vol.metadata["channels"]
+        channel_id = [x for x in range(
+            len(channel_names)) if channel_name in channel_names[x]]
 
-    vol = ND2Reader(filename)
-    channel_names = vol.metadata["channels"]
-    channel_id = [
-        x for x in range(len(channel_names)) if channel_name in channel_names[x]
-    ]
-    assert len(channel_id) == 1
-    channel_id = channel_id[0]
+        if len(channel_id) != 1:
+            raise ValueError(
+                f"Channel name {channel_name} is ambiguous or not found.")
+        channel_id = channel_id[0]
 
-    out = np.zeros([z_max - z_min, vol[0].shape[0], vol[0].shape[1]], np.uint16)
-    for z in range(z_max - z_min):
-        out[z] = vol.get_frame_2D(c=channel_id, t=0, z=z + z_min, x=0, y=0, v=fov)
-    return out
+        out = np.zeros([z_max - z_min, vol.sizes['y'],
+                       vol.sizes['x']], np.uint16)
+        for z in range(z_min, z_max):
+            out[z - z_min] = vol.get_frame_2D(c=channel_id,
+                                              t=0, z=z, x=0, y=0, v=fov)
+
+        return out
+
+    except Exception as e:
+        logger.error(f"An error occurred while reading the ND2 file: {e}")
+        raise
 
 
-def nd2ToSlice(filename: str, fov: int, z: int, channel_name: str = "405 SD"):
-    r"""Reads the speficied Nd2 file and returns a slice from it.
+def nd2ToSlice(filename: str, fov: int, z: int, channel_name: str = "405 SD") -> np.ndarray:
+    r"""
+    Reads the specified Nd2 file and returns a single slice from it.
 
-    :param str filename: path of the ``ND2`` file.
-    :param int fov: the field of view to be returned.
-    :param int z: index of :math:`z` slice to be returned.
-    :param str channel_name: the channel to be returned. Default: ``'405 SD'``
+    :param filename: Path to the ND2 file.
+    :type filename: str
+    :param fov: The field of view to be returned.
+    :type fov: int
+    :param z: Index of the z slice to be returned.
+    :type z: int
+    :param channel_name: The channel to be returned. Default is "405 SD".
+    :type channel_name: str
+
+    :return: A 2D numpy array representing the selected slice of the ND2 file.
+    :rtype: np.ndarray
+
+    :raises ValueError: If the specified channel is not found or if there are multiple matches for the channel name.
     """
-    # volume in zyx order
+    try:
+        vol = ND2Reader(filename)
+        channel_names = vol.metadata["channels"]
+        channel_id = [x for x in range(
+            len(channel_names)) if channel_name in channel_names[x]]
 
-    vol = ND2Reader(filename)
-    channel_names = vol.metadata["channels"]
-    channel_id = [
-        x for x in range(len(channel_names)) if channel_name in channel_names[x]
-    ]
-    assert len(channel_id) == 1
-    channel_id = channel_id[0]
+        if len(channel_id) != 1:
+            raise ValueError(
+                f"Channel name {channel_name} is ambiguous or not found.")
+        channel_id = channel_id[0]
 
-    out = vol.get_frame_2D(c=channel_id, t=0, z=int(z), x=0, y=0, v=fov)
-    return out
+        out = vol.get_frame_2D(c=channel_id, t=0, z=z, x=0, y=0, v=fov)
+        return out
+
+    except Exception as e:
+        logger.error(f"An error occurred while reading the ND2 file: {e}")
+        raise
 
 
-def create_folder_structure(processed_dir: str, fovs:List[int], codes: List[int]) -> None:
+def create_folder_structure(processed_dir: str, fovs: List[int], codes: List[int]) -> None:
     r"""
     Creates a results folder for the specified codes.
 
@@ -247,7 +340,7 @@ def create_folder_structure(processed_dir: str, fovs:List[int], codes: List[int]
 
             tform_dir = code_path.joinpath("tforms")
             tform_dir.mkdir(exist_ok=True)
-        
+
         align_eval_dir = processed_dir / "alignment_evaluation"
         align_eval_dir.mkdir(parents=True, exist_ok=True)
 
@@ -275,41 +368,60 @@ def create_folder_structure(processed_dir: str, fovs:List[int], codes: List[int]
         #         os.makedirs(gif_path)
 
 
-def downsample(arr, block_size):
-    r"""Takes in a single or multidimensional array and downsampled it using skimage.measure.block_reduce.
+def downsample(arr: np.ndarray, block_size: int) -> np.ndarray:
+    """
+    Downsamples a single or multidimensional array using skimage.measure.block_reduce.
 
-    :param numpy.array arr: array to downsample.
-    :param numpy.array block_size: array containing down-sampling integer factor along each axis.
+    :param arr: Array to downsample.
+    :type arr: np.ndarray
+    :param block_size: Integer factor for down-sampling along each axis.
+    :type block_size: int
+
+    :return: Downsampled array.
+    :rtype: np.ndarray
+
+    :raises ValueError: If block size does not match the array's dimensions.
     """
     block_list = [block_size] * arr.ndim
     block = tuple(block_list)
-    assert len(block) == arr.ndim, "block size does not match vector shape"
 
-    new_array = skimage.measure.block_reduce(arr, block, np.mean)
+    if len(block) != arr.ndim:
+        raise ValueError("block size does not match array's dimensions")
+
+    new_array = block_reduce(arr, block, np.mean)
 
     return new_array
 
 
-def parseSitkLog(log_path: str):
-    r"""Open the SimpleITK log and return the resulting metric and stepsize.
+def parse_sitk_log(log_path: str) -> Tuple[np.ndarray, np.ndarray]:
+    r"""
+    Parses a SimpleITK log file and returns the resulting metric and step size.
 
-    :param str log_path: path to the SimpleITK log.
+    :param log_path: Path to the SimpleITK log.
+    :type log_path: str
+
+    :return: A tuple containing arrays of metrics and step sizes.
+    :rtype: Tuple[np.ndarray, np.ndarray]
+
+    :raises FileNotFoundError: If the log file does not exist or cannot be opened.
     """
     result_metric = []
     result_stepsize = []
-    start_ind = 10000000
-    with open(log_path, "r") as f:
-        lines = f.readlines()
-        for ind, x in enumerate(lines):
-            if (
-                x
-                == "1:ItNr\t2:Metric\t3a:Time\t3b:StepSize\t4:||Gradient||\tTime[ms]\n"
-            ):
-                start_ind = ind
-            if ind > start_ind and "\t-" in x:
-                splt = x.split("\t")
-                result_metric.append(splt[1])
-                result_stepsize.append(splt[3])
+    start_ind = float('inf')
+
+    try:
+        with open(log_path, "r") as f:
+            lines = f.readlines()
+            for ind, x in enumerate(lines):
+                if x.startswith("1:ItNr"):
+                    start_ind = ind
+                if ind > start_ind and "\t-" in x:
+                    splt = x.split("\t")
+                    result_metric.append(splt[1])
+                    result_stepsize.append(splt[3])
+    except FileNotFoundError:
+        raise FileNotFoundError(
+            f"Log file at {log_path} could not be found or opened.")
 
     result_metric = np.asarray(result_metric, dtype="float32")
     result_stepsize = np.asarray(result_stepsize, dtype="float32")
@@ -317,16 +429,28 @@ def parseSitkLog(log_path: str):
     return result_metric, result_stepsize
 
 
-def saveGif(img1, img2, filename):
-    r"""Takes in two images, appends one behind the other, and loops between them in a GIF. Saves and returns resulting GIF.
+def save_gif(img1: np.ndarray, img2: np.ndarray, filename: str) -> Image:
+    r"""
+    Creates a GIF by appending one image behind the other and loops between them.
 
-    :param numpy.array img1: the first image to be displayed.
-    :param numpy.array img2: the second image to be displayed.
-    :param str filename: the filename for saving the GIF.
+    :param img1: The first image to be displayed.
+    :type img1: np.ndarray
+    :param img2: The second image to be displayed.
+    :type img2: np.ndarray
+    :param filename: The filename for saving the GIF.
+    :type filename: str
+
+    :return: The resulting GIF image.
+    :rtype: PIL.Image
+
+    :raises IOError: If there is an error saving the GIF.
     """
-    im1 = Image.fromarray(img1)
-    im2 = Image.fromarray(img2)
-    im1.save(
-        filename, format="GIF", append_images=[im2], save_all=True, duration=300, loop=0
-    )
-    return Img2(filename=filename)
+    try:
+        im1 = Image.fromarray(img1)
+        im2 = Image.fromarray(img2)
+        im1.save(
+            filename, format="GIF", append_images=[im2], save_all=True, duration=300, loop=0
+        )
+        return Image.open(filename)
+    except IOError:
+        raise IOError(f"Error saving GIF to {filename}")

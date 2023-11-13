@@ -52,6 +52,49 @@ import exm.stitching.stitching as stitching
 
 
 class Tileset:
+    r"""
+    A class for managing a set of image tiles from various microscopy formats.
+
+    This class supports initializing tilesets from JP2, ND2, BDV H5, and TIFF files, with methods to
+    handle tiles, preview data, and manipulate the intensity and offsets of the tiles. It is designed
+    to work with image data in a voxel grid format, with methods provided for scaling, previewing,
+    and exporting the data.
+
+    **Attributes:**
+
+        - `tiles (list)`: A list of Tile objects that make up the tileset.
+        - `voxel_size (tuple)`: The size of a voxel in the dataset.
+        - `original_xyz_size (tuple)`: Original size of the dataset in XYZ dimensions.
+        - `nd2 (ND2Reader)` : An ND2Reader object for ND2 file operations, if applicable.
+
+    **Methods:**
+
+        - `init_from_jp2(files_list, offsets_file, downscale)`: Initialize from a list of JP2 files.
+        - `init_from_nd2(nd2)`: Initialize from an ND2 file.
+        - `init_from_bdv(filename)`: Initialize from a BDV H5 file.
+        - `init_from_h5(filename, downscale, progress)`: Initialize from a non-BDV H5 file.
+        - `init_from_tiff_files(filelist, downscale, progress)`: Initialize from a list of TIFF files.
+        - `scale_offset(scale)`: Scale all tile offsets by a given factor.
+        - `__getitem__(i)`: Access individual tiles using the [] operator.
+        - `get_slice(fovnum, z)`: Get a specific Z-slice from a specific FOV.
+        - `preview_nd2(z_layer, down_sample)`: Preview a slice of the ND2 file.
+        - `get_centroids()`: Calculate and return centroids of tiles.
+        - `create_blank_h5bdv(target_file, tile_size, dtype, noise_scale)`: Create a blank H5/BDV file with random noise.
+        - `load_tile(fovnums, downscale, method)`: Load image data for a specified tile from the ND2 file.
+        - `load_all(downscale, method)`: Load image data for all tiles from the ND2 file.
+        - `find_intensity_scale(progress)`: Find the 1st and 99th percentile intensity values.
+        - `scale_intensity(p1p99, progress)`: Scale the intensity of the images in the tileset.
+        - `write_into_h5bdv(filename, dtype)`: Write the tileset into an H5BDV file format.
+        - `show_slice(zslice, down_sample)`: Show a single Z-slice of the stitched tileset.
+        - `update_offsets(xml_file, scale_factor)`: Update the offsets for the tiles based on an XML file.
+        - `produce_output_volume()`: Create and return a stitched volume from the tiles.
+        - `local_to_global(coords)`: Transform local tile coordinates to global coordinates.
+        - `dedup_segmentation_ids(progress)`: De-duplicate segmentation IDs across the tileset.
+
+    Note:
+        Some methods include TODOs for future improvements and considerations for handling specific data formats and conditions.
+    """
+    
     def __init__(self, voxel_size, orig_size=None):
         self.tiles = list()
         self.voxel_size = voxel_size
@@ -59,10 +102,12 @@ class Tileset:
         self.nd2 = None
 
     def init_from_jp2(self, files_list, offsets_file, downscale=[1, 1, 1]):
-        # initializes the tileset from a list of JP2 files, each representing a single
-        # tile, and an offset files, which is .npy file storing a 2D array. The first row
-        # of this array gives the original pixel size of the tile and the other rows the
-        # offset of the tiles.
+        r"""
+        Initializes the tileset from a list of JP2 files, each representing a single
+        tile, and an offset files, which is .npy file storing a 2D array. The first row
+        of this array gives the original pixel size of the tile and the other rows the
+        offset of the tiles.
+        """
 
         a = np.load(offsets_file)
         self.original_xyz_size = a[0].astype(int)
@@ -78,10 +123,12 @@ class Tileset:
             self.tiles.append(t)
 
     def init_from_nd2(self, nd2):
-        # initializes the tileset from a ND2 file. As these files can be slow to load
-        # it does not actually read the content of the tiles, but only reads metadata
-        # and will lazily load the necessary information on calls to `load_fov` or
-        # `preview_nd2`
+        r"""
+        Initializes the tileset from a ND2 file. As these files can be slow to load
+        it does not actually read the content of the tiles, but only reads metadata
+        and will lazily load the necessary information on calls to `load_fov` or
+        `preview_nd2`
+        """
 
         if type(nd2) is str:
             nd2 = ND2Reader(nd2)
@@ -110,7 +157,9 @@ class Tileset:
         ]
 
     def init_from_bdv(self, filename):
-        # Loads a tileset from a BDV H5 (BigDataViewer format). The argument should be either the .h5 or the .xml file
+        r"""
+        Loads a tileset from a BDV H5 (BigDataViewer format). The argument should be either the .h5 or the .xml file
+        """
         h5bdv = pathlib.Path(filename).with_suffix(".h5")
         self.xml_file = pathlib.Path(filename).with_suffix(".xml")
         offsets = stitching.get_offsets(self.xml_file)
@@ -133,7 +182,9 @@ class Tileset:
         ]
 
     def init_from_h5(self, filename, downscale=[1, 1, 1], progress=False):
-        # Loads a tileset from a non-BDV H5, will expect transforms from another source
+        r"""
+        Loads a tileset from a non-BDV H5, will expect transforms from another source
+        """
         file = h5py.File(filename, "r")
         keys = []
         file.visit(
@@ -159,7 +210,9 @@ class Tileset:
         ]
 
     def init_from_tiff_files(self, filelist, downscale=[1, 1, 1], progress=False):
-        # Init tiles from a list of TIFF files but will not initiialize offsets
+        r"""
+        Init tiles from a list of TIFF files but will not initiialize offsets
+        """
         self.tiles = list()
         for i, fn in enumerate(filelist):
             if progress:
@@ -173,16 +226,22 @@ class Tileset:
         self.original_xyz_size = [orig.shape[2], orig.shape[1], orig.shape[0]]
 
     def scale_offset(self, scale=(1, 1, 1)):
-        # Scales all offsets by a factor. Expects a X, Y, Z order in the argument
+        r"""
+        Scales all offsets by a factor. Expects a X, Y, Z order in the argument
+        """
         for i in range(len(self.tiles)):
             self.tiles[i].offset = self.tiles[i].offset * scale
 
     def __getitem__(self, i):
-        # One can access to tiles using the [] operator
+        r"""
+        One can access to tiles using the [] operator
+        """
         return self.tiles[i]
 
     def get_slice(self, fovnum, z):
-        # Returns a specific Z-slice from a specific FOV. That's a fast function that does not load the whole tile
+        r"""
+        Returns a specific Z-slice from a specific FOV. That's a fast function that does not load the whole tile
+        """
         self.nd2.bundle_axes = "yx"
         self.nd2._default_coords["v"] = fovnum
         self.nd2.iter_axes = "z"
@@ -237,9 +296,10 @@ class Tileset:
     #         self.tiles[i].offset = offsets[i] * self.voxel_size / scale_factor[::-1]
 
     def get_centroids(self):
-        # Returns a list of centroids as an array of XYZ coordinates. It can take a while. As this function internally
-        # calls `produce_output_volume()` it is recommended to scale down the tiles first
-
+        r"""
+        Returns a list of centroids as an array of XYZ coordinates. It can take a while. As this function internally
+        calls `produce_output_volume()` it is recommended to scale down the tiles first
+        """
         print("Produce output volume")
         vol = self.produce_output_volume()
         # Find centers, removing ID #0, which would be the centroind for the black pixels
@@ -304,10 +364,11 @@ class Tileset:
         bdv_writer.close()
 
     def load_tile(self, fovnums, downscale=[1, 1, 1], method="fast"):
-        # Loads a tile from the ND2 file. Before that call, tiles exist but are placeholders without image data
-        # Method can be "fast" or "safe". The fast method makes the loading faster but makes some assumptions about the
-        # data format
-        #
+        r"""
+        Loads a tile from the ND2 file. Before that call, tiles exist but are placeholders without image data
+        Method can be "fast" or "safe". The fast method makes the loading faster but makes some assumptions about the
+        data format
+        """
         # TODO: implement the "safe" method
         if type(fovnums) is int:
             fovnums = [fovnums]
@@ -315,11 +376,12 @@ class Tileset:
             self.tiles[fovnum].fast_nd2_read_downscale(self.nd2, downscale)
 
     def load_all(self, downscale=[1, 1, 1], method="fast"):
-        # Loads all tiles from the ND2 file. Before that call, tiles exist but are placeholders without image data
-        # Method can be "fast" or "safe". The fast method makes the loading faster but makes some assumptions about the
-        # data format
-        # Note that the downscale parameter is in the axis order of the tiles, typically ZYX
-        #
+        r"""
+        Loads all tiles from the ND2 file. Before that call, tiles exist but are placeholders without image data
+        Method can be "fast" or "safe". The fast method makes the loading faster but makes some assumptions about the
+        data format
+        Note that the downscale parameter is in the axis order of the tiles, typically ZYX
+        """
         # TODO: implement the "safe" method
         for i, t in enumerate(self.tiles):
             print(
@@ -488,9 +550,10 @@ class Tileset:
         return results
 
     def dedup_segmentation_ids(self, progress=False):
-        # If the tileset is a set of segmented FOVs, this function replaces the tiles IDs by identifiers that are
-        # unique accross the dataset
-        #
+        """
+        If the tileset is a set of segmented FOVs, this function replaces the tiles IDs by identifiers that are
+        unique accross the dataset
+        """
         # TODO: check if the number of IDs fits in uint16 and if not either make a warning or switch to uint32
         #  automatically
 
@@ -526,6 +589,7 @@ class Tile:
     """
 
     def __init__(self, fovnum):
+        r""" Initializes a Tile object representing a Field Of View (FOV) with an identifier."""
         self.fovnum = fovnum
         self.offset = None
         self.mask = None
@@ -538,12 +602,14 @@ class Tile:
         return np.percentile(self.img, (1, 99.9))
 
     def scale_intensity(self, p1, p99, convert_to_8bpp=True):
+        r"""Scales the image intensities between the provided percentiles, optionally converting it to 8 bits per pixel."""
         img = np.clip(((self.img - p1) * (255 / (p99 - p1))), 0, 255)
         if convert_to_8bpp:
             img = img.astype(np.uint8)
         self.img = img
 
     def save_as_tiff(self, filename):
+        r"""Saves the tile image as a TIFF file at the specified path."""
         if self.offset is not None:
             d = f"{self.offset[0]} {self.offset[1]} {self.offset[2]}"
         else:
@@ -551,6 +617,7 @@ class Tile:
         tifffile.imwrite(filename, self.img, description=d)
 
     def save_as_jp2(self, filename):
+        r"""Saves the tile image as a JPEG 2000 file at the specified path. (Note: method currently lacks implementation details)."""
         jp2 = glymur.Jp2k(filename)
         jp2[:] = self.img
         # TODO: add offset in metadata
@@ -561,10 +628,12 @@ class Tile:
     #     self.img = img
 
     def from_tiff(self, filename, cached=True):
+        r""" Loads the tile image from a TIFF file."""
         img = tifffile.imread(filename)
         self.img = img
 
     def from_jp2(self, filename, downscale=[1, 1, 1]):
+        r"""Loads the tile image from a JPEG 2000 file with optional downscaling."""
         # self.img = np.transpose(glymur.Jp2k(filename)[:], (2,1,0))
         self.img = np.transpose(
             glymur.Jp2k(filename)[:][:: downscale[0], :: downscale[1], :: downscale[2]],
@@ -572,6 +641,7 @@ class Tile:
         )
 
     def from_array(self, array):
+        r""" Initializes the tile's image from a given array."""
         self.img = array
 
     def from_nd2(self, nd2, downsample=[1, 1, 1]):
@@ -637,6 +707,7 @@ class Tile:
     #     self.mask=exmfs.cysgan.generate_mask(self.img)
 
     def apply_mask(self):
+        r"""Applies a previously computed mask to the tile image, setting unmasked pixels to zero."""
         img = self.img.copy()
         img[self.mask == False] = 0
         self.img = img

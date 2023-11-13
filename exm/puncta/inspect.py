@@ -1,5 +1,5 @@
 """
-Manually check identification and consolidation of puncta.
+This Puncta visualization and inspection module assists users in visualizing and inspecting puncta, which are typically bright spots representing the presence of specific molecules or structures in microscopy images. The module contains functions to visualize raw or processed image data within predefined regions of interest (ROIs) and to confirm the accuracy of puncta detection algorithms.
 """
 
 import os

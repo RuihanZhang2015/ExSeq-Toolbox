@@ -1,5 +1,5 @@
 """
-Code for volumetric alignment. For "thick" volumes (volumes that have more than 400 slices), use the alignment functions `volumetric_alignment` to access the different alignment methods.
+Volumetric alignment module is designed to facilitate the precise alignment of volumetric microscopy data, particularly for large volumes, which are characterized by having large Z-slices. The central function, **`volumetric_alignment`**, serves as the primary interface for users to perform alignment operations. It abstracts the complexities of the underlying alignment mechanisms and offers a simple, unified entry point for processing.
 """
 
 import h5py
@@ -62,7 +62,7 @@ def execute_volumetric_alignment(args: Args,
     r"""
     For each volume in code_fov_pairs, finds the corresponding reference volume and performs alignment.
 
-    :param config: Configuration options. This should be an instance of the Args class.
+    :param args: Configuration options. This should be an instance of the Args class.
     :type args: Args
     :param tasks_queue: A multiprocessing queue containing tasks. Each task is a tuple of (code, fov)
     :type tasks_queue: multiprocessing.Queue
@@ -312,7 +312,10 @@ def volumetric_alignment(args: Args,
                          bg_sub: Optional[str] = '',
                          dataset_type='.nd2') -> None:
     r"""
-    Parallel processing support for alignment function.
+    Coordinates the alignment of volumetric data across different fields of view (FOV) and codes.
+    This function sets up parallel processing to handle multiple FOV and code combinations, using either
+    SITK alignment methods or BigStream, depending on the `method` parameter. Background subtraction can
+    also be applied as specified.
 
     :param args: Configuration options. This should be an instance of the Args class.
     :type args: Args

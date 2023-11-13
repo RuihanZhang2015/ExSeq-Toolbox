@@ -1,8 +1,8 @@
-exm.segmentation
-===================
+Segmentation Module
+====================
 
-Segmentation
---------------
+Segmentation [Cellpose]
+------------------------
 
 .. automodule:: exm.segmentation.segmentation
        :members:
