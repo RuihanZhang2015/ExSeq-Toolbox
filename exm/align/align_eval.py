@@ -1,3 +1,6 @@
+"""
+Alignment evaluation module is dedicated to assessing the quality of alignment between different rounds of volumetric microscopy images within a field of view (FOV). It leverages Normalized Cross-Correlation (NCC) to quantify alignment, offering a robust measure of similarity between the reference round and other rounds.
+"""
 import os
 import json
 import h5py
@@ -12,23 +15,26 @@ logger = configure_logger('ExR-Tools')
 
 def measure_round_alignment_NCC(args: Args, code: int, fov: int) -> List[float]:
     r"""
-        Analyzes the alignment between the reference round and another round for a given ROI.
+    Analyzes the alignment between the reference round and another round for a given ROI.
+    
     This function computes the Normalized Cross-Correlation (NCC) between the volumes of the two rounds,
     and returns the distance errors calculated based on the offsets between the two volumes.
 
-    Note: Certain parameters need to be supplied via the Args class:
-    - args.nonzero_thresh: Threshold for non-zero pixel count in the volume. 
-    - args.N: Number of sub-volumes to test the alignment with.
-    - args.subvol_dim: Length of the side of sub-volume, in pixels.
-    - args.xystep: Physical pixel size divided by expansion factor, um/voxel in x and y. 
-    - args.zstep: Physical z-step size divided by expansion factor, um/voxel in z. 
-    - args.pct_thresh: Percentage of pixel intensity values for thresholding.
+    **Note:**
+    Certain parameters are needed to be supplied via the Args class:
+
+        - `args.nonzero_thresh`: Threshold for non-zero pixel count in the volume. 
+        - `args.N` : Number of sub-volumes to test the alignment with.
+        - `args.subvol_dim` : Length of the side of sub-volume, in pixels.
+        - `args.xystep`: Physical pixel size divided by expansion factor, um/voxel in x and y. 
+        - `args.zstep` : Physical z-step size divided by expansion factor, um/voxel in z. 
+        - `args.pct_thresh`: Percentage of pixel intensity values for thresholding.
 
     :param args: Configuration options. This should be an instance of the Args class.
     :type args: Args
-    :param code: The code to measure alignment for.
+    :param code: The code to measure alignment NCC for.
     :type code: int
-    :param fov: The FOV to measure alignment for.
+    :param fov: The FOV to measure alignment NCC for.
     :type fov: int
     :return: List of distance errors after alignment.
     :rtype: List[float]

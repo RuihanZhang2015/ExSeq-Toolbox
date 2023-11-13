@@ -9,7 +9,7 @@ from exm.utils import configure_logger
 logger = configure_logger('ExR-Tools')
 
 def template_matching(T: np.ndarray, I: np.ndarray, IdataIn: Dict = None) -> np.ndarray:
-    """
+    r"""
     Implements template matching between two images using Fourier transform.
 
     :param T: The template image.
@@ -110,8 +110,8 @@ def alignment_NCC(args: Args, vol1: np.ndarray, vol2: np.ndarray) -> List[float]
     r"""
     Measures the alignment of two images using Normalized Cross-Correlation (NCC). expected shape `[Z,Y,X]`
 
-    :param config: Configuration options.
-    :type config: Config
+    :param args: Configuration options. This should be an instance of the Args class.
+    :type args: Args
     :param vol1: The first volume (reference volume) for alignment comparison.
     :type vol1: np.ndarray
     :param vol2: The second volume (aligned volume) for alignment comparison.
