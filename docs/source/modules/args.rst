@@ -1,8 +1,8 @@
-exm.args
+Args Module
 ===================
 
-Arguments
-----------
+Pipeline Parameters
+--------------------
 
 .. autoclass:: exm.args.Args
     :members:

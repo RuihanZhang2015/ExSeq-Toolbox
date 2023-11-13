@@ -1,8 +1,8 @@
-exm.stitching
+Stitching Module
 ===================
 
-Stitching
-----------
+Stitching 
+-----------
 
 .. automodule:: exm.stitching.stitching
        :members:
