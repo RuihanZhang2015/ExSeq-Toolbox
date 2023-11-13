@@ -1,4 +1,6 @@
-"""Enhancing Puncta Detection and Gene Correspondence."""
+"""
+The Puncta Detection Improvement Module is geared towards refining the accuracy of detected puncta in fluorescence microscopy images. It achieves this by utilizing distance-based criteria to consolidate puncta across different channels and enhancing the detection of local maxima, which are indicative of puncta locations.
+"""
 
 import tqdm
 import pickle

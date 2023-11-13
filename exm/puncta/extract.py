@@ -1,3 +1,7 @@
+"""
+Puncta extraction module facilitates the extraction of puncta—distinct fluorescent spots indicative of molecular targets—from expansion microscopy data. It provides functions for processing this data on both CPUs and GPUs, enabling flexible and high-throughput analysis. The extraction process identifies puncta coordinates and saves them for further analysis.
+"""
+
 import os
 import h5py
 import pickle

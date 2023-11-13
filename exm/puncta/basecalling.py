@@ -1,4 +1,8 @@
+"""
 
+
+The Puncta Base-calling Module is a post-processing tool for fluorescence expansion microscopy data, designed to associate detected puncta with specific genes and nuclei based on predefined criteria. This enhances the biological interpretation of the imaging data by connecting puncta, which represent molecular targets, to genetic information and cellular structures.
+"""
 import pickle
 import tifffile
 import json
