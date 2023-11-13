@@ -16,3 +16,5 @@ scipy
 cellpose
 npy2bdv
 glymur
+sphinx_rtd_theme
+git+https://github.com/JaneliaSciComp/bigstream.git
