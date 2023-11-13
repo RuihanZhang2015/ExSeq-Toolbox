@@ -14,7 +14,15 @@ To use exm-toolbox, first install it using pip:
 
 .. _getting_started:
 
-Getting Started
-----------------
+Step-by-step Guide
+-------------------
 
-Directs users to various tutorials.
+.. toctree::
+   :glob:
+   :maxdepth: 1
+      
+   tutorials/pipeline_parameter
+   tutorials/volume_alignment
+   tutorials/alignment_evaluation
+   tutorials/puncta_extraction
+   tutorials/puncta_basecalling
