@@ -19,7 +19,7 @@ Welcome to ExSeq-Toolbox, a package for creating spatially-precise, three-dimens
 * **Stitching**: The stitching module takes independent fields of view, calculates their offset, and appropriately fuses them into one large image. For this it implements the Tile and Dataset classes, a Dataset being a list of Tiles. It also implements several loading functions and saving functions.
 
 ### Documentation
-Function documentation for each of the modules can be found at [ExSeq Toolbox Documentation](exseq-toolbox.readthedocs.io). 
+Function documentation for each of the modules can be found at [ExSeq Toolbox Documentation](https://exseq-toolbox.readthedocs.io/en/latest/). 
 
 ### Usage 
 Users should clone our repository through the GitHub page and install all package dependencies via the command ```pip install -r requirements.txt```. Alternatively, users can ```pip install``` the package wheel.
