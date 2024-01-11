@@ -505,3 +505,63 @@ def algin_channels_new(args: Args,
     for p in child_processes:
         p.join()
 
+from typing import List, Tuple, Optional, Dict, Set
+def blend_ind(offsets: np.ndarray, pictures: List[np.ndarray], 
+          indices: Optional[List[int]] = None, inverts: Optional[List[int]] = None) -> np.ndarray:
+    """
+    Blends a list of volume tiles together according to specified offsets, accounting for different z-stack sizes and starting points.
+
+    :param offsets: An array of offsets for each image tile.
+    :param pictures: A list of image tiles to blend.
+    :param indices: Optional list of indices specifying the order in which to blend the images.
+    :param inverts: Optional list of axes along which to invert the corresponding image tiles.
+    :return: The blended image.
+    """
+    if not pictures:
+        raise ValueError("The list of pictures must not be empty.")
+    if len(offsets) != len(pictures):
+        raise ValueError("The number of offsets must match the number of pictures.")
+
+    try:
+        # Determine the overall Z-dimension range
+        min_z = int(min(offset[2] for offset in offsets))
+        max_z = int(max(offset[2] + tile.shape[0] for offset, tile in zip(offsets, pictures)))
+        total_z_range = max_z - min_z
+
+        min_y = int(min(offset[1] for offset in offsets))
+        max_y = int(max(offset[1] + tile.shape[1] for offset, tile in zip(offsets, pictures)))
+        total_y_range = max_y - min_y 
+
+        min_x = int(min(offset[0] for offset in offsets))
+        max_x = int(max(offset[0] + tile.shape[2] for offset, tile in zip(offsets, pictures)))
+        total_x_range = max_x - min_x  
+
+        # Initialize newpic with the total Z-dimension range
+        newpic_shape = (total_z_range,total_y_range, total_x_range)
+        newpic = np.zeros(newpic_shape, dtype=pictures[0].dtype)
+        print(newpic.shape)
+        # Process each tile
+        for off, tile in zip(offsets, pictures):
+            start_z = int(off[2] - min_z)
+            end_z = int(start_z + tile.shape[0])
+
+            start_y = int(off[1] - min_y)
+            end_y = int(start_y + tile.shape[1])
+
+            start_x = int(off[0] - min_x)
+            end_x = int(start_x + tile.shape[2])
+
+            # Adjust for inverts, if applicable
+            if inverts:
+                tile = np.flip(tile, axis=inverts)
+
+            # Determine the range to update in newpic
+            update_range_z = slice(start_z, start_z + tile.shape[0])
+            update_range_y = slice(start_y, start_y + tile.shape[1])
+            update_range_x = slice(start_x, start_x + tile.shape[2])
+            # Update newpic with the current tile's data
+            newpic[update_range_z, update_range_y, update_range_x] = tile
+
+        return newpic
+    except Exception as e:
+        raise RuntimeError(f"Unexpected error occurred during image blending: {e}")
