@@ -518,7 +518,7 @@ class Tileset:
         for t, o in zip(self, offsets):
             t.offset = o
 
-    def produce_output_volume(self):
+    def produce_output_volume(self,data_format=None):
         r"""Creates and returns a stitched volume. Careful, if you never downsampled the tiles it easily fills up all
         memory.
         """
@@ -526,10 +526,18 @@ class Tileset:
             np.array(self.original_xyz_size)
             / np.array(self.tiles[0].img.shape)[[2, 1, 0]]
         )
-        return stitching.blend(
+        
+        if data_format == 'individual':
+           from exm.beta.beta import blend_ind
+           return blend_ind(
             [t.offset / (np.array(self.voxel_size) * scale) for t in self.tiles],
             [t.img for t in self.tiles],
-        )
+        ) 
+        else:
+            return stitching.blend(
+                [t.offset / (np.array(self.voxel_size) * scale) for t in self.tiles],
+                [t.img for t in self.tiles],
+            )
 
     def local_to_global(self, coords):
         r"""
@@ -702,6 +710,7 @@ class Tile:
             a.shape = (w, h)
             img[z // downscale[0], :, :] = a[:: downscale[1], :: downscale[2]]
         self.img = img
+        return img
 
     # def create_hallucinations_mitigation_mask(self):
     #     self.mask=exmfs.cysgan.generate_mask(self.img)

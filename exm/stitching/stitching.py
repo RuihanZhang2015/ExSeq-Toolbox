@@ -54,6 +54,7 @@ def get_offsets(filename: str) -> np.ndarray:
                 except ValueError as e:
                     logger.error(f"Invalid affine transform data: {e}")
                     raise
+            vtrans.append(tot_mat)
 
         def transform_to_translate(m):
             m[0, :] = m[0, :] / m[0][0]
