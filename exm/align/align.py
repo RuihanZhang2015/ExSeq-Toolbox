@@ -224,6 +224,8 @@ def execute_volumetric_alignment_bigstream(args: Args,
     
     from bigstream.transform import apply_transform
     from bigstream.align import affine_align
+    from scipy.ndimage import zoom
+    from bigstream.align import alignment_pipeline
 
     while True:  # Check for remaining task in the Queue
 
@@ -264,22 +266,45 @@ def execute_volumetric_alignment_bigstream(args: Args,
                 if bg_sub == "top_hat":
                     mov_vol = subtract_background_top_hat(mov_vol)
 
-                affine_kwargs = {
-                    'alignment_spacing': 0.5,
-                    'shrink_factors': (10, 8, 4, 2, 1),
-                    'smooth_sigmas': (8., 4., 4., 2., 1.),
-                    'optimizer_args': {
-                        'learningRate': 0.25,
-                        'minStep': 0.,
-                        'numberOfIterations': 400,
-                    },
-                }
+                # affine_kwargs = {
+                #     'alignment_spacing': 0.5,
+                #     'shrink_factors': (10, 8, 4, 2, 1),
+                #     'smooth_sigmas': (8., 4., 4., 2., 1.),
+                #     'optimizer_args': {
+                #         'learningRate': 0.25,
+                #         'minStep': 0.,
+                #         'numberOfIterations': 400,
+                #     },
+                # }
 
-                affine = affine_align(
-                    fix_vol, mov_vol,
-                    np.array(args.spacing), np.array(args.spacing),
-                    **affine_kwargs,
-                )
+                # affine = affine_align(
+                #     fix_vol, mov_vol,
+                #     np.array(args.spacing), np.array(args.spacing),
+                #     **affine_kwargs,
+                # )
+
+                # Function to downsample an array
+                def downsample(array, factors):
+                    return zoom(array, (1/factor for factor in factors), order=1)
+                
+                factors = (2, 4, 4)
+                new_spacing = np.array(args.spacing) * np.array(factors)
+                fix_downsampled = downsample(fix_vol, factors)
+                move_downsampled = downsample(mov_vol, factors)      
+
+                ransac_kwargs = {'blob_sizes': [6,10]}
+
+                affine_kwargs = { 'metric' : 'MMI',
+                                        'optimizer':'LBFGSB',
+                                        'alignment_spacing': 1,
+                                        'shrink_factors': ( 4, 2, 1),
+                                        'smooth_sigmas': ( 0., 0., 0.),
+                                    }
+
+                steps = [('ransac', ransac_kwargs)]
+                
+                affine = alignment_pipeline(fix_downsampled, move_downsampled, new_spacing, new_spacing, steps)
+                affine2 = alignment_pipeline(fix_vol, mov_vol, np.array(args.spacing), np.array(args.spacing), steps=[('affine', affine_kwargs)],static_transform_list=[affine])
                 
                 for channel_ind, channel in enumerate(args.channel_names):
 
@@ -290,7 +315,7 @@ def execute_volumetric_alignment_bigstream(args: Args,
                     aligned_vol = apply_transform(
                         fix_vol, mov_vol,
                         args.spacing, args.spacing,
-                        transform_list=[affine,],
+                        transform_list=[affine,affine2],
                     )
 
                     with h5py.File(args.h5_path.format(code, fov), "a") as f:
