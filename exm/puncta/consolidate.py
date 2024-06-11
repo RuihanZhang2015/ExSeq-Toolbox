@@ -195,7 +195,7 @@ def consolidate_codes_function(args: Args, tasks_queue: int,q_lock: multiprocess
                     with open(args.puncta_path + f"/fov{fov}/result_code{args.ref_code}.pkl", "rb") as f:
                         new = pickle.load(f)
 
-                    reference = [{"position": x["position"], "code0": x} for x in new]
+                    reference = [{"position": x["position"], f"code{args.ref_code}": x} for x in new]
 
                     for code in set(args.codes) - set([args.ref_code]):
                         with open(args.puncta_path + f"/fov{fov}/result_code{code}.pkl", "rb") as f:

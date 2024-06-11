@@ -370,7 +370,7 @@ def retrieve_gene(args, gene: str) -> List[Dict]:
         for fov in args.fovs:
             result = retrieve_all_puncta(args, fov)
             for puncta in result:
-                if within_hamming_distance(puncta['barcode'], digit):
+                if within_hamming_distance(str(puncta['barcode']), str(digit)):
                     puncta_lists.append({
                         **puncta,
                         'fov': fov
@@ -629,6 +629,7 @@ def subtract_background_top_hat(volume: np.ndarray,
                     )
                 )
             else:
+                from scipy.ndimage import white_tophat
                 corrected_volume[i] = white_tophat(
                     volume[i], structure=structuring_element)
 
