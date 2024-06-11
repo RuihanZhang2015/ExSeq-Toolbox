@@ -1052,7 +1052,7 @@ def inspect_puncta_improvement_matplotlib(args, fov, puncta_index, option = 'fin
     if missing_code > 0:
         arr = np.array(list(puncta['barcode']))
         missed_code = np.where(arr == '_')[0]
-        ref_code, new_position, closest_position = puncta_nearest_points(args,puncta['fov'],puncta['index'],missed_code[0])  
+        ref_code, new_position, closest_position = puncta_nearest_points(args,fov,puncta['index'],missed_code[0])  
         if new_position:
             logger.info(f'new_position {new_position}')
         if closest_position:
@@ -1113,7 +1113,7 @@ def inspect_puncta_improvement_matplotlib(args, fov, puncta_index, option = 'fin
                 if channel == closest_position['color']:     
                     temp = closest_position['position']
                     ax = plt.subplot(inner[channel, int(np.floor((temp[0]-ROI_min[0])/delta_z))])
-                    ax.text(0,20,temp[2]-ROI_min[2],temp[1]-ROI_min[1],'closest',fontsize = 20)
+                    ax.text(temp[2]-ROI_min[2],temp[1]-ROI_min[1],'closest',fontsize = 20)
                     ax.scatter( temp[2]-ROI_min[2],temp[1]-ROI_min[1], marker = 'D', facecolors='none', edgecolors='violet', s = 270, linewidths=3)
                 
             # New postions puncta           
@@ -1175,7 +1175,7 @@ def inspect_improved_puncta_plotly(args, fov, puncta,center_dist=40,spacer=40):
     d0, d1, d2 = puncta['position']
     ROI_min = [d0-10, d1-center_dist, d2-center_dist]
     ROI_max = [d0+10, d1+center_dist, d2+center_dist]
-   
+
     N = 5
     fig = go.Figure()
     for i, code in enumerate(args.codes):
@@ -1200,7 +1200,8 @@ def inspect_improved_puncta_plotly(args, fov, puncta,center_dist=40,spacer=40):
                     marker = dict(
                         color = args.colors[channel],
                         size = 4,
-                    ),
+                        symbol="circle-open"
+                    ), 
                     hoverinfo = 'text'
                 ) 
             )
@@ -1249,6 +1250,11 @@ def inspect_improved_puncta_plotly(args, fov, puncta,center_dist=40,spacer=40):
                 continue
             
             if 'ref_code' not in puncta['code{}'.format(code)]:
+                symbol = 'diamond-open'
+                
+                if puncta['code{}'.format(code)]['color'] == channel:
+                    symbol = 'diamond'
+                                
                 fig.add_trace(
                     go.Scatter3d(
                         z=[puncta['code{}'.format(code)]["c{}".format(channel)]["position"][0] + code * spacer],
@@ -1256,14 +1262,18 @@ def inspect_improved_puncta_plotly(args, fov, puncta,center_dist=40,spacer=40):
                         x=[puncta['code{}'.format(code)]["c{}".format(channel)]["position"][2]],
                         text = puncta['index'],
                         mode = "markers",
-                        marker=dict(color="gray", size=8, symbol="circle-open"),
-                        hoverinfo = 'text'
+                        marker=dict(color="gray", size=5, symbol=symbol),
+                        hoverinfo = """text""",
+                        name='code {} channel {}'.format(code,args.channel_names[channel]),
                     )
                 )
             elif 'c{}'.format(channel) in puncta['code{}'.format(code)]:
                 local_maximum = puncta['code{}'.format(code)]['c{}'.format(channel)]
                 z,y,x = local_maximum['position']
-
+                                
+                symbol = 'square-open'
+                if puncta['code{}'.format(code)]['color'] == channel:
+                    symbol = 'square'
                 fig.add_trace(
                         go.Scatter3d(
                             z=[z + code * spacer],
@@ -1271,8 +1281,10 @@ def inspect_improved_puncta_plotly(args, fov, puncta,center_dist=40,spacer=40):
                             x=[x],
                             text = 'intensity {0:0.2f} Distance {1:0.2f}'.format(local_maximum['intensity'],local_maximum['distance']),
                             mode = "markers",
-                            marker = dict(color= args.colors[channel], size=12, symbol="square-open"),
-                            hoverinfo = 'text'
+                            marker = dict(color= args.colors[channel], size=7, symbol=symbol),
+                            hoverinfo = 'text',
+                            name='code {} Improved channel {}'.format(code,args.channel_names[channel]),
+
                         )
                     )
     
