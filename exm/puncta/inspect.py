@@ -583,7 +583,7 @@ def inspect_puncta_individual_plotly(args, fov, puncta, center_dist=40, spacer=4
     nearest_puncta_list = puncta_all_nearest_points(args, puncta)
 
 
-    for code in range(7):
+    for code in range(len(args.codes)):
 
         if 'code{}'.format(code) not in nearest_puncta_list:
             continue
@@ -1065,8 +1065,8 @@ def inspect_puncta_improvement_matplotlib(args, fov, puncta_index, option = 'fin
     plt.figure(figsize=(20, 45), dpi=100)
     outer = gridspec.GridSpec(7, 1, height_ratios = [1]*7, hspace = .05)
 
-    # For each of the 7 rounds
-    for code in range(7):
+    # For each of the rounds
+    for code in range(len(args.codes)):
         # Initialize inner grid for each code
         inner = gridspec.GridSpecFromSubplotSpec(4, 10, subplot_spec = outer[code], hspace = 0)
         

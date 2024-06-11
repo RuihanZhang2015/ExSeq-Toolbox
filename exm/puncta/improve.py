@@ -172,7 +172,7 @@ def improve_nearest(args, fov, num_missing_code=4):
         puncta.update(nearest_puncta_list)
 
         s = ''
-        for code in range(7):
+        for code in range(len(args.codes)):
             if 'code{}'.format(code) in puncta:
                 s += str(puncta['code{}'.format(code)]['color'])
             else:
