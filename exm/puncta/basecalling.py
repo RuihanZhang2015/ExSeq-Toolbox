@@ -47,7 +47,7 @@ def puncta_assign_gene(args: Args,
     def map_gene_to_puncta(puncta: Dict) -> Dict:
         """Map a gene to a puncta based on barcode hamming distance."""
         for gene, barcode in gene2digit.items():
-            if within_hamming_distance(puncta['barcode'], barcode):
+            if within_hamming_distance(str(puncta['barcode']), str(barcode)):
                 puncta['gene'] = gene
                 break
         else:
