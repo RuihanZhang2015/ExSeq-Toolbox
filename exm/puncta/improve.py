@@ -220,7 +220,7 @@ def find_nearest_points(point_cloud1,point_cloud2,distance_threshold=14):
     return pairs
 
 # TODO Merge with puncta_all_nearest_points remove mute
-def puncta_nearest_points(args,fov,puncta_index,search_code, mute = True):
+def puncta_nearest_points(args,fov,puncta_index,search_code, verbose = True):
     r"""
     Identifies and retrieves the nearest puncta points based on the provided puncta index and search code. 
     The function finds the reference code, generates two point clouds (one for the original puncta and 
@@ -261,7 +261,7 @@ def puncta_nearest_points(args,fov,puncta_index,search_code, mute = True):
 
     if verbose:
         logger.info('------------------------')
-        logger.info('The oiginal point in code 0:')
+        logger.info('The oiginal point in code {}:'.format(ref_code))
         logger.info(pprint.pformat(puncta['code{}'.format(ref_code)]))
         logger.info('------------------------')
 
