@@ -233,6 +233,78 @@ def nd2ToVol(filename: str, fov: int, channel_name: str = "405 SD", ratio: int =
         raise
 
 
+def imsToVol(filename: str, volume_index: int) -> np.ndarray:
+    """
+    Reads a specific volume from an IMS file based on the given volume index.
+
+    :param filename: Path of the IMS file.
+    :type filename: str
+    :param volume_index: Index of the volume to retrieve, which corresponds to a specific channel in the dataset.
+    :type volume_index: int
+    :return: The extracted volume as a NumPy array.
+    :rtype: np.ndarray
+    :raises ValueError: If `volume_index` is negative.
+    :raises KeyError: If the specified path within the file does not exist.
+    :raises FileNotFoundError: If the specified file does not exist.
+    :raises OSError: If there is an issue opening the file, such as permissions or corruption.
+    """
+    if volume_index < 0:
+        logger.error("Volume index cannot be negative.")
+        raise
+
+    try:
+        with h5py.File(filename, 'r') as file:
+            base_path = f'/DataSet/ResolutionLevel 0/TimePoint 0/Channel {volume_index}/Data'
+            if base_path not in file:
+                logger.error(f"The specified path '{base_path}' does not exist in the file.")
+                raise
+            volume = file[base_path][:]
+            return volume
+    except FileNotFoundError:
+        logger.error(f"The file '{filename}' was not found.")
+        raise
+    except OSError as e:
+        logger.error(f"An error occurred while accessing the file '{filename}': {e}")
+        raise
+
+
+def get_raw_volume(volume_path: str, channel_name: str, volume_index: int) -> np.ndarray:
+    """
+    Retrieves a volume from a specified file, handling different types based on the file extension.
+
+    :param volume_path: Path to the volume file.
+    :type volume_path: str
+    :param channel_name: The channel name to use when extracting data from ND2 files.
+    :type channel_name: str
+    :param volume_index: The index of the volume or channel to retrieve, used for IMS files.
+    :type volume_index: int
+    :return: The extracted volume as a NumPy array.
+    :rtype: np.ndarray
+    :raises FileNotFoundError: If the file specified does not exist.
+    :raises ValueError: If the file type is unsupported.
+    """
+    # Check file existence
+    if not os.path.exists(volume_path):
+        logger.error(f"The file '{volume_path}' does not exist.")
+        raise 
+
+    file_type = os.path.splitext(volume_path)[1]
+
+    try:
+        if file_type == '.nd2':
+            volume = nd2ToVol(volume_path, 0, channel_name)  # Assumed modification needed for the index
+        elif file_type == '.ims':
+            volume = imsToVol(volume_path, volume_index)
+        else:
+            logger.error(f"Unsupported file type '{file_type}' for volume path '{volume_path}'.")
+            raise
+    except Exception as e:
+        logger.error(f"Error processing the file '{volume_path}': {e}")
+        raise
+
+    return volume
+
+
 def nd2ToChunk(filename: str, fov: int, z_min: int, z_max: int, channel_name: str = "405 SD") -> np.ndarray:
     r"""
     Reads the specified Nd2 file and returns a chunk from it.
@@ -314,11 +386,13 @@ def nd2ToSlice(filename: str, fov: int, z: int, channel_name: str = "405 SD") ->
         raise
 
 
-def create_folder_structure(processed_dir: str, fovs: List[int], codes: List[int]) -> None:
+def create_folder_structure(processed_dir: str,puncta_dir_name:str, fovs: List[int], codes: List[int]) -> None:
     r"""
     Creates a results folder for the specified codes.
 
     :param processed_dir: The directory where all results for the specified codes should be stored.
+    :type processed_dir: str
+    :param puncta_dir_name: The directory where all results for puncta analysis.
     :type processed_dir: str
     :param fovs: The list of Fovs to create the folder structure for.
     :type fovs: List[int]
@@ -327,7 +401,7 @@ def create_folder_structure(processed_dir: str, fovs: List[int], codes: List[int
     """
     try:
         processed_dir = Path(processed_dir)
-        puncta_dir = processed_dir.joinpath("puncta/")
+        puncta_dir = processed_dir.joinpath(puncta_dir_name)
         puncta_inspect_dir = puncta_dir.joinpath("inspect_puncta/")
 
         processed_dir.mkdir(parents=True, exist_ok=True)
@@ -454,3 +528,5 @@ def save_gif(img1: np.ndarray, img2: np.ndarray, filename: str) -> Image:
         return Image.open(filename)
     except IOError:
         raise IOError(f"Error saving GIF to {filename}")
+
+
