@@ -14,9 +14,10 @@ import xml.etree.ElementTree as ET
 from IPython.display import display
 from PIL import Image
 
+from skimage import exposure
 from skimage.restoration import rolling_ball
 from skimage.morphology import disk
-from scipy.ndimage import white_tophat
+from scipy.ndimage import white_tophat , zoom , median_filter
 from scipy.stats import rankdata
 
 from typing import Type, Optional, Dict, List, Tuple, Union
@@ -637,3 +638,113 @@ def subtract_background_top_hat(volume: np.ndarray,
     except Exception as e:
         logger.error(f"Error during top-hat background subtraction: {e}")
         raise
+
+
+def downsample_volume(array: np.ndarray, factors: Tuple[Union[int, float], ...]) -> np.ndarray:
+    """
+    Reduces the size of an array by downsampling along each dimension using specified factors.
+
+    :param array: The input array to be downsampled.
+    :type array: np.ndarray
+    :param factors: The factors to downsample by for each dimension of the array. Each factor must be a positive number.
+    :type factors: Tuple[Union[int, float], ...]
+    :return: The downsampled array.
+    :rtype: np.ndarray
+    """
+
+    if not isinstance(array, np.ndarray):
+        raise TypeError("Input 'array' must be a numpy ndarray.")
+
+    if not isinstance(factors, tuple) or not all(isinstance(factor, (int, float)) and factor > 0 for factor in factors):
+        raise ValueError("All 'factors' must be positive numbers.")
+
+    try:
+        scales = tuple(1 / factor for factor in factors)
+        return zoom(array, scales, order=1)
+    except Exception as e:
+        # Catches unexpected errors from the zoom function or from incorrect scale calculations.
+        raise RuntimeError("An error occurred during downsampling: " + str(e))
+
+
+
+def enhance_and_filter_volume(volume: np.ndarray, low_percentile: float = 0, high_percentile: float = 100, acclerated: bool = False) -> np.ndarray:
+    """
+    Enhances the contrast of a volume using specified percentiles and applies a median filter to reduce noise.
+    Optionally uses GPU acceleration for the median filtering step if `accelerated` is set to True.
+
+    :param volume: The input volume to be processed.
+    :type volume: np.ndarray
+    :param low_percentile: The lower percentile to use for contrast adjustment. Values below this percentile will be adjusted to the minimum intensity.
+    :type low_percentile: float Default is 0.
+    :param high_percentile: The higher percentile to use for contrast adjustment. Values above this percentile will be adjusted to the maximum intensity.
+    :type high_percentile: float Default is 100.
+    :param accelerated: If True, uses GPU acceleration to perform the median filtering. Requires CuPy to be installed.
+    :type accelerated: bool, optional Default is False.
+    :return: The volume after contrast enhancement and median filtering.
+    :rtype: np.ndarray
+    :raises ValueError: If the percentiles are out of the [0, 100] range or if high_percentile is not greater than low_percentile.
+    :raises TypeError: If the input volume is not a numpy ndarray or if percentiles are not numeric.
+    :raises ImportError: If `accelerated` is True but CuPy is not installed.
+    """
+
+
+    def apply_3d_median_filter(volume, size=3,accelerated=False):
+        """
+        Applies a 3D median filter to the volume.
+
+        :param volume: The volume to apply the filter to.
+        :type volume: np.ndarray
+        :param size: The size of the moving window for the filter.
+        :type size: int
+        :return: Filtered volume.
+        :rtype: np.ndarray
+        """
+        if accelerated:
+            try:
+                import cupyx.scipy.ndimage
+                import cupy as cp
+                return cp.asnumpy(cupyx.scipy.ndimage.median_filter(cp.array(volume), size=size))
+            except ImportError:
+                raise ImportError("CuPy is not installed, but is required for accelerated processing.")
+        else:
+            volume = median_filter(volume, size=size)
+
+        return volume
+
+    def auto_adjust_contrast(volume, low, high):
+        """
+        Automatically adjusts the contrast of the volume based on the specified lower and higher percentiles.
+
+        :param volume: The volume to adjust the contrast for.
+        :type volume: np.ndarray
+        :param low: The lower percentile value for contrast adjustment.
+        :type low: float
+        :param high: The higher percentile value for contrast adjustment.
+        :type high: float
+        :return: Contrast-enhanced volume.
+        :rtype: np.ndarray
+        """
+        v_min, v_max = np.percentile(volume, (low, high))
+        return exposure.rescale_intensity(volume, in_range=(v_min, v_max))
+
+
+    if not isinstance(volume, np.ndarray):
+        raise TypeError("Input 'volume' must be a numpy ndarray.")
+
+    if not (isinstance(low_percentile, (int, float)) and isinstance(high_percentile, (int, float))):
+        raise TypeError("Percentiles must be int or float.")
+
+    if not (0 <= low_percentile <= 100) or not (0 <= high_percentile <= 100):
+        raise ValueError("Percentiles must be within the range [0, 100].")
+
+    if high_percentile <= low_percentile:
+        raise ValueError("high_percentile must be greater than low_percentile.")
+
+    try:
+        volume = auto_adjust_contrast(volume, low_percentile, high_percentile)
+        volume = apply_3d_median_filter(volume, 5, acclerated)
+    except Exception as e:
+        # Catches and rethrows an error with a more user-friendly message
+        raise RuntimeError(f"Failed to process the volume: {e}")
+    
+    return volume
