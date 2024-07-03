@@ -8,11 +8,12 @@ import tempfile
 import traceback
 import multiprocessing
 import numpy as np
+import pandas as pd
 from typing import Tuple, Optional, List
 
 from exm.args import Args
-from exm.io.io import nd2ToVol
-from exm.utils import chmod, subtract_background_rolling_ball, subtract_background_top_hat
+from exm.io.io import nd2ToVol , get_raw_volume
+from exm.utils import chmod, subtract_background_rolling_ball, subtract_background_top_hat,downsample_volume, enhance_and_filter_volume
 
 from exm.utils import configure_logger
 logger = configure_logger('ExSeq-Toolbox')
@@ -35,8 +36,10 @@ def transform_ref_code(args: Args, fov: int, bg_sub: str, dataset_type) -> None:
 
     for channel_ind, channel in enumerate(args.channel_names):
         try:
-            ref_vol = nd2ToVol(args.nd2_path.format(
-                args.ref_code, args.ref_channel, args.channel_names.index(args.ref_channel)), channel_ind,dataset_type=dataset_type)
+            metadata = pd.read_csv(args.metadata)
+            volume_path = [(metadata['fov'] == fov) & (metadata['codes'] == args.ref_code) & (metadata['channel_name'] == channel)]['path']
+            volume_index = [(metadata['fov'] == fov) & (metadata['codes'] == args.ref_code) & (metadata['channel_name'] == channel)]['index']
+            ref_vol = get_raw_volume(volume_path,channel,volume_index)
 
             if channel == args.ref_channel and bg_sub == 'rolling_ball':
                 ref_vol = subtract_background_rolling_ball(ref_vol)
@@ -58,6 +61,7 @@ def transform_ref_code(args: Args, fov: int, bg_sub: str, dataset_type) -> None:
 def execute_volumetric_alignment(args: Args,
                                  tasks_queue: multiprocessing.Queue,
                                  q_lock: multiprocessing.Lock,
+                                 acclerated,
                                  dataset_type) -> None:
     r"""
     For each volume in code_fov_pairs, finds the corresponding reference volume and performs alignment.
@@ -210,6 +214,7 @@ def execute_volumetric_alignment(args: Args,
 def execute_volumetric_alignment_bigstream(args: Args,
                                            tasks_queue: multiprocessing.Queue,
                                            q_lock: multiprocessing.Lock,
+                                           acclerated,
                                            dataset_type) -> None:
     r"""
     Executes volumetric alignment using BigStream for each code and FOV from the tasks queue.
@@ -220,9 +225,11 @@ def execute_volumetric_alignment_bigstream(args: Args,
     :type tasks_queue: multiprocessing.Queue
     :param q_lock: A lock for synchronizing tasks queue access.
     :type q_lock: multiprocessing.Lock
+    :param acclerated: Flag to use gpu for image filter.
+    :type q_lock: bool
     """
     
-    from bigstream.transform import apply_transform
+    from bigstream.transform import apply_transform 
     from bigstream.align import affine_align
     from scipy.ndimage import zoom
     from bigstream.align import alignment_pipeline
@@ -256,9 +263,11 @@ def execute_volumetric_alignment_bigstream(args: Args,
                     logger.error(
                         f"The refrence code for FOV:{fov} is not processed yet, {e}")
                     continue
-
-                mov_vol = nd2ToVol(args.nd2_path.format(
-                    code, args.ref_channel, args.channel_names.index(args.ref_channel)), fov, args.ref_channel,dataset_type=dataset_type)
+                
+                metadata = pd.read_csv(args.metadata)
+                volume_path = [(metadata['fov'] == fov) & (metadata['codes'] == code) & (metadata['channel_name'] == args.ref_channel)]['path']
+                volume_index = [(metadata['fov'] == fov) & (metadata['codes'] == code) & (metadata['channel_name'] == args.ref_channel)]['index']
+                mov_vol = get_raw_volume(volume_path,args.channel_names.index(args.ref_channel),volume_index)
 
                 if bg_sub == "rolling_ball":
                     mov_vol = subtract_background_rolling_ball(mov_vol)
@@ -266,33 +275,47 @@ def execute_volumetric_alignment_bigstream(args: Args,
                 if bg_sub == "top_hat":
                     mov_vol = subtract_background_top_hat(mov_vol)
 
-                affine_kwargs = {
-                    'alignment_spacing': 0.5,
-                    'shrink_factors': (10, 8, 4, 2, 1),
-                    'smooth_sigmas': (8., 4., 4., 2., 1.),
-                    'optimizer_args': {
-                        'learningRate': 0.25,
-                        'minStep': 0.,
-                        'numberOfIterations': 400,
-                    },
-                }
+                
+                downsample_factors = (2, 4, 4)
+                downsample_spacing = np.array(args.spacing) * np.array(downsample_factors)
 
-                affine = affine_align(
-                    fix_vol, mov_vol,
-                    np.array(args.spacing), np.array(args.spacing),
-                    **affine_kwargs,
-                )
+                filtered_fix_vol= enhance_and_filter_volume(fix_vol,40.,99.8, acclerated)
+                filtered_mov_vol = enhance_and_filter_volume(mov_vol,40.,99.8, acclerated)
+
+                fix_downsampled = downsample_volume(filtered_fix_vol, downsample_factors)
+                move_downsampled = downsample_volume(filtered_mov_vol, downsample_factors) 
+                    
+                
+                ransac_kwargs = {'blob_sizes': [2,200]}
+                affine_kwargs = { 'metric' : 'MMI',
+                                    'optimizer':'LBFGSB',
+                                    'alignment_spacing': 1,
+                                    'shrink_factors': ( 4, 2, 1),
+                                    'smooth_sigmas': ( 0., 0., 0.),
+                                     'optimizer_args':{
+                                    'gradientConvergenceTolerance' :1e-6,
+                                    'numberOfIterations':800,
+                                    'maximumNumberOfCorrections' : 8,
+                                    },
+                                }
+
+       
+                affine_ransac = alignment_pipeline(fix_downsampled, move_downsampled, downsample_spacing, downsample_spacing, steps = [('ransac', ransac_kwargs)])
+                affine = alignment_pipeline(filtered_fix_vol, filtered_mov_vol, np.array(args.spacing), np.array(args.spacing), steps=[('affine', affine_kwargs)],static_transform_list=[affine_ransac])
 
                 for channel_ind, channel in enumerate(args.channel_names):
 
                     mov_vol = nd2ToVol(
                         args.nd2_path.format(code, channel, channel_ind), fov, channel,dataset_type=dataset_type)
 
-                    # apply affine only
+                    volume_path = [(metadata['fov'] == fov) & (metadata['codes'] == code) & (metadata['channel_name'] == channel)]['path']
+                    volume_index = [(metadata['fov'] == fov) & (metadata['codes'] == code) & (metadata['channel_name'] == channel)]['index']
+                    mov_vol = get_raw_volume(volume_path,channel,volume_index)
+
                     aligned_vol = apply_transform(
                         fix_vol, mov_vol,
                         args.spacing, args.spacing,
-                        transform_list=[affine],
+                        transform_list=[affine_ransac,affine],
                     )
 
                     with h5py.File(args.h5_path.format(code, fov), "a") as f:
@@ -312,6 +335,7 @@ def volumetric_alignment(args: Args,
                          parallel_processes: int = 1,
                          method: Optional[str] = None,
                          bg_sub: Optional[str] = '',
+                         acclerated : Optional[bool] = False,
                          dataset_type='.nd2') -> None:
     r"""
     Coordinates the alignment of volumetric data across different fields of view (FOV) and codes.
@@ -347,10 +371,10 @@ def volumetric_alignment(args: Args,
 
             if method == 'bigstream':
                 p = multiprocessing.Process(
-                    target=execute_volumetric_alignment_bigstream, args=(args, tasks_queue, q_lock,dataset_type))
+                    target=execute_volumetric_alignment_bigstream, args=(args, tasks_queue, q_lock,acclerated,dataset_type))
             else:
                 p = multiprocessing.Process(
-                    target=execute_volumetric_alignment, args=(args, tasks_queue, q_lock,dataset_type))
+                    target=execute_volumetric_alignment, args=(args, tasks_queue, q_lock,acclerated,dataset_type))
 
             child_processes.append(p)
             p.start()

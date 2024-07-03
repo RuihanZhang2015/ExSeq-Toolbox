@@ -26,32 +26,35 @@ class Args:
         - `set_permissions`: Sets file permissions for the project directory.
         - `print`: Prints all current parameters.
     """
-    
+
     def __init__(self):
         pass
 
     def __str__(self):
         r"""Returns a string representation of the Args object."""
         return str(self.__dict__)
-    
+
     def __repr__(self):
         r"""Returns a string that reproduces the Args object when fed to eval()."""
         return self.__str__()
 
     def set_params(self,
-                raw_data_path: str,
-                processed_data_path: Optional[str] = None,
-                codes: List[int] = list(range(7)),
-                fovs: Optional[List[int]] = None,
-                spacing: List[float] = [4.0,1.625,1.625],
-                channel_names: List[str] = ['640','594','561','488','405'],
-                ref_code: int = 0,
-                ref_channel: str = '405',
-                gene_digit_csv: str = './gene_list.csv',
-                permission: Optional[bool] = False,
-                create_directroy_structure: Optional[bool] = True,
-                args_file_name: Optional[str] = 'exseq_toolbox_args',
-                ) -> None:
+                   raw_data_path: str,
+                   processed_data_path: Optional[str] = None,
+                   puncta_dir_name: Optional[str] = 'puncta/',
+                   codes: List[int] = list(range(7)),
+                   fovs: Optional[List[int]] = None,
+                   spacing: List[float] = [4.0, 1.625, 1.625],
+                   channel_names: List[str] = [
+                       '640', '594', '561', '488', '405'],
+                   ref_code: int = 0,
+                   ref_channel: str = '405',
+                   metadata_csv: str = './metadata.csv',
+                   gene_digit_csv: str = './gene_list.csv',
+                   permission: Optional[bool] = False,
+                   create_directroy_structure: Optional[bool] = True,
+                   args_file_name: Optional[str] = 'exseq_toolbox_args',
+                   ) -> None:
         r"""
         Sets parameters for running ExSeq ToolBox.
 
@@ -59,6 +62,8 @@ class Args:
         :type raw_data_path: str
         :param processed_data_path: The absolute path to the processed data directory. Default is a 'processed_data' subdirectory inside the raw_data_path.
         :type processed_data_path: Optional[str]
+        :param puncta_dir_name: The directory name to store the puncta analysis in the processed data directory. Default is a 'puncta' subdirectory inside the processed_data_path.
+        :type puncta_dir_name: Optional[str]
         :param codes: A list of integers, each representing a specific code. Default: integers 0-6.
         :type codes: List[int]
         :param fovs: A list of integers, each representing a specific field of view. Default: ``None``.
@@ -71,6 +76,8 @@ class Args:
         :type ref_code: int
         :param ref_channel: Specifies which channel to use as the reference for alignment. Default is '405'.
         :type ref_channel: str
+        :param metadata_csv:  absolute path of the CSV file containing the dataset metadata. Default: './metadata.csv'.
+        :type metadata_csv: str
         :param gene_digit_csv:  absolute path of the CSV file containing gene list. Default: './gene_list.csv'.
         :type gene_digit_csv: str
         :param permission: If set to ``True``, changes permission of the raw_data_path to allow other users to read and write on the generated files. Default is ``False``. `Only for Linux and MacOS users`
@@ -82,20 +89,22 @@ class Args:
         """
 
         self.raw_data_path = os.path.abspath(raw_data_path)
+        self.puncta_dir_name = puncta_dir_name
         self.codes = codes
         self.channel_names = channel_names
         self.spacing = spacing
         self.permission = permission
         self.ref_code = ref_code
         self.ref_channel = ref_channel
+        self.metadata = metadata_csv
         self.gene_digit_csv = gene_digit_csv
-        
+
         # Housekeeping
-        self.code2num = {'a':'0','c':'1','g':'2','t':'3'}
-        self.colors = ['red','yellow','green','blue']
-        self.colorscales = ['Reds','Oranges','Greens','Blues']
-        self.thresholds = [200,300,300,200]
-        
+        self.code2num = {'a': '0', 'c': '1', 'g': '2', 't': '3'}
+        self.colors = ['red', 'yellow', 'green', 'blue']
+        self.colorscales = ['Reds', 'Oranges', 'Greens', 'Blues']
+        self.thresholds = [200, 300, 300, 200]
+
         # Input ND2 path
         self.nd2_path = os.path.join(
             self.raw_data_path, "code{}/Channel{} SD_Seq000{}.nd2"
@@ -104,11 +113,14 @@ class Args:
         if processed_data_path is not None:
             self.processed_data_path = os.path.abspath(processed_data_path)
         else:
-            self.processed_data_path = os.path.join(self.raw_data_path, "processed_data")
+            self.processed_data_path = os.path.join(
+                self.raw_data_path, "processed_data")
 
         self.h5_path = os.path.join(self.processed_data_path, "code{}/{}.h5")
-        self.tform_path = os.path.join(self.processed_data_path, "code{}/tforms/{}")
-        self.puncta_path = os.path.join(self.processed_data_path, "puncta/")
+        self.tform_path = os.path.join(
+            self.processed_data_path, "code{}/tforms/{}")
+        self.puncta_path = os.path.join(
+            self.processed_data_path, self.puncta_dir_name)
 
         if not fovs and "fovs" not in dir(self):
             self.fovs = list(
@@ -127,7 +139,6 @@ class Args:
 
         self.save_params(args_file_name)
 
-
     def save_params(self, args_file_name):
         r"""Saves the parameters to a .json file.
 
@@ -135,7 +146,7 @@ class Args:
         :type args_file_name: str
         """
         try:
-            with open(os.path.join(self.processed_data_path , args_file_name + '.json'), "w") as f:
+            with open(os.path.join(self.processed_data_path, args_file_name + '.json'), "w") as f:
                 json.dump(self.__dict__, f)
         except Exception as e:
             logger.error(f"Failed to save configuration. Error: {e}")
@@ -156,16 +167,16 @@ class Args:
         except Exception as e:
             logger.error(f"Failed to load parameters. Error: {e}")
             raise
-    
+
     def create_directroy_structure(self):
         r"""Creates the directory structure in the specified project path."""
         from exm.io import create_folder_structure
         try:
-            create_folder_structure(str(self.processed_data_path),self.fovs, self.codes)
+            create_folder_structure(str(self.processed_data_path), str(
+                self.puncta_dir_name), self.fovs, self.codes)
         except Exception as e:
             logger.error(f"Failed to create directory structure. Error: {e}")
             raise
-
 
     def set_permissions(self):
         r"""Changes permission of the processed_data_path to allow other users to read and write on the generated files."""
@@ -175,7 +186,6 @@ class Args:
         except Exception as e:
             logger.error(f"Failed to set permissions. Error: {e}")
             raise
-
 
     def print(self) -> None:
         r"""Prints all attributes of the Args object."""
