@@ -268,41 +268,41 @@ def imsToVol(filename: str, volume_index: int) -> np.ndarray:
         raise
 
 
-def get_raw_volume(volume_path: str, channel_name: str, volume_index: int) -> np.ndarray:
-    """
-    Retrieves a volume from a specified file, handling different types based on the file extension.
+# def get_raw_volume(volume_path: str, channel_name: str, volume_index: int) -> np.ndarray:
+#     """
+#     Retrieves a volume from a specified file, handling different types based on the file extension.
 
-    :param volume_path: Path to the volume file.
-    :type volume_path: str
-    :param channel_name: The channel name to use when extracting data from ND2 files.
-    :type channel_name: str
-    :param volume_index: The index of the volume or channel to retrieve, used for IMS files.
-    :type volume_index: int
-    :return: The extracted volume as a NumPy array.
-    :rtype: np.ndarray
-    :raises FileNotFoundError: If the file specified does not exist.
-    :raises ValueError: If the file type is unsupported.
-    """
-    # Check file existence
-    if not os.path.exists(volume_path):
-        logger.error(f"The file '{volume_path}' does not exist.")
-        raise 
+#     :param volume_path: Path to the volume file.
+#     :type volume_path: str
+#     :param channel_name: The channel name to use when extracting data from ND2 files.
+#     :type channel_name: str
+#     :param volume_index: The index of the volume or channel to retrieve, used for IMS files.
+#     :type volume_index: int
+#     :return: The extracted volume as a NumPy array.
+#     :rtype: np.ndarray
+#     :raises FileNotFoundError: If the file specified does not exist.
+#     :raises ValueError: If the file type is unsupported.
+#     """
+#     # Check file existence
+#     if not os.path.exists(volume_path):
+#         logger.error(f"The file '{volume_path}' does not exist.")
+#         raise 
 
-    file_type = os.path.splitext(volume_path)[1]
+#     file_type = os.path.splitext(volume_path)[1]
 
-    try:
-        if file_type == '.nd2':
-            volume = nd2ToVol(volume_path, 0, channel_name)  # Assumed modification needed for the index
-        elif file_type == '.ims':
-            volume = imsToVol(volume_path, volume_index)
-        else:
-            logger.error(f"Unsupported file type '{file_type}' for volume path '{volume_path}'.")
-            raise
-    except Exception as e:
-        logger.error(f"Error processing the file '{volume_path}': {e}")
-        raise
+#     try:
+#         if file_type == '.nd2':
+#             volume = nd2ToVol(volume_path, 0, channel_name)  # Assumed modification needed for the index
+#         elif file_type == '.ims':
+#             volume = imsToVol(volume_path, volume_index)
+#         else:
+#             logger.error(f"Unsupported file type '{file_type}' for volume path '{volume_path}'.")
+#             raise
+#     except Exception as e:
+#         logger.error(f"Error processing the file '{volume_path}': {e}")
+#         raise
 
-    return volume
+#     return volume
 
 
 def nd2ToChunk(filename: str, fov: int, z_min: int, z_max: int, channel_name: str = "405 SD") -> np.ndarray:

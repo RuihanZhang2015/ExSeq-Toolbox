@@ -44,12 +44,11 @@ class Args:
                    puncta_dir_name: Optional[str] = 'puncta/',
                    codes: List[int] = list(range(7)),
                    fovs: Optional[List[int]] = None,
-                   spacing: List[float] = [4.0, 1.625, 1.625],
+                   spacing: List[float] = [0.4, 1.625, 1.625],
                    channel_names: List[str] = [
                        '640', '594', '561', '488', '405'],
                    ref_code: int = 0,
                    ref_channel: str = '405',
-                   metadata_csv: str = './metadata.csv',
                    gene_digit_csv: str = './gene_list.csv',
                    permission: Optional[bool] = False,
                    create_directroy_structure: Optional[bool] = True,
@@ -76,8 +75,6 @@ class Args:
         :type ref_code: int
         :param ref_channel: Specifies which channel to use as the reference for alignment. Default is '405'.
         :type ref_channel: str
-        :param metadata_csv:  absolute path of the CSV file containing the dataset metadata. Default: './metadata.csv'.
-        :type metadata_csv: str
         :param gene_digit_csv:  absolute path of the CSV file containing gene list. Default: './gene_list.csv'.
         :type gene_digit_csv: str
         :param permission: If set to ``True``, changes permission of the raw_data_path to allow other users to read and write on the generated files. Default is ``False``. `Only for Linux and MacOS users`
@@ -96,7 +93,6 @@ class Args:
         self.permission = permission
         self.ref_code = ref_code
         self.ref_channel = ref_channel
-        self.metadata = metadata_csv
         self.gene_digit_csv = gene_digit_csv
 
         # Housekeeping
@@ -105,9 +101,9 @@ class Args:
         self.colorscales = ['Reds', 'Oranges', 'Greens', 'Blues']
         self.thresholds = [200, 300, 300, 200]
 
-        # Input ND2 path
-        self.nd2_path = os.path.join(
-            self.raw_data_path, "code{}/Channel{} SD_Seq000{}.nd2"
+
+        self.data_path = os.path.join(
+            self.raw_data_path, "code{}/raw_fov{}.h5"
         )
 
         if processed_data_path is not None:
@@ -123,11 +119,8 @@ class Args:
             self.processed_data_path, self.puncta_dir_name)
 
         if not fovs and "fovs" not in dir(self):
-            self.fovs = list(
-                ND2Reader(self.nd2_path.format(self.ref_code, self.ref_channel, 4)).metadata[
-                    "fields_of_view"
-                ]
-            )
+            fovs_num = len(glob.glob(self.data_path.format(0,"*")))
+            self.fov = list(range(fovs_num))
         else:
             self.fovs = fovs
 
