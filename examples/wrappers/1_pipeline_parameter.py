@@ -9,77 +9,78 @@ args = Args()
 
 # ================== Mandatory Configuration ==================
 # The absolute path to the raw data directory. Update this path accordingly.
-raw_data_directory = '/path/to/your/raw_data_directory/'
+params = {}
+params["raw_data_path"] = '/path/to/your/raw_data_directory/'
 
 # ================== Required Raw Data Directory Structure ==================
 # The ExSeq-Toolbox currently assumes the following directory structure:
 #
 # raw_data_directory/
 # ├── code0/
-# │   ├── Channel405 SD_Seq0004.nd2
-# │   ├── Channel488 SD_Seq0003.nd2
-# │   ├── Channel561 SD_Seq0002.nd2
-# │   ├── Channel594 SD_Seq0001.nd2
-# │   ├── Channel604 SD_Seq0000.nd2
+# │   ├── raw_fov0.h5
+# │   ├── raw_fov1.h5
+# │   ├── raw_fov2.h5
+# │   ├── raw_fov3.h5
+# │   ├── raw_fov4.h5
 # ├── code1/
-# │   ├── Channel405 SD_Seq0004.nd2
+# │   ├── raw_fov0.h5
 # │   ├── ...
 # ├── ...
-# 
+#
+# Important: Each of the raw_fov{}.h5 assumed to contain different datasets for each channel. The dataset name needs to be the channel wavelength, e.g., '640', '594', '561', '488', '405'.
+#
 # Ensure that your raw data adheres to this directory structure before running the package.
 
 # ================== Optional Configuration ==================
 
-# List of integers representing specific codes. Default: integers 0-6.
-codes_list = list(range(7))
+# Optional: Number of imaging rounds in targeted sequencing data.
+params["codes"] = list(range(7))  # Default value: 7
 
 # Optional: List of integers specifying which fields of view to analyze.
-# If not provided, all available FOVs will be analyzed.
-fov_list = list(range(12))  # Example values
+# If not provided, all available FOVs in the raw_data_directory will be analyzed.
 
-# The absolute path to the processed data directory.
-# By default, a 'processed_data' subdirectory inside the raw_data_path is used.
-processed_data_directory = '/path/to/processed/data_directory/'
+# Uncomment to set the number of FOVs and their list explicitly.
+# number_of_fovs = 12
+# fov_list = list(range(number_of_fovs))
+# params["fovs"] = fov_list
 
-# Spacing between pixels in the format [Z, Y, X].
-pixel_spacing = [0.4, 1.625, 1.625]
+# Optional: The absolute path to the processed data directory.
+# processed_data_directory = '/path/to/processed/data_directory/'
+# params["processed_data_path"] = processed_data_directory
 
-# Set the names of channels in the ND2 file.
-channel_names_list = ['640', '594', '561', '488', '405']
+# Optional: Directory name to store puncta analysis results.
+# puncta_dir_name = "puncta/"
+# params["puncta_dir_name"] = puncta_dir_name
 
-# Specifies which code to use as the reference round. Default: 0.
-reference_code = 0
+# Optional: Spacing between pixels in the format [Z, Y, X].
+params["spacing"] = [0.4, 1.625, 1.625]  # Default value: [0.4, 1.625, 1.625]
 
-# Specifies which channel to use as the reference for alignment.
-reference_channel = '405'
+# Optional: Set the names of channels in the ND2 file.
+params["channel_names"] = ['640', '594', '561', '488', '405']  # Default names
 
-# Absolute path to the CSV file containing the gene list.
+# Optional: Specifies which code to use as the reference round.
+params["ref_code"] = 0  # Default value: 0
+
+# Optional: Specifies which channel to use as the reference for alignment.
+params["ref_channel"] = '405'  # Default value: '405'
+
+# Optional: Absolute path to the CSV file containing the gene list.
 gene_digit_file = './gene_list.csv'
+params["gene_digit_csv"] = gene_digit_file
 
-# If set to True, changes permission of the raw_data_path to allow other users to read and write on the generated files (Only for Linux and MacOS users).
+# Optional: Changes permission of the raw_data_path for other users (Linux/Mac).
 permissions_flag = False
+params["permission"] = permissions_flag
 
-# If set to True, creates the directory structure in the specified project path.
+# Optional: Creates the directory structure in the specified project path.
 create_directory_structure_flag = True
+params["create_directroy_structure"] = create_directory_structure_flag
 
-# The name of the JSON file where the project arguments will be stored.
+# Optional: The name of the JSON file where the project arguments will be stored.
 args_file = "ExSeq_toolbox_args"
+params["args_file_name"] = args_file
 
-# Set the parameters using the set_params method
-args.set_params(
-    raw_data_path=raw_data_directory,
-    processed_data_path=processed_data_directory,
-    codes=codes_list,
-    fovs=fov_list,
-    spacing=pixel_spacing,
-    channel_names=channel_names_list,
-    ref_code=reference_code,
-    ref_channel=reference_channel,
-    gene_digit_csv=gene_digit_file,
-    permission=permissions_flag,
-    create_directroy_structure=create_directory_structure_flag,
-    args_file_name=args_file
-)
+# Call set_params with the parameters
+args.set_params(**params)
 
 # Note: Always ensure that the paths and other configuration parameters are correct before running the script.
-
