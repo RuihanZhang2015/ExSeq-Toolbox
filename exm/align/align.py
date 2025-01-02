@@ -281,7 +281,7 @@ def execute_volumetric_alignment_bigstream(args: Args,
                 move_downsampled = downsample_volume(filtered_mov_vol, downsample_factors) 
                     
                 
-                ransac_kwargs = {'blob_sizes': [2,200]}
+                ransac_kwargs = {'blob_sizes': [2,200],'safeguard_exceptions':False}
                 affine_kwargs = { 'metric' : 'MMI',
                                     'optimizer':'LBFGSB',
                                     'alignment_spacing': 1,
