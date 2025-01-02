@@ -12,7 +12,7 @@ import pandas as pd
 from typing import Tuple, Optional, List
 
 from exm.args import Args
-from exm.io.io import nd2ToVol , get_raw_volume
+from exm.io.io import nd2ToVol
 from exm.utils import chmod, subtract_background_rolling_ball, subtract_background_top_hat,downsample_volume, enhance_and_filter_volume
 
 from exm.utils import configure_logger
