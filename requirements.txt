@@ -1,3 +1,4 @@
+pytest
 glymur
 h5py
 ipython

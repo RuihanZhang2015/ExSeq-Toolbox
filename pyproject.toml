@@ -17,6 +17,7 @@ classifiers = [
 authors = [{name = "Emma", email = "emmabesier@g.harvard.edu"}]
 dynamic = ["version", "description"]
 dependencies = [
+    'pytest',
     'glymur',
     'h5py',
     'ipython',
