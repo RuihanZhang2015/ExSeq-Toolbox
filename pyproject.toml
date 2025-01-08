@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "exseq-toolbox"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -16,4 +16,25 @@ classifiers = [
 ]
 authors = [{name = "Emma", email = "emmabesier@g.harvard.edu"}]
 dynamic = ["version", "description"]
+dependencies = [
+    'glymur',
+    'h5py',
+    'ipython',
+    'matplotlib',
+    'natsort',
+    'numpy',
+    'npy2bdv',
+    'pandas',
+    'Pillow',
+    'plotly',
+    'scikit-image',
+    'scipy',
+    'tifffile',
+    'tqdm',
+    'nd2reader @ git+https://github.com/mansouralawi/nd2reader.git',
+    'bigstream @ git+https://github.com/mansouralawi/bigstream.git',
+]
+
+
+
 

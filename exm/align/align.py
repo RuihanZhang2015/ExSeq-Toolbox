@@ -201,9 +201,12 @@ def volumetric_alignment(args: Args,
     :type parallel_processes: int, optional
     :param bg_sub: Specifies the background subtraction method to be used. Can be "rolling_ball" or "top_hat". If not provided, no background subtraction will be applied.
     :type bg_sub: str, optional
+    :param accelerated: Use GPU acceleration if you set it up. Can be. If not provided, Default is False.
+    :type accelerated: bool, optional
     :param kwargs: Additional parameters to customize the alignment process. The possible options include:
 
         **General Options:**
+
         - `downsample_factors` (tuple of int): Downsampling factors for each dimension (z, y, x). Default is (1, 1, 1).
         - `downsample_steps` (list of tuples): List of steps to perform on downscaled volumes. Each step is a tuple of (step_name, step_kwargs).
         - `full_size_steps` (list of tuples): List of steps to perform on full-size volumes. Each step is a tuple of (step_name, step_kwargs).
@@ -212,6 +215,7 @@ def volumetric_alignment(args: Args,
         - `high` (float): High percentile value for intensity normalization. Default is 99.0.
         
         **Alignment Pipeline Steps:**
+        
         Steps passed via `downsample_steps` or `full_size_steps` must conform to the `alignment_pipeline` function in BigStream. Each step is a tuple of the form `(step_name, step_kwargs)`. The available steps are:
 
         - `'ransac'`: Runs feature-point-based affine alignment using RANSAC. 
@@ -225,33 +229,34 @@ def volumetric_alignment(args: Args,
     **Example Usage:**
 
     1. **With Downsampling and Full-Size Alignment:**
-    ```python
-    volumetric_alignment(
-        args, parallel_processes=4, bg_sub='rolling_ball',
-        downsample_factors=(2, 2, 2),
-        downsample_steps=[
-            ('ransac', {'blob_sizes': [5, 150], 'safeguard_exceptions': True})
-        ],
-        full_size_steps=[
-            ('affine', {'metric': 'NCC', 'optimizer': 'Powell'})
-        ],
-        run_downsample_steps=True,
-        low=30.0, high=99.0
-    )
-    ```
+
+    .. code-block:: python
+
+        volumetric_alignment(
+            args, parallel_processes=4, bg_sub='rolling_ball',
+            downsample_factors=(2, 2, 2),
+            downsample_steps=[
+                ('ransac', {'blob_sizes': [5, 150], 'safeguard_exceptions': True})
+            ],
+            full_size_steps=[
+                ('affine', {'metric': 'NCC', 'optimizer': 'Powell'})
+            ],
+            run_downsample_steps=True,
+            low=30.0, high=99.0
+        )
 
     2. **Full-Size Only Alignment:**
-    ```python
-    volumetric_alignment(
-        args, parallel_processes=4, bg_sub='rolling_ball',
-        full_size_steps=[
-            ('affine', {'metric': 'NCC', 'optimizer': 'Powell'})
-        ],
-        run_downsample_steps=False,
-        low=30.0, high=99.0
-    )
-    ```
 
+    .. code-block:: python
+
+        volumetric_alignment(
+            args, parallel_processes=4, bg_sub='rolling_ball',
+            full_size_steps=[
+                ('affine', {'metric': 'NCC', 'optimizer': 'Powell'})
+            ],
+            run_downsample_steps=False,
+            low=30.0, high=99.0
+        )
     """
     child_processes = []
     tasks_queue = multiprocessing.Queue()
