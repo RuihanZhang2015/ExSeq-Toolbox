@@ -49,15 +49,41 @@ def test_align_module_bigstream():
     args.load_params(args_file_path)
     code_fov_pairs = [[0,0],[1,0],[2,0]]
     parallelization = 1
-    alignment_method = 'bigstream'  
-    background_subtraction = ''  
+    background_subtraction = '' 
+    downsample_factors = (2, 4, 4)
+    downsample_steps = [
+        ('ransac', {'blob_sizes': [5, 150], 'safeguard_exceptions': False})
+    ]
+    full_size_steps = [
+        ('affine', {
+            'metric': 'MMI',  
+            'optimizer': 'LBFGSB',  
+            'alignment_spacing': 1,  
+            'shrink_factors': (4, 2, 1), 
+            'smooth_sigmas': (0.0, 0.0, 0.0),
+            'optimizer_args': {
+                'gradientConvergenceTolerance': 1e-6,
+                'numberOfIterations': 800,
+                'maximumNumberOfCorrections': 8,
+            }
+        })
+    ]
+
+    kwargs = {
+    'downsample_factors': downsample_factors,
+    'downsample_steps': downsample_steps,
+    'full_size_steps': full_size_steps,
+    'run_downsample_steps': True,  # Execute downsample alignment steps
+    'low': 1.0,  # Low percentile for intensity normalization
+    'high': 99.0  # High percentile for intensity normalization
+    } 
+
     volumetric_alignment(
         args=args,
         code_fov_pairs=code_fov_pairs,
         parallel_processes=parallelization,
-        method=alignment_method,
         bg_sub=background_subtraction,
-        dataset_type='.h5'
+        **kwargs
     )
     
     assert os.path.exists(args.h5_path.format(0, 0)), f"Expected {args.h5_path.format(0, 0)} to exist, but it doesn't."

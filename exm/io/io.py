@@ -180,7 +180,7 @@ def tiff2H5(tiff_file: str, h5_file: str, chunk_size: Tuple[int, int, int] = (10
         raise
 
 
-def nd2ToVol(filename: str, fov: int, channel_name: str = "405 SD", ratio: int = 1, dataset_type=".nd2") -> np.ndarray:
+def nd2ToVol(filename: str, fov: int, channel_name: str = "405 SD", ratio: int = 1) -> np.ndarray:
     r"""
     Reads the specified Nd2 file and returns it as a numpy array.
 
@@ -196,36 +196,30 @@ def nd2ToVol(filename: str, fov: int, channel_name: str = "405 SD", ratio: int =
     :rtype: np.ndarray
     """
     try:
-        if dataset_type == ".h5":
-            h5_filename = filename.rsplit('.', 1)[0] + '.h5'
-            with h5py.File(h5_filename, 'r') as f:
-                vol = f[channel_name[:3]][:]
-            return vol
-        else:
-            # volume in zyx order
-            vol = ND2Reader(filename)
-            channel_names = vol.metadata["channels"]
+        # volume in zyx order
+        vol = ND2Reader(filename)
+        channel_names = vol.metadata["channels"]
 
-            channel_id = [
-                x for x in range(len(channel_names)) if channel_name in channel_names[x]
+        channel_id = [
+            x for x in range(len(channel_names)) if channel_name in channel_names[x]
+        ]
+
+        if len(channel_id) != 1:
+            raise ValueError(
+                f"Invalid channel name: {channel_name}. Please provide a valid channel name.")
+
+        channel_id = channel_id[0]
+
+        out = np.zeros(
+            [len(vol) // ratio, vol[0].shape[0] //
+                ratio, vol[0].shape[1] // ratio],
+            np.uint16,
+        )
+        for z in range(len(vol) // ratio):
+            out[z] = vol.get_frame_2D(c=channel_id, t=0, z=int(z * ratio), x=0, y=0, v=fov)[
+                ::ratio, ::ratio
             ]
-
-            if len(channel_id) != 1:
-                raise ValueError(
-                    f"Invalid channel name: {channel_name}. Please provide a valid channel name.")
-
-            channel_id = channel_id[0]
-
-            out = np.zeros(
-                [len(vol) // ratio, vol[0].shape[0] //
-                 ratio, vol[0].shape[1] // ratio],
-                np.uint16,
-            )
-            for z in range(len(vol) // ratio):
-                out[z] = vol.get_frame_2D(c=channel_id, t=0, z=int(z * ratio), x=0, y=0, v=fov)[
-                    ::ratio, ::ratio
-                ]
-            return out
+        return out
 
     except Exception as e:
         logger.error(
