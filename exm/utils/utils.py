@@ -703,7 +703,10 @@ def enhance_and_filter_volume(volume: np.ndarray, low_percentile: float = 0, hig
             try:
                 import cupyx.scipy.ndimage
                 import cupy as cp
-                return cp.asnumpy(cupyx.scipy.ndimage.median_filter(cp.array(volume), size=size))
+                volume = cp.asnumpy(cupyx.scipy.ndimage.median_filter(cp.array(volume), size=size))
+                cp.get_default_memory_pool().free_all_blocks()
+                cp.get_default_pinned_memory_pool().free_all_blocks()
+                return volume
             except ImportError:
                 raise ImportError("CuPy is not installed, but is required for accelerated processing.")
         else:

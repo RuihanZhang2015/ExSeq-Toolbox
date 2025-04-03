@@ -3,6 +3,7 @@ Sets up the project parameters.
 """
 import os
 import json
+import glob
 import pathlib
 from nd2reader import ND2Reader
 from typing import List, Optional
@@ -120,7 +121,7 @@ class Args:
 
         if not fovs and "fovs" not in dir(self):
             fovs_num = len(glob.glob(self.data_path.format(0,"*")))
-            self.fov = list(range(fovs_num))
+            self.fovs = list(range(fovs_num))
         else:
             self.fovs = fovs
 

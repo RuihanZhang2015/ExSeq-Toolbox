@@ -1,0 +1,2 @@
+cupy-cuda11x==12.3.0
+cucim
