@@ -8,7 +8,7 @@ from exm.puncta.basecalling import puncta_assign_gene, puncta_assign_nuclei
 args = Args()
 
 # Provide the path to the configuration file.
-args_file_path = '/path/to/your/parameter/file.json'
+args_file_path = '/orcd/data/edboyden/002/davy/ExSeq-Toolbox/ExSeq_toolbox_args.json'
 # Load the configuration settings from the file.
 args.load_params(args_file_path)
 

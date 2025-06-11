@@ -9,7 +9,7 @@ args = Args()
 
 # Provide the path to the configuration file. Typically, this file is generated 
 # during the pipeline configuration step and has a '.json' extension.
-args_file_path = '/path/to/your/parameters/file.json'
+args_file_path = '/orcd/data/edboyden/002/davy/ExSeq-Toolbox/ExSeq_toolbox_args.json'
 
 # Load the configuration settings from the specified file.
 args.load_params(args_file_path)
@@ -67,7 +67,7 @@ volumetric_alignment(
     code_fov_pairs=specific_code_fov_pairs,
     parallel_processes=parallelization,
     bg_sub=background_subtraction,
-    accelerated=False,  # Set to True if GPU acceleration is available
+    accelerated=True,  # Set to True if GPU acceleration is available
     **kwargs  # Pass alignment parameters
 )
 

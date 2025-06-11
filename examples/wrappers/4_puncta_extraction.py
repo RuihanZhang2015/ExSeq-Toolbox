@@ -9,7 +9,7 @@ from exm.puncta.consolidate import consolidate_channels, consolidate_codes
 args = Args()
 
 # Provide the path to the configuration file.
-args_file_path = '/path/to/your/parameter/file.json'
+args_file_path = '/orcd/data/edboyden/002/davy/ExSeq-Toolbox/ExSeq_toolbox_args.json'
 # Load the configuration settings from the file.
 args.load_params(args_file_path)
 
@@ -23,8 +23,9 @@ code_fov_pairs_to_extract = [(code_val, fov_val) for code_val in args.codes for 
 
 # Parameters for extraction.
 use_gpu_setting = True  # Whether to use GPU for extraction. Set to False for CPU.
-num_gpus = 3  # Number of GPUs to use if use_gpu_setting is True.
-num_cpus = 3  # Number of CPUs to use if use_gpu_setting is False.
+num_gpus = 1  # Number of GPUs to use if use_gpu_setting is True.
+num_cpus = 8  # Number of CPUs to use if use_gpu_setting is False.
+
 
 extract(args=args,
         code_fov_pairs=code_fov_pairs_to_extract,
@@ -36,18 +37,18 @@ extract(args=args,
 # ====================================
 
 # Parameters for channel consolidation.
-num_cpus_for_channel = 4  # Number of CPUs for channel consolidation.
+num_cpus_for_channel = 2  # Number of CPUs for channel consolidation.
 
 consolidate_channels(args=args,
-                     code_fov_pairs=code_fov_pairs_to_extract,
-                     num_cpu=num_cpus_for_channel)
+        code_fov_pairs=code_fov_pairs_to_extract,
+        num_cpu=num_cpus_for_channel)
 
 # Step 4: Code Consolidation
 # ====================================
 
 # List of FOVs for code consolidation.
 fov_list_to_consolidate = list(args.fovs)
-num_cpus_for_code = 4  # Number of CPUs for code consolidation.
+num_cpus_for_code = 2  # Number of CPUs for code consolidation.
 
 consolidate_codes(args=args, fov_list=fov_list_to_consolidate, num_cpu=num_cpus_for_code)
 

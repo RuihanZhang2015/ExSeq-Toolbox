@@ -180,8 +180,10 @@ def consolidate_codes_function(args: Args, tasks_queue: int,q_lock: multiprocess
 
                     def find_matching_points(point_cloud1, point_cloud2, distance_threshold=8):
                         temp1 = np.copy(point_cloud1)
+
                         temp1[:, 0] = temp1[:, 0] * 0.5
                         temp2 = np.copy(point_cloud2)
+
                         temp2[:, 0] = temp2[:, 0] * 0.5
                         distance = cdist(temp1, temp2, "euclidean")
                         index1 = np.argmin(distance, axis=1)
@@ -203,7 +205,10 @@ def consolidate_codes_function(args: Args, tasks_queue: int,q_lock: multiprocess
 
                         point_cloud1 = np.asarray([x["position"] for x in reference])
                         point_cloud2 = np.asarray([x["position"] for x in new])
-
+                        
+                        if len(point_cloud2) == 0 or len(point_cloud1) == 0:
+                            logger.warning(f"Code {code} for FOV {fov} has no puncta.")
+                            continue
                         pairs = find_matching_points(point_cloud1, point_cloud2)
 
                         for pair in pairs:

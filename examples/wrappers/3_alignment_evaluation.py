@@ -8,10 +8,10 @@ from exm.align.align_eval import measure_round_alignment_NCC,plot_alignment_eval
 args = Args()
 
 # Provide the path to the configuration file.
-args_file_path = '/path/to/your/parameter/file.json'
+args_file_path = '/orcd/data/edboyden/002/davy/ExSeq-Toolbox/ExSeq_toolbox_args.json'
 
 # Load the configuration settings from the specified file.
-args.load_config(args_file_path)
+args.load_params(args_file_path)
 
 # Step 2: Additional Configuration for Alignment Evaluation
 # ================================================
@@ -47,8 +47,10 @@ fovs_to_analyze = args.fovs  # Adjust this based on your dataset for example [1,
 # Extract the coordinates.
 for fov in fovs_to_analyze:
     for code in codes_to_analyze:
-        measure_round_alignment_NCC(args=args,code=code, fov=fov)
-
+        try:
+            measure_round_alignment_NCC(args=args, code=code, fov=fov)
+        except Exception as e:
+            print(f"Error measuring alignment for Code {code}, FOV {fov}: {e}")
 
 # Step 4: Alignment Evaluation and Confidence Interval Calculation
 # ==========================================================

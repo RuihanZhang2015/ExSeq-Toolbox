@@ -95,21 +95,21 @@ def execute_volumetric_alignment_bigstream(args: Args,
         raise ValueError("downsample_steps and full_size_steps must be lists of steps.")
 
     while True:  # Check for remaining tasks in the queue
-        try:
-            with q_lock:
-                code, fov, bg_sub = tasks_queue.get_nowait()
-                logger.info(f"Remaining tasks to process: {tasks_queue.qsize()}")
-        except queue.Empty:
-            logger.info(f"{multiprocessing.current_process().name}: Done")
+        task = tasks_queue.get()
+        if task == "STOP":
+            logger.info(f"{multiprocessing.current_process().name}: Received STOP signal.")
             break
-        except Exception as e:
-            logger.error(f"Error fetching task from queue: {e}")
-            break
+
+        code, fov, bg_sub = task
+        logger.info(f"Remaining tasks to process: {tasks_queue.qsize()}")
+        
         
         try:
             if code == args.ref_code:
                 transform_ref_code(args, fov, bg_sub)
-                continue
+                logger.info(f"Ref round processed for FOV {fov}")
+                continue  # allow the worker to get next task
+
 
             logger.info(f"Aligning: Code:{code}, FOV:{fov}")
 
@@ -258,6 +258,7 @@ def volumetric_alignment(args: Args,
             low=30.0, high=99.0
         )
     """
+            
     child_processes = []
     tasks_queue = multiprocessing.Queue()
     q_lock = multiprocessing.Lock()
@@ -265,10 +266,7 @@ def volumetric_alignment(args: Args,
     if not code_fov_pairs:
         logger.info(f"Generating Code-FOV pairs using args.codes: {args.codes} and args.fovs: {args.fovs}.")
         code_fov_pairs = [[code_val, fov_val]
-                          for code_val in args.codes for fov_val in args.fovs]
-
-    for code, fov in code_fov_pairs:
-        tasks_queue.put((code, fov, bg_sub))
+                          for code_val in args.codes for fov_val in args.fovs]         
 
     for w in range(int(parallel_processes)):
         try:
@@ -282,6 +280,23 @@ def volumetric_alignment(args: Args,
 
         except Exception as e:
             logger.error(f"Error starting process. Error: {e}")
+
+    # Process FOVs sequentially: transform ref_code, then enqueue other tasks
+    for fov in args.fovs:
+        logger.info(f"Processing ref_code {args.ref_code} for FOV {fov}")
+        try:
+            transform_ref_code(args, fov, bg_sub)
+            logger.info(f"Ref round processed for FOV {fov}")
+        except Exception as e:
+            logger.error(f"Failed to process reference round for FOV {fov}: {e}")
+            continue
+
+        for code in args.codes:
+            if code != args.ref_code:
+                tasks_queue.put((code, fov, bg_sub))
+
+    for _ in range(parallel_processes):
+        tasks_queue.put("STOP")
 
     for p in child_processes:
         try:

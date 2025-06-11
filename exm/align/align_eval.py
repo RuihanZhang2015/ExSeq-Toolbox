@@ -115,7 +115,7 @@ def plot_alignment_evaluation(args: Args, fov: int, percentile: int = 95, save_f
     """
     
     def load_eval_data(args: Args, fov: int) -> dict:
-        eval_file = os.path.join(args.processed_data_path, "alignment_evaluation", f"FOV{fov}", f"NCC_fov{fov}.json")
+        eval_file = os.path.join(args.processed_data_path, "alignment_evaluation", f"FOV{fov}", f"NCC_FOV{fov}.json")
         with open(eval_file, 'r') as f:
             eval_data = json.load(f)
         return eval_data
@@ -127,7 +127,7 @@ def plot_alignment_evaluation(args: Args, fov: int, percentile: int = 95, save_f
         eval_data = load_eval_data(args, fov)
         
         sorted_keys = sorted(eval_data.keys(), key=lambda x: int(x.split('-')[1]))
-
+        print(sorted_keys, 234)
         keys_list = []
         arrays_list = []
 
@@ -189,8 +189,8 @@ def calculate_alignment_evaluation_ci(args: Args, fov: int,
         return lower_bound, upper_bound
 
     ci_data = {}
-    eval_file_path = os.path.join(args.processed_data_path, "alignment_evaluation", f"ROI{roi}", f"NCC_ROI{roi}.json")
-    
+    eval_file_path = os.path.join(args.processed_data_path, "alignment_evaluation", f"FOV{fov}", f"NCC_FOV{fov}.json")
+
     try:
         with open(eval_file_path, 'r') as f:
             eval_data = json.load(f)
@@ -203,7 +203,7 @@ def calculate_alignment_evaluation_ci(args: Args, fov: int,
             percentile_value = np.percentile(eval_array, percentile_filter)
             eval_filtered = eval_array[eval_array <= percentile_value]
             
-            lower_bound, upper_bound = bootstrap_mean_ci(eval_filtered, len(eval_data)//10, ci)
+            lower_bound, upper_bound = bootstrap_mean_ci(eval_filtered, len(eval_filtered)//10, ci)
             ci_data[key] = {
                 "lower_bound": lower_bound,
                 "upper_bound": upper_bound

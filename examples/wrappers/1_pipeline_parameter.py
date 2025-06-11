@@ -10,7 +10,7 @@ args = Args()
 # ================== Mandatory Configuration ==================
 # The absolute path to the raw data directory. Update this path accordingly.
 params = {}
-params["raw_data_path"] = '/path/to/your/raw_data_directory/'
+params["raw_data_path"] = '/orcd/data/edboyden/001/mansour/exseq_dataset/'
 
 # ================== Required Raw Data Directory Structure ==================
 # The ExSeq-Toolbox currently assumes the following directory structure:
@@ -40,17 +40,17 @@ params["codes"] = list(range(7))  # Default value: 7
 # If not provided, all available FOVs in the raw_data_directory will be analyzed.
 
 # Uncomment to set the number of FOVs and their list explicitly.
-# number_of_fovs = 12
-# fov_list = list(range(number_of_fovs))
-# params["fovs"] = fov_list
+#number_of_fovs = 3
+#fov_list = list(range(number_of_fovs))
+#params["fovs"] = fov_list
 
 # Optional: The absolute path to the processed data directory.
-# processed_data_directory = '/path/to/processed/data_directory/'
-# params["processed_data_path"] = processed_data_directory
+processed_data_directory = '/orcd/data/edboyden/002/davy/ExSeq-Toolbox/processed/'
+params["processed_data_path"] = processed_data_directory
 
 # Optional: Directory name to store puncta analysis results.
-# puncta_dir_name = "puncta/"
-# params["puncta_dir_name"] = puncta_dir_name
+puncta_dir_name = "/orcd/data/edboyden/002/davy/ExSeq-Toolbox/puncta/"
+params["puncta_dir_name"] = puncta_dir_name
 
 # Optional: Spacing between pixels in the format [Z, Y, X].
 params["spacing"] = [0.4, 1.625, 1.625]  # Default value: [0.4, 1.625, 1.625]
@@ -77,7 +77,7 @@ create_directory_structure_flag = True
 params["create_directroy_structure"] = create_directory_structure_flag
 
 # Optional: The name of the JSON file where the project arguments will be stored.
-args_file = "ExSeq_toolbox_args"
+args_file = "/orcd/data/edboyden/002/davy/ExSeq-Toolbox/ExSeq_toolbox_args"
 params["args_file_name"] = args_file
 
 # Call set_params with the parameters

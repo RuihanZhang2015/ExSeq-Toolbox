@@ -12,7 +12,6 @@ import collections
 from typing import List, Tuple
 from pathlib import Path
 from multiprocessing import current_process, Lock, Process, Queue
-
 from exm.args import Args
 from exm.utils import configure_logger
 from exm.utils.utils import chmod
