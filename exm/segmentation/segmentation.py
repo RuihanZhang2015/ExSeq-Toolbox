@@ -8,7 +8,7 @@ from scipy import ndimage
 from cellpose import models,utils,plot,io
 
 
-def segment_3d(volume,model,downsample=False,chan=0,chan2=0,flow_threshold=0.4,cellprob_threshold=0,do_3D=True):
+def segment_3d(volume,model,downsample=False,chan=0,chan2=0,diameter=30,flow_threshold=0.4,cellprob_threshold=0,do_3D=True):
     r"""
     Performs 3D segmentation on the given volume using the provided model.
 
@@ -22,6 +22,8 @@ def segment_3d(volume,model,downsample=False,chan=0,chan2=0,flow_threshold=0.4,c
     :type chan: int
     :param chan2: The second channel to use for segmentation. Default is 0.
     :type chan2: int
+    :param diameter: Estimated diameter of objects to segment. Set to 0 to auto-estimate. Default is 30.
+    :type diameter: float
     :param flow_threshold: The flow threshold for the segmentation. Default is 0.4.
     :type flow_threshold: float
     :param cellprob_threshold: The cell probability threshold for the segmentation. Default is 0.
@@ -36,9 +38,10 @@ def segment_3d(volume,model,downsample=False,chan=0,chan2=0,flow_threshold=0.4,c
         volume = ndimage.zoom(volume, (1,1,0.25,0.25), order= 1)    
     masks, flows, styles = model.eval(volume, 
                                   channels=[chan, chan2],
-                                  diameter=model.diam_labels,
+                                  diameter=diameter,
                                   flow_threshold=flow_threshold,
                                   cellprob_threshold=cellprob_threshold,
+                                  z_axis=0,
                                   do_3D=do_3D
                                   )
     if downsample:

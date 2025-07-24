@@ -204,6 +204,10 @@ def consolidate_codes_function(args: Args, tasks_queue: int,q_lock: multiprocess
                         point_cloud1 = np.asarray([x["position"] for x in reference])
                         point_cloud2 = np.asarray([x["position"] for x in new])
 
+                        if len(point_cloud2) == 0 or len(point_cloud1) == 0:
+                            logger.warning(f"Code {code} for FOV {fov} has no puncta.")
+                            continue
+
                         pairs = find_matching_points(point_cloud1, point_cloud2)
 
                         for pair in pairs:
