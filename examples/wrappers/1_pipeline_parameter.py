@@ -4,13 +4,36 @@ from exm.args.args import Args
 # Configure logger for ExSeq-Toolbox
 logger = configure_logger('ExSeq-Toolbox')
 
-# Initialize the configuration object.
+# Initialize the configuration object
 args = Args()
 
 # ================== Mandatory Configuration ==================
 # The absolute path to the raw data directory. Update this path accordingly.
 params = {}
 params["raw_data_path"] = '/path/to/your/raw_data_directory/'
+
+# ================== Processing Parameters ==================
+# Memory and performance optimization
+params["chunk_size"] = 150  # Adjust based on your system memory (default: 100)
+params["parallel_processes"] = 4  # Auto-detected if not specified
+params["use_gpu_processing"] = True  # Enable GPU if available
+params["gpu_memory_fraction"] = 0.8  # Use 80% of GPU memory
+params["auto_cleanup_memory"] = True  # Automatic memory cleanup
+
+# Puncta extraction parameters (previously hardcoded)
+params["puncta_thresholds"] = [200, 300, 300, 200]  # Custom thresholds per channel
+params["puncta_min_distance"] = 7  # Minimum distance between puncta
+params["puncta_gaussian_sigma"] = 1.0  # Gaussian filter sigma
+params["puncta_exclude_border"] = False  # Exclude border puncta
+params["consolidation_distance_threshold"] = 8.0  # Distance for consolidation
+
+# Alignment parameters (previously hardcoded)
+params["alignment_downsample_factors"] = (2, 4, 4)  # Downsampling factors
+params["alignment_low_percentile"] = 1.0  # Intensity normalization
+params["alignment_high_percentile"] = 99.0
+
+# System parameters
+params["permission_mode"] = 0o777  # Permission mode for created files
 
 # ================== Required Raw Data Directory Structure ==================
 # The ExSeq-Toolbox currently assumes the following directory structure:
@@ -80,7 +103,38 @@ params["create_directroy_structure"] = create_directory_structure_flag
 args_file = "ExSeq_toolbox_args"
 params["args_file_name"] = args_file
 
-# Call set_params with the parameters
+# Call enhanced set_params with all parameters
 args.set_params(**params)
 
-# Note: Always ensure that the paths and other configuration parameters are correct before running the script.
+# ================== New Enhanced Features ==================
+
+# Get processing recommendations based on your system
+recommendations = args.get_processing_recommendations()
+logger.info("Processing recommendations for your system:")
+for key, value in recommendations.items():
+    logger.info(f"  {key}: {value}")
+
+# Save configuration in YAML format for easy editing and sharing
+yaml_config_path = args.processed_data_path + "/config.yaml"
+args.save_config_yaml(yaml_config_path)
+logger.info(f"Configuration saved to {yaml_config_path}")
+
+# Get memory configuration object
+memory_config = args.get_memory_config()
+if memory_config:
+    memory_info = memory_config.get_memory_info()
+    logger.info(f"Memory configuration: {memory_info}")
+
+# ================== Configuration Loading Example ==================
+# You can also load configuration from a YAML file:
+# args.load_config_yaml("examples/config_examples/high_memory_config.yaml")
+# args.load_config_yaml("examples/config_examples/low_memory_config.yaml")
+
+logger.info("Enhanced configuration completed successfully!")
+logger.info(f"Using chunk size: {args.chunk_size}")
+logger.info(f"Parallel processes: {args.parallel_processes}")
+logger.info(f"GPU processing enabled: {args.use_gpu_processing}")
+logger.info(f"Auto memory cleanup: {args.auto_cleanup_memory}")
+
+# Note: Configuration parameters are now fully customizable and hardware-aware.
+# Check the generated config.yaml file to see all available options.

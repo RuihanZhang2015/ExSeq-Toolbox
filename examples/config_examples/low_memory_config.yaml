@@ -1,0 +1,39 @@
+# ExSeq-Toolbox Configuration Example: Low Memory System
+# This configuration is optimized for systems with 8GB or less RAM, no GPU
+
+data_paths:
+  raw_data_path: "/path/to/your/raw_data"
+  processed_data_path: "/path/to/processed_data"
+  puncta_dir_name: "puncta/"
+  gene_digit_csv: "./gene_list.csv"
+
+experiment:
+  codes: [0, 1, 2, 3, 4, 5, 6]
+  fovs: [0, 1, 2, 3]  # Process fewer FOVs at once
+  spacing: [0.4, 1.625, 1.625]
+  channel_names: ['640', '594', '561', '488', '405']
+  ref_code: 0
+  ref_channel: '405'
+
+processing:
+  chunk_size: 50  # Smaller chunks for low memory systems
+  parallel_processes: 2  # Fewer parallel processes
+  use_gpu_processing: false
+  gpu_memory_fraction: 0.6
+  auto_cleanup_memory: true
+
+alignment:
+  downsample_factors: [4, 8, 8]  # More aggressive downsampling
+  low_percentile: 1.0
+  high_percentile: 99.0
+
+puncta:
+  thresholds: [200, 300, 300, 200]
+  min_distance: 7
+  gaussian_sigma: 1.0
+  exclude_border: false
+  consolidation_distance_threshold: 8.0
+
+system:
+  permission: false
+  permission_mode: 511  # 0o777 in decimal

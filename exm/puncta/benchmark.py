@@ -46,7 +46,8 @@ def puncta_analysis(args, fov, improved=False):
                 code_count += 1
                 if 'ref_code' in value:
                     ref_code_value = value['ref_code']
-                    if 0 <= ref_code_value <= 7:
+                    ref_code_min, ref_code_max = getattr(args, 'ref_code_range', (0, 7))
+                    if ref_code_min <= ref_code_value <= ref_code_max:
                         has_ref_code = True
                         total_ref_code_counts += 1
                         unique_ref_codes.add(ref_code_value)
@@ -57,12 +58,13 @@ def puncta_analysis(args, fov, improved=False):
             puncta_with_ref_code += 1
         else:
             puncta_without_ref_code += 1
-        if code_count < 7:
-            missing_codes = 7 - code_count
+        expected_codes = getattr(args, 'expected_codes_count', 7)
+        if code_count < expected_codes:
+            missing_codes = expected_codes - code_count
             missing_codes_distribution[missing_codes] = missing_codes_distribution.get(
                 missing_codes, 0) + 1
             puncta_with_missing_codes += 1
-            for i in range(7):
+            for i in range(expected_codes):
                 code_key = 'code' + str(i)
                 if code_key not in puncta:
                     missing_code_counts[code_key] = missing_code_counts.get(

@@ -43,7 +43,8 @@ def calculate_coords_gpu(args: Args,
     from cupyx.scipy.ndimage import gaussian_filter
     from cucim.skimage.feature import peak_local_max
 
-    chunk_size = 100  # TODO: Consider making this variable
+    # Get chunk size from args configuration
+    chunk_size = getattr(args, 'chunk_size', 100)
 
     with cp.cuda.Device(device):
         while True:  # Check for remaining tasks in the Queues
@@ -69,10 +70,13 @@ def calculate_coords_gpu(args: Args,
                                 chunk_size * chunk - 7, 0):min(chunk_size * (chunk + 1) + 7, num_z), :, :])
 
                         with lock:
-                            gaussian_filter(img, 1, output=img,
+                            gaussian_filter(img, getattr(args, 'puncta_gaussian_sigma', 1), output=img,
                                             mode='reflect', cval=0)
                             coords = cp.array(peak_local_max(
-                                img, min_distance=7, threshold_abs=args.thresholds[c], exclude_border=False).get())
+                                img,
+                                min_distance=getattr(args, 'puncta_min_distance', 7),
+                                threshold_abs=args.thresholds[c],
+                                exclude_border=getattr(args, 'puncta_exclude_border', False)).get())
                             coords[:, 0] += max(chunk_size * chunk - 7, 0)
 
                             if chunk == 0:
@@ -82,8 +86,12 @@ def calculate_coords_gpu(args: Args,
                                     (coords_total[f'c{c}'], coords), axis=0)
 
                             del img, coords
-                            cp.get_default_memory_pool().free_all_blocks()
-                            cp.get_default_pinned_memory_pool().free_all_blocks()
+                            # Always cleanup GPU memory to prevent leaks
+                            try:
+                                cp.get_default_memory_pool().free_all_blocks()
+                                cp.get_default_pinned_memory_pool().free_all_blocks()
+                            except Exception as e:
+                                logger.warning(f"GPU memory cleanup failed: {e}")
 
                 for c in range(4):
                     coords_total[f'c{c}'] = np.unique(
@@ -165,7 +173,8 @@ def calculate_coords_cpu(args: Args,
     from scipy.ndimage import gaussian_filter
     from skimage.feature import peak_local_max
 
-    chunk_size = 100
+    # Get chunk size from args configuration
+    chunk_size = getattr(args, 'chunk_size', 100)
 
     while True:  # Check for remaining tasks in the Queues
         try:
@@ -191,11 +200,13 @@ def calculate_coords_cpu(args: Args,
                     with h5py.File(args.h5_path.format(code, fov), "r") as f:
                         img = f[args.channel_names[c]][max(
                             chunk_size * chunk - 7, 0):min(chunk_size * (chunk + 1) + 7, num_z), :, :]
-                        f.close()
 
-                    gaussian_filter(img, 1, output=img, mode='reflect', cval=0)
+                    gaussian_filter(img, getattr(args, 'puncta_gaussian_sigma', 1), output=img, mode='reflect', cval=0)
                     coords = peak_local_max(
-                        img, min_distance=7, threshold_abs=args.thresholds[c], exclude_border=False)
+                        img,
+                        min_distance=getattr(args, 'puncta_min_distance', 7),
+                        threshold_abs=args.thresholds[c],
+                        exclude_border=getattr(args, 'puncta_exclude_border', False))
                     coords[:, 0] += max(chunk_size * chunk - 7, 0)
 
                     if chunk == 0 or len(coords_total[f'c{c}']) == 0:

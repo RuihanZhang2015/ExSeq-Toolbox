@@ -13,7 +13,7 @@ from exm.utils import configure_logger
 logger = configure_logger('ExSeq-Toolbox')
 
 
-def find_nearest_puncta(args, position, fov, code, center_dist=15, distance_threshold=8,GPU= False):
+def find_nearest_puncta(args, position, fov, code, center_dist=15, distance_threshold=8, GPU=False):
     r"""
     Performs distance-thresholded puncta consolidation across channels. Optionally, it can utilize GPU acceleration.
 
@@ -60,11 +60,18 @@ def find_nearest_puncta(args, position, fov, code, center_dist=15, distance_thre
 
         # Search for local maximum
         vol = retrieve_vol(args, fov, code, channel, ROI_min, ROI_max)
+        if vol is None or vol.size == 0:
+            continue
         if GPU:
             vol = cp.array(vol)
-        blurred = gaussian_filter(vol, 1, mode='reflect', cval=0)
-        coords = peak_local_max(blurred, min_distance=7,
-                                threshold_abs=110, exclude_border=False)
+        gaussian_sigma = getattr(args, 'puncta_gaussian_sigma', 1)
+        min_distance = getattr(args, 'puncta_min_distance', 7)
+        threshold_abs = getattr(args, 'puncta_threshold_abs', 110)
+        exclude_border = getattr(args, 'puncta_exclude_border', False)
+        
+        blurred = gaussian_filter(vol, gaussian_sigma, mode='reflect', cval=0)
+        coords = peak_local_max(blurred, min_distance=min_distance,
+                                threshold_abs=threshold_abs, exclude_border=exclude_border)
         if len(coords) == 0:
             continue
         if GPU:
@@ -185,8 +192,7 @@ def improve_nearest(args, fov, num_missing_code=4):
         pickle.dump(new_puncta_list, f)
 
 
-# TODO Merge with find_nearest_puncta
-def find_nearest_points(point_cloud1,point_cloud2,distance_threshold=14):
+def find_nearest_points(point_cloud1, point_cloud2, distance_threshold=14):
     r"""
     Finds the nearest points between two point clouds based on Euclidean distance.
     This function computes the Euclidean distance between each point in `point_cloud1` and `point_cloud2`.
@@ -201,21 +207,22 @@ def find_nearest_points(point_cloud1,point_cloud2,distance_threshold=14):
 
     :returns: A list of dictionaries. Each dictionary represents a pair of nearest points and contains two keys: 'point0' and 'point1'. 'point0' is the index of a point in `point_cloud1`, and 'point1' is the index of its nearest point in `point_cloud2` within the `distance_threshold`.
     """
-    import numpy as np
-    from scipy.spatial.distance import cdist
+    if len(point_cloud1) == 0 or len(point_cloud2) == 0:
+        return []
+        
     temp1 = np.copy(point_cloud1)
-    temp1[:,0] = temp1[:,0] * 0.5
+    temp1[:, 0] = temp1[:, 0] * 0.5
     temp2 = np.copy(point_cloud2)
-    temp2[:,0] = temp2[:,0] * 0.5
+    temp2[:, 0] = temp2[:, 0] * 0.5
 
     # Calculate euclidean distance between the two cloud points (point_cloud1 x point_cloud2)
     distance = cdist(temp1, temp2, 'euclidean')
 
-    # Find the index of the closest puncta from cloud 2 for each puncta in cloud 1 
-    index1 = np.argmin(distance, axis = 1)
+    # Find the index of the closest puncta from cloud 2 for each puncta in cloud 1
+    index1 = np.argmin(distance, axis=1)
 
     # Filter closest puncta pairs based on a set threshold
-    pairs = [{'point0':i,'point1':index1[i]} for i in range(len(index1)) if distance[i,index1[i]] < distance_threshold]
+    pairs = [{'point0': i, 'point1': index1[i]} for i in range(len(index1)) if distance[i, index1[i]] < distance_threshold]
 
     return pairs
 

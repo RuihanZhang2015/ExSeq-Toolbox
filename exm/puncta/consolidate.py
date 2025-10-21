@@ -43,7 +43,11 @@ def consolidate_channels_function(args: Args, tasks_queue: int, q_lock: multipro
             else:
                 try:
                     
-                    def find_matching_points(point_cloud1, point_cloud2, distance_threshold=8):
+                    def find_matching_points(point_cloud1, point_cloud2, distance_threshold=None):
+                        if distance_threshold is None:
+                            distance_threshold = getattr(args, 'consolidation_distance_threshold', 8.0)
+                        if len(point_cloud1) == 0 or len(point_cloud2) == 0:
+                            return []
                         temp1 = np.copy(point_cloud1)
                         temp1[:, 0] = temp1[:, 0] * 0.5
                         temp2 = np.copy(point_cloud2)
@@ -178,7 +182,11 @@ def consolidate_codes_function(args: Args, tasks_queue: int,q_lock: multiprocess
                     logger.info(
                         f"Consolidate Codes for fov {fov} finished successfully.")
 
-                    def find_matching_points(point_cloud1, point_cloud2, distance_threshold=8):
+                    def find_matching_points(point_cloud1, point_cloud2, distance_threshold=None):
+                        if distance_threshold is None:
+                            distance_threshold = getattr(args, 'consolidation_distance_threshold', 8.0)
+                        if len(point_cloud1) == 0 or len(point_cloud2) == 0:
+                            return []
                         temp1 = np.copy(point_cloud1)
                         temp1[:, 0] = temp1[:, 0] * 0.5
                         temp2 = np.copy(point_cloud2)

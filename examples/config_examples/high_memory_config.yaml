@@ -1,0 +1,39 @@
+# ExSeq-Toolbox Configuration Example: High Memory System
+# This configuration is optimized for systems with 32GB+ RAM and GPU
+
+data_paths:
+  raw_data_path: "/path/to/your/raw_data"
+  processed_data_path: "/path/to/processed_data"
+  puncta_dir_name: "puncta/"
+  gene_digit_csv: "./gene_list.csv"
+
+experiment:
+  codes: [0, 1, 2, 3, 4, 5, 6]
+  fovs: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+  spacing: [0.4, 1.625, 1.625]
+  channel_names: ['640', '594', '561', '488', '405']
+  ref_code: 0
+  ref_channel: '405'
+
+processing:
+  chunk_size: 200  # Larger chunks for high memory systems
+  parallel_processes: 8  # More parallel processes
+  use_gpu_processing: true
+  gpu_memory_fraction: 0.9  # Use more GPU memory
+  auto_cleanup_memory: true
+
+alignment:
+  downsample_factors: [2, 4, 4]
+  low_percentile: 1.0
+  high_percentile: 99.0
+
+puncta:
+  thresholds: [200, 300, 300, 200]
+  min_distance: 7
+  gaussian_sigma: 1.0
+  exclude_border: false
+  consolidation_distance_threshold: 8.0
+
+system:
+  permission: false
+  permission_mode: 511  # 0o777 in decimal
