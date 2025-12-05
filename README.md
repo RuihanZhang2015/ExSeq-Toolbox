@@ -188,6 +188,23 @@ After running the complete pipeline, you'll have:
 - **Missing Puncta**: Verify channel names and adjust detection thresholds
 - **Gene Assignment Errors**: Ensure your gene list CSV is properly formatted
 
+## Gene List Configuration
+
+ExSeq-Toolbox requires a `gene_list.csv` file that maps gene symbols to barcodes for RNA identification.
+
+**Required format:**
+```csv
+Symbol,Barcode,Digits
+ACTB,acgtacg,0123012
+GAPDH,tgcatgc,3210321
+MYC,aaaccct,0001113
+```
+
+- **Barcode**: DNA sequence using only `a`, `c`, `g`, `t` 
+- **Digits**: Numerical conversion where `a=0`, `c=1`, `g=2`, `t=3` (based on the channels)
+- **Example file**: [`examples/gene_list_example.csv`](examples/gene_list_example.csv)
+- **Detailed guide**: [`GENE_LIST_FORMAT.md`](GENE_LIST_FORMAT.md)
+
 ## Documentation
 
 Comprehensive documentation is available at [ExSeq Toolbox Documentation](https://exseq-toolbox.readthedocs.io/en/latest/), including:

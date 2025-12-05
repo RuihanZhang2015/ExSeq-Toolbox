@@ -39,10 +39,14 @@ def puncta_assign_gene(args: Args,
     """
     from exm.utils.utils import gene_barcode_mapping, retrieve_all_puncta
 
-    def within_hamming_distance(a: str, b: str) -> bool:
-        """Check if two strings have a hamming distance less than 2."""
+    def within_hamming_distance(a: str, b: str, threshold: int = None) -> bool:
+        """Check if two strings have a hamming distance less than threshold."""
+        if threshold is None:
+            threshold = getattr(args, 'hamming_distance_threshold', 2)
+        if len(a) != len(b):
+            return False
         diff = sum(1 for x, y in zip(a, b) if x != y)
-        return diff < 2
+        return diff < threshold
 
     def map_gene_to_puncta(puncta: Dict) -> Dict:
         """Map a gene to a puncta based on barcode hamming distance."""
@@ -129,10 +133,16 @@ def puncta_assign_nuclei(args: Args,
     try:
         if option == 'original':
             with open(args.puncta_path + f"fov{fov}/puncta_with_gene.pickle", "rb") as f:
-                    puncta_with_genes = pickle.load(f)
+                puncta_with_genes = pickle.load(f)
         elif option == 'improved':
-                with open(args.puncta_path + f"fov{fov}/improved_puncta_with_gene.pickle", "rb") as f:
-                    puncta_with_genes = pickle.load(f)
+            with open(args.puncta_path + f"fov{fov}/improved_puncta_with_gene.pickle", "rb") as f:
+                puncta_with_genes = pickle.load(f)
+        else:
+            logger.error(f"Invalid option '{option}'. Must be 'original' or 'improved'")
+            return
+    except FileNotFoundError as e:
+        logger.error(f"Puncta data file not found: {e}")
+        return
     except Exception as e:
         logger.error(f"Failed to load puncta data: {e}")
         return
@@ -150,12 +160,18 @@ def puncta_assign_nuclei(args: Args,
         if puncta.get("gene") != "N/A":
             count_gene += 1
             try:
-                if nuclei_mask[tuple(puncta.get("position"))] != 0:
-                    puncta['nuclei'] = nuclei_mask[tuple(
-                        puncta.get("position"))]
-                    count_within += 1
-            except Exception as e:
-                logger.error(f"Error processing puncta {i}: {e}")
+                position = puncta.get("position")
+                if position is not None and len(position) == 3:
+                    pos_tuple = tuple(int(p) for p in position)
+                    # Check bounds before accessing
+                    if all(0 <= pos_tuple[i] < nuclei_mask.shape[i] for i in range(3)):
+                        if nuclei_mask[pos_tuple] != 0:
+                            puncta['nuclei'] = nuclei_mask[pos_tuple]
+                            count_within += 1
+                    else:
+                        logger.warning(f"Puncta {i} position {pos_tuple} out of bounds")
+            except (IndexError, TypeError, ValueError) as e:
+                logger.error(f"Error processing puncta {i} position: {e}")
 
     for i, puncta in enumerate(puncta_with_genes):
         if puncta.get("gene") != "N/A" and not puncta.get('nuclei'):

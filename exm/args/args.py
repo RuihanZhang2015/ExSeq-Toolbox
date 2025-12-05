@@ -1,12 +1,14 @@
 """
-Sets up the project parameters. 
+Sets up the project parameters with enhanced configurability.
 """
 import os
 import json
 import glob
 import pathlib
+import yaml
+from pathlib import Path
 from nd2reader import ND2Reader
-from typing import List, Optional
+from typing import List, Optional, Dict, Any, Union
 from exm.utils.log import configure_logger
 logger = configure_logger('ExSeq-Toolbox')
 
@@ -29,7 +31,31 @@ class Args:
     """
 
     def __init__(self):
-        pass
+        # Enhanced processing parameters
+        self.chunk_size = 100
+        self.gpu_memory_fraction = 0.8
+        self.background_subtraction_radius = 50
+        self.auto_cleanup_memory = True
+        self.parallel_processes = self._auto_detect_parallel_processes()  # Auto-detect
+        self.use_gpu_processing = self._auto_detect_gpu()
+        
+        # Alignment parameters
+        self.alignment_downsample_factors = (2, 4, 4)
+        self.alignment_low_percentile = 1.0
+        self.alignment_high_percentile = 99.0
+        
+        # Puncta extraction parameters
+        self.puncta_min_distance = 7
+        self.puncta_gaussian_sigma = 1.0
+        self.puncta_exclude_border = False
+        self.consolidation_distance_threshold = 8.0
+        
+        # Basecalling parameters
+        self.hamming_distance_threshold = 2
+        
+        # System parameters
+        self.permission_mode = 0o777
+        self.temp_directory = None
 
     def __str__(self):
         r"""Returns a string representation of the Args object."""
@@ -54,7 +80,14 @@ class Args:
                    permission: Optional[bool] = False,
                    create_directroy_structure: Optional[bool] = True,
                    args_file_name: Optional[str] = 'exseq_toolbox_args',
-                   ) -> None:
+                   # Enhanced parameters
+                   chunk_size: Optional[int] = None,
+                   gpu_memory_fraction: Optional[float] = None,
+                   parallel_processes: Optional[int] = None,
+                   use_gpu_processing: Optional[bool] = None,
+                   puncta_thresholds: Optional[List[int]] = None,
+                   auto_cleanup_memory: Optional[bool] = None,
+                   **kwargs) -> None:
         r"""
         Sets parameters for running ExSeq ToolBox.
 
@@ -131,6 +164,31 @@ class Args:
         if permission:
             self.set_permissions()
 
+        # Set enhanced parameters
+        if chunk_size is not None:
+            self.chunk_size = chunk_size
+        
+        if gpu_memory_fraction is not None:
+            self.gpu_memory_fraction = gpu_memory_fraction
+        
+        if parallel_processes is not None:
+            self.parallel_processes = parallel_processes
+        
+        if use_gpu_processing is not None:
+            self.use_gpu_processing = use_gpu_processing
+        
+        if puncta_thresholds is not None:
+            self.thresholds = puncta_thresholds
+        
+        if auto_cleanup_memory is not None:
+            self.auto_cleanup_memory = auto_cleanup_memory
+        
+        # Apply any additional keyword arguments
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+                logger.debug(f"Set parameter {key} = {value}")
+
         self.save_params(args_file_name)
 
     def save_params(self, args_file_name):
@@ -174,8 +232,8 @@ class Args:
 
     def set_permissions(self):
         r"""Changes permission of the processed_data_path to allow other users to read and write on the generated files."""
-        from exm.utils.utils import chmod
         try:
+            from exm.utils.utils import chmod
             chmod(pathlib.Path(self.processed_data_path))
         except Exception as e:
             logger.error(f"Failed to set permissions. Error: {e}")
@@ -189,3 +247,152 @@ class Args:
         except Exception as e:
             logger.error(f"Failed to print parameters. Error: {e}")
             raise
+    
+    def _auto_detect_parallel_processes(self) -> int:
+        """Auto-detect optimal number of parallel processes."""
+        try:
+            import multiprocessing
+            import psutil
+            
+            cpu_count = multiprocessing.cpu_count()
+            memory_gb = psutil.virtual_memory().total / (1024**3)
+            
+            # Conservative estimate: 1 process per 4GB RAM, max 8 processes
+            max_by_memory = max(1, int(memory_gb / 4))
+            optimal = min(cpu_count, max_by_memory, 8)
+            
+            logger.info(f"Auto-detected {optimal} parallel processes (CPU: {cpu_count}, Memory: {memory_gb:.1f}GB)")
+            return optimal
+            
+        except ImportError:
+            logger.warning("Could not auto-detect parallel processes, using 1")
+            return 1
+    
+    def _auto_detect_gpu(self) -> bool:
+        """Auto-detect GPU availability."""
+        try:
+            import cupy
+            gpu_count = cupy.cuda.runtime.getDeviceCount()
+            logger.info(f"GPU detected: {gpu_count} device(s) available")
+            return True
+        except ImportError:
+            logger.info("GPU not available (CuPy not installed)")
+            return False
+        except Exception as e:
+            logger.warning(f"GPU detection failed: {e}")
+            return False
+    
+    def get_memory_config(self):
+        """Get memory configuration dictionary."""
+        return {
+            'chunk_size': self.chunk_size,
+            'gpu_memory_fraction': self.gpu_memory_fraction,
+            'auto_cleanup': self.auto_cleanup_memory
+        }
+    
+    def save_config_yaml(self, filename: str) -> None:
+        """Save configuration in YAML format for better readability."""
+        config = {
+            'data_paths': {
+                'raw_data_path': self.raw_data_path,
+                'processed_data_path': self.processed_data_path,
+                'puncta_dir_name': self.puncta_dir_name,
+                'gene_digit_csv': self.gene_digit_csv,
+            },
+            'experiment': {
+                'codes': self.codes,
+                'fovs': self.fovs,
+                'spacing': self.spacing,
+                'channel_names': self.channel_names,
+                'ref_code': self.ref_code,
+                'ref_channel': self.ref_channel,
+            },
+            'processing': {
+                'chunk_size': self.chunk_size,
+                'parallel_processes': self.parallel_processes,
+                'use_gpu_processing': self.use_gpu_processing,
+                'gpu_memory_fraction': self.gpu_memory_fraction,
+                'auto_cleanup_memory': self.auto_cleanup_memory,
+            },
+            'alignment': {
+                'downsample_factors': list(self.alignment_downsample_factors),
+                'low_percentile': self.alignment_low_percentile,
+                'high_percentile': self.alignment_high_percentile,
+            },
+            'puncta': {
+                'thresholds': self.thresholds,
+                'min_distance': self.puncta_min_distance,
+                'gaussian_sigma': self.puncta_gaussian_sigma,
+                'exclude_border': self.puncta_exclude_border,
+                'consolidation_distance_threshold': self.consolidation_distance_threshold,
+            },
+            'system': {
+                'permission': self.permission,
+                'permission_mode': self.permission_mode,
+            }
+        }
+        
+        try:
+            with open(filename, 'w') as f:
+                yaml.dump(config, f, default_flow_style=False, indent=2)
+            logger.info(f"Configuration saved to {filename}")
+        except Exception as e:
+            logger.error(f"Failed to save YAML configuration: {e}")
+            raise
+    
+    def load_config_yaml(self, filename: str) -> None:
+        """Load configuration from YAML file."""
+        try:
+            with open(filename, 'r') as f:
+                config = yaml.safe_load(f)
+            
+            # Apply configuration sections
+            if 'data_paths' in config:
+                for key, value in config['data_paths'].items():
+                    if hasattr(self, key):
+                        setattr(self, key, value)
+            
+            if 'experiment' in config:
+                for key, value in config['experiment'].items():
+                    if hasattr(self, key):
+                        setattr(self, key, value)
+            
+            if 'processing' in config:
+                for key, value in config['processing'].items():
+                    if hasattr(self, key):
+                        setattr(self, key, value)
+            
+            if 'alignment' in config:
+                for key, value in config['alignment'].items():
+                    attr_name = f'alignment_{key}'
+                    if hasattr(self, attr_name):
+                        setattr(self, attr_name, value)
+            
+            if 'puncta' in config:
+                for key, value in config['puncta'].items():
+                    if key == 'thresholds':
+                        self.thresholds = value
+                    else:
+                        attr_name = f'puncta_{key}'
+                        if hasattr(self, attr_name):
+                            setattr(self, attr_name, value)
+            
+            if 'system' in config:
+                for key, value in config['system'].items():
+                    if hasattr(self, key):
+                        setattr(self, key, value)
+            
+            logger.info(f"Configuration loaded from {filename}")
+            
+        except Exception as e:
+            logger.error(f"Failed to load YAML configuration: {e}")
+            raise
+    
+    def get_processing_recommendations(self) -> Dict[str, Any]:
+        """Get processing recommendations based on current configuration."""
+        return {
+            'current_chunk_size': self.chunk_size,
+            'current_parallel_processes': self.parallel_processes,
+            'gpu_enabled': self.use_gpu_processing,
+            'auto_cleanup_enabled': self.auto_cleanup_memory,
+        }
